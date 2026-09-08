@@ -11,8 +11,17 @@
 // - Tipos `string` del ERD -> String (Postgres `text`, sin límite de longitud
 //   arbitrario). Tipos `enum` del ERD -> enum nativo de Postgres. La única
 //   excepción es `tipo_corte` (LECTURA_BALANCE, QUEMA_NACIONAL): el ERD lo
-//   declara `string`, pero la decisión #2 cierra la lista a exactamente 2
-//   valores (puntual, cierre_promedio), así que se implementó como enum.
+//   declara `string`, pero la lista está cerrada a exactamente 2 valores
+//   (PUNTUAL, CIERRE_PROMEDIO), así que se implementó como enum.
+// - Mecánica real de PUNTUAL/CIERRE_PROMEDIO (decisión #34, corrige la #2 y
+//   la #14): PUNTUAL se corrige varias veces al día -> cada corrección genera
+//   una fila en su *_HISTORIAL (LecturaBalanceHistorial / QuemaNacionalHistorial).
+//   CIERRE_PROMEDIO se calcula como media aritmética SIMPLE (no ponderada por
+//   tiempo) de todos los valores que tuvo el PUNTUAL ese día (historial + valor
+//   final vigente) y SÍ se guarda como fila propia (alimenta el informe de
+//   cierre) - a diferencia de "Balance Nación", que es query-calculado. El
+//   PUNTUAL del día siguiente arranca con el último valor del día anterior
+//   (carry-forward); esta parte del proceso vive en el Service, no en el schema.
 // - `numeric` sin precisión especificada en el ERD -> Decimal(14,4) para
 //   volúmenes de gas (mmpced), Decimal(10,2) para horas-hombre (hh).
 //
@@ -184,10 +193,29 @@ model QuemaNacional {
   mmpced    Decimal   @db.Decimal(14, 4)
   usuarioId Int       @map("usuario_id")
 
-  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  usuario   Usuario                  @relation(fields: [usuarioId], references: [id])
+  historial QuemaNacionalHistorial[]
 
   @@unique([fecha, tipoCorte])
   @@map("quemas_nacional")
+}
+
+// Agregada junto con la decisión #34: el PUNTUAL de Quema Nacional también se
+// corrige varias veces al día y cada corrección debe quedar en historial, igual
+// que LecturaBalance - el CIERRE_PROMEDIO se sigue guardando como fila propia en
+// QuemaNacional (arriba), calculado como media simple de este historial + el
+// valor final vigente del día.
+model QuemaNacionalHistorial {
+  id              BigInt   @id @default(autoincrement())
+  quemaNacionalId BigInt   @map("quema_nacional_id")
+  mmpcedAnt       Decimal  @map("mmpced_ant") @db.Decimal(14, 4)
+  usuarioId       Int      @map("usuario_id")
+  modificadoEn    DateTime @default(now()) @map("modificado_en")
+
+  quemaNacional QuemaNacional @relation(fields: [quemaNacionalId], references: [id], onDelete: Cascade)
+  usuario       Usuario       @relation(fields: [usuarioId], references: [id])
+
+  @@map("quemas_nacional_historial")
 }
 
 model NovedadOperativa {
@@ -369,6 +397,7 @@ model Usuario {
   lecturasFuente           LecturaFuente[]
   lecturasFuenteHistorial  LecturaFuenteHistorial[]
   quemasNacional           QuemaNacional[]
+  quemasNacionalHistorial  QuemaNacionalHistorial[]
   novedadesOperativa       NovedadOperativa[]
   reportesTelemetria       ReporteTelemetriaEstacion[]
   actividadesRegistro      ActividadRegistro[]
