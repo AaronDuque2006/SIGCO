@@ -1,0 +1,19 @@
+{
+  "name": "sicog",
+  "private": true,
+  "version": "0.1.0",
+  "description": "SICOG - Sistema de Control Operacional de Gas (PDVSA Gas)",
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter web dev",
+    "dev:api": "pnpm --filter api dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
