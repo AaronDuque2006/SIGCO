@@ -1,0 +1,518 @@
+// Modelos completos según el ERD consolidado (CONTEXTO_PROYECTO.md §7) más las
+// tablas de seguridad del §3 (SesionRefresh, LogLogin, LogIntentoNoAutorizado),
+// agregadas explícitamente y ya reflejadas también en el ERD Mermaid del .md.
+//
+// Convención de nombres (confirmada con el owner del proyecto):
+// - Modelos Prisma: PascalCase, singular (Usuario, LecturaBalance).
+// - Campos Prisma: camelCase (clienteId), mapeados a snake_case singular en la
+//   columna física (cliente_id) vía @map.
+// - Tablas físicas: snake_case, primera palabra del nombre en plural
+//   (usuarios, lecturas_balance, regiones_operativa) vía @@map.
+// - Tipos `string` del ERD -> String (Postgres `text`, sin límite de longitud
+//   arbitrario). Tipos `enum` del ERD -> enum nativo de Postgres. La única
+//   excepción es `tipo_corte` (LECTURA_BALANCE, QUEMA_NACIONAL): el ERD lo
+//   declara `string`, pero la decisión #2 cierra la lista a exactamente 2
+//   valores (puntual, cierre_promedio), así que se implementó como enum.
+// - `numeric` sin precisión especificada en el ERD -> Decimal(14,4) para
+//   volúmenes de gas (mmpced), Decimal(10,2) para horas-hombre (hh).
+//
+// Pendiente de negocio (NO resuelto aquí, ver CONTEXTO_PROYECTO.md §9.2 #4):
+// NOVEDAD_OPERATIVA.tipo se dejó como String simple (no enum ni catálogo)
+// porque la lista de valores todavía no está cerrada.
+//
+// Pendiente de implementación: los CHECK "exactamente uno de cliente_id/
+// fuente_id" en NovedadOperativa y Contacto no se pueden declarar en
+// schema.prisma — hay que agregarlos a mano al SQL de la primera migración
+// (`prisma migrate dev --create-only`) antes de aplicarla.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  // Conexión pooled (pgbouncer, puerto 6543 en Supabase) - la usa la app en runtime.
+  url        = env("DATABASE_URL")
+  // Conexión directa (puerto 5432) - la necesita Prisma Migrate/introspección.
+  directUrl  = env("DIRECT_URL")
+  extensions = [vector]
+}
+
+// ===== ENUMS =====
+
+enum TipoCorte {
+  PUNTUAL
+  CIERRE_PROMEDIO
+
+  @@map("tipo_corte")
+}
+
+enum TipoRed {
+  TRANSPORTE   @map("T")
+  DISTRIBUCION @map("D")
+
+  @@map("tipo_red")
+}
+
+enum DimensionTelemetria {
+  COMUNICACION
+  ELECTRICO
+  INSTRUMENTACION
+  CASETA
+
+  @@map("dimension_telemetria")
+}
+
+// ===== DOMINIO A: DESPACHO =====
+
+model RegionOperativa {
+  id     Int    @id @default(autoincrement())
+  nombre String
+
+  clientes Cliente[]
+
+  @@map("regiones_operativa")
+}
+
+model Sistema {
+  id     Int    @id @default(autoincrement())
+  nombre String
+
+  fuentes  Fuente[]
+  clientes Cliente[]
+
+  @@map("sistemas")
+}
+
+model Cliente {
+  id         Int    @id @default(autoincrement())
+  regionId   Int    @map("region_id")
+  sistemaId  Int    @map("sistema_id")
+  nombre     String
+  tipoSector String @map("tipo_sector")
+
+  region             RegionOperativa    @relation(fields: [regionId], references: [id])
+  sistema            Sistema            @relation(fields: [sistemaId], references: [id])
+  lecturasBalance    LecturaBalance[]
+  novedadesOperativa NovedadOperativa[]
+  contactos          Contacto[]
+
+  @@map("clientes")
+}
+
+model Fuente {
+  id        Int    @id @default(autoincrement())
+  sistemaId Int    @map("sistema_id")
+  nombre    String
+
+  sistema            Sistema            @relation(fields: [sistemaId], references: [id])
+  lecturasFuente     LecturaFuente[]
+  novedadesOperativa NovedadOperativa[]
+  contactos          Contacto[]
+
+  @@map("fuentes")
+}
+
+model LecturaBalance {
+  id            BigInt    @id @default(autoincrement())
+  clienteId     Int       @map("cliente_id")
+  fecha         DateTime  @db.Date
+  tipoCorte     TipoCorte @map("tipo_corte")
+  volumenMmpced Decimal   @map("volumen_mmpced") @db.Decimal(14, 4)
+  estado        String
+  usuarioId     Int       @map("usuario_id")
+
+  cliente   Cliente                   @relation(fields: [clienteId], references: [id])
+  usuario   Usuario                   @relation(fields: [usuarioId], references: [id])
+  historial LecturaBalanceHistorial[]
+
+  @@unique([clienteId, fecha, tipoCorte])
+  @@index([fecha])
+  @@map("lecturas_balance")
+}
+
+model LecturaBalanceHistorial {
+  id               BigInt   @id @default(autoincrement())
+  lecturaId        BigInt   @map("lectura_id")
+  volumenMmpcedAnt Decimal  @map("volumen_mmpced_ant") @db.Decimal(14, 4)
+  estadoAnt        String   @map("estado_ant")
+  usuarioId        Int      @map("usuario_id")
+  modificadoEn     DateTime @default(now()) @map("modificado_en")
+
+  lectura LecturaBalance @relation(fields: [lecturaId], references: [id], onDelete: Cascade)
+  usuario Usuario        @relation(fields: [usuarioId], references: [id])
+
+  @@map("lecturas_balance_historial")
+}
+
+model LecturaFuente {
+  id            BigInt   @id @default(autoincrement())
+  fuenteId      Int      @map("fuente_id")
+  fecha         DateTime @db.Date
+  volumenMmpced Decimal  @map("volumen_mmpced") @db.Decimal(14, 4)
+  estado        String
+  usuarioId     Int      @map("usuario_id")
+
+  fuente    Fuente                   @relation(fields: [fuenteId], references: [id])
+  usuario   Usuario                  @relation(fields: [usuarioId], references: [id])
+  historial LecturaFuenteHistorial[]
+
+  @@unique([fuenteId, fecha])
+  @@index([fecha])
+  @@map("lecturas_fuente")
+}
+
+model LecturaFuenteHistorial {
+  id               BigInt   @id @default(autoincrement())
+  lecturaFuenteId  BigInt   @map("lectura_fuente_id")
+  volumenMmpcedAnt Decimal  @map("volumen_mmpced_ant") @db.Decimal(14, 4)
+  estadoAnt        String   @map("estado_ant")
+  usuarioId        Int      @map("usuario_id")
+  modificadoEn     DateTime @default(now()) @map("modificado_en")
+
+  lecturaFuente LecturaFuente @relation(fields: [lecturaFuenteId], references: [id], onDelete: Cascade)
+  usuario       Usuario       @relation(fields: [usuarioId], references: [id])
+
+  @@map("lecturas_fuente_historial")
+}
+
+model QuemaNacional {
+  id        BigInt    @id @default(autoincrement())
+  fecha     DateTime  @db.Date
+  tipoCorte TipoCorte @map("tipo_corte")
+  mmpced    Decimal   @db.Decimal(14, 4)
+  usuarioId Int       @map("usuario_id")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@unique([fecha, tipoCorte])
+  @@map("quemas_nacional")
+}
+
+model NovedadOperativa {
+  id              BigInt    @id @default(autoincrement())
+  // Exactamente uno de clienteId/fuenteId debe estar presente.
+  // CHECK pendiente de agregar a mano en la migración SQL inicial.
+  clienteId       Int?      @map("cliente_id")
+  fuenteId        Int?      @map("fuente_id")
+  // Lista de valores aún no cerrada (CONTEXTO_PROYECTO.md §9.2 #4) - String simple por ahora.
+  tipo            String
+  impacto         String
+  inicio          DateTime
+  fin             DateTime?
+  causa           String
+  mmpcedAfectados Decimal   @map("mmpced_afectados") @db.Decimal(14, 4)
+  usuarioId       Int       @map("usuario_id")
+
+  cliente Cliente? @relation(fields: [clienteId], references: [id])
+  fuente  Fuente?  @relation(fields: [fuenteId], references: [id])
+  usuario Usuario  @relation(fields: [usuarioId], references: [id])
+
+  @@map("novedades_operativa")
+}
+
+model Contacto {
+  id             Int    @id @default(autoincrement())
+  // Exactamente uno de clienteId/fuenteId debe estar presente.
+  // CHECK pendiente de agregar a mano en la migración SQL inicial.
+  clienteId      Int?   @map("cliente_id")
+  fuenteId       Int?   @map("fuente_id")
+  nombreOperador String @map("nombre_operador")
+  telefono       String
+
+  cliente Cliente? @relation(fields: [clienteId], references: [id])
+  fuente  Fuente?  @relation(fields: [fuenteId], references: [id])
+
+  @@map("contactos")
+}
+
+// ===== DOMINIO B: MANTENIMIENTO =====
+
+model RegionMtto {
+  id     Int    @id @default(autoincrement())
+  nombre String
+
+  areas               AreaMtto[]
+  actividadesRegistro ActividadRegistro[]
+
+  @@map("regiones_mtto")
+}
+
+model AreaMtto {
+  id       Int    @id @default(autoincrement())
+  regionId Int    @map("region_id")
+  nombre   String
+
+  region     RegionMtto @relation(fields: [regionId], references: [id])
+  estaciones Estacion[]
+
+  @@map("areas_mtto")
+}
+
+model Estacion {
+  id            Int     @id @default(autoincrement())
+  areaId        Int     @map("area_id")
+  nombre        String
+  nodo          String  @unique
+  // Catálogo cerrado real: "IP PDVSA" | "SATELITAL" | "SERIAL PDVSA".
+  // El ERD lo declara `string` (no enum), se respeta tal cual; validar la
+  // lista cerrada en shared-validators (zod) del lado de la aplicación.
+  tipoEnlaceCom String  @map("tipo_enlace_com")
+  tipoRed       TipoRed @map("tipo_red")
+
+  area               AreaMtto                    @relation(fields: [areaId], references: [id])
+  instrumentos       EstacionInstrumento[]
+  reportesTelemetria ReporteTelemetriaEstacion[]
+
+  @@map("estaciones")
+}
+
+model TipoInstrumento {
+  id     Int    @id @default(autoincrement())
+  nombre String
+
+  instrumentos EstacionInstrumento[]
+
+  @@map("tipos_instrumento")
+}
+
+model EstacionInstrumento {
+  id                Int @id @default(autoincrement())
+  estacionId        Int @map("estacion_id")
+  tipoInstrumentoId Int @map("tipo_instrumento_id")
+  cantidad          Int
+
+  estacion        Estacion        @relation(fields: [estacionId], references: [id], onDelete: Cascade)
+  tipoInstrumento TipoInstrumento @relation(fields: [tipoInstrumentoId], references: [id])
+
+  @@map("estaciones_instrumento")
+}
+
+model EstadoTelemetria {
+  id        Int                 @id @default(autoincrement())
+  dimension DimensionTelemetria
+  nombre    String
+  activo    Boolean             @default(true)
+
+  reportesComunicacion    ReporteTelemetriaEstacion[] @relation("EstadoComunicacion")
+  reportesElectrico       ReporteTelemetriaEstacion[] @relation("EstadoElectrico")
+  reportesInstrumentacion ReporteTelemetriaEstacion[] @relation("EstadoInstrumentacion")
+  reportesCaseta          ReporteTelemetriaEstacion[] @relation("EstadoCaseta")
+
+  @@map("estados_telemetria")
+}
+
+model ReporteTelemetriaEstacion {
+  id                      BigInt   @id @default(autoincrement())
+  estacionId              Int      @map("estacion_id")
+  fechaReporte            DateTime @map("fecha_reporte") @db.Date
+  estadoComunicacionId    Int      @map("estado_comunicacion_id")
+  estadoElectricoId       Int      @map("estado_electrico_id")
+  estadoInstrumentacionId Int      @map("estado_instrumentacion_id")
+  estadoCasetaId          Int      @map("estado_caseta_id")
+  detalleMedicion         String?  @map("detalle_medicion")
+  observacion             String?
+  usuarioId               Int      @map("usuario_id")
+
+  estacion              Estacion         @relation(fields: [estacionId], references: [id])
+  estadoComunicacion    EstadoTelemetria @relation("EstadoComunicacion", fields: [estadoComunicacionId], references: [id])
+  estadoElectrico       EstadoTelemetria @relation("EstadoElectrico", fields: [estadoElectricoId], references: [id])
+  estadoInstrumentacion EstadoTelemetria @relation("EstadoInstrumentacion", fields: [estadoInstrumentacionId], references: [id])
+  estadoCaseta          EstadoTelemetria @relation("EstadoCaseta", fields: [estadoCasetaId], references: [id])
+  usuario               Usuario          @relation(fields: [usuarioId], references: [id])
+
+  @@unique([estacionId, fechaReporte])
+  @@map("reportes_telemetria_estacion")
+}
+
+// ===== AUTORIZACIÓN =====
+
+model Departamento {
+  id     Int    @id @default(autoincrement())
+  nombre String
+
+  usuarios             Usuario[]
+  superintendencias    SuperintendenciaDepartamento[]
+  insumos              Insumo[]
+  gerenciasRequiriente GerenciaRequiriente[]
+
+  @@map("departamentos")
+}
+
+model Puesto {
+  id     Int    @id @default(autoincrement())
+  nombre String
+
+  usuarios Usuario[]
+
+  @@map("puestos")
+}
+
+model Usuario {
+  id             Int     @id @default(autoincrement())
+  nombre         String  @unique
+  passwordHash   String  @map("password_hash")
+  puestoId       Int     @map("puesto_id")
+  departamentoId Int?    @map("departamento_id")
+  supervisorId   Int?    @map("supervisor_id")
+  bloqueado      Boolean @default(false)
+
+  puesto       Puesto        @relation(fields: [puestoId], references: [id])
+  departamento Departamento? @relation(fields: [departamentoId], references: [id])
+  supervisor   Usuario?      @relation("Supervision", fields: [supervisorId], references: [id], onDelete: SetNull)
+  subordinados Usuario[]     @relation("Supervision")
+
+  superintendencias        SuperintendenciaDepartamento[]
+  lecturasBalance          LecturaBalance[]
+  lecturasBalanceHistorial LecturaBalanceHistorial[]
+  lecturasFuente           LecturaFuente[]
+  lecturasFuenteHistorial  LecturaFuenteHistorial[]
+  quemasNacional           QuemaNacional[]
+  novedadesOperativa       NovedadOperativa[]
+  reportesTelemetria       ReporteTelemetriaEstacion[]
+  actividadesRegistro      ActividadRegistro[]
+  sesionesRefresh          SesionRefresh[]
+  logsLogin                LogLogin[]
+  logsIntentoNoAutorizado  LogIntentoNoAutorizado[]
+
+  @@map("usuarios")
+}
+
+model SuperintendenciaDepartamento {
+  id                Int @id @default(autoincrement())
+  superintendenteId Int @map("superintendente_id")
+  departamentoId    Int @map("departamento_id")
+
+  superintendente Usuario      @relation(fields: [superintendenteId], references: [id])
+  departamento    Departamento @relation(fields: [departamentoId], references: [id])
+
+  @@unique([superintendenteId, departamentoId])
+  @@map("superintendencias_departamento")
+}
+
+// ===== DOMINIO E: ACTIVIDADES / HORAS-HOMBRE =====
+
+model Insumo {
+  id             Int     @id @default(autoincrement())
+  departamentoId Int     @map("departamento_id")
+  nombre         String
+  activo         Boolean @default(true)
+
+  departamento      Departamento       @relation(fields: [departamentoId], references: [id])
+  productosServicio ProductoServicio[]
+
+  @@map("insumos")
+}
+
+model ProductoServicio {
+  id                   Int     @id @default(autoincrement())
+  insumoId             Int     @map("insumo_id")
+  nombre               String
+  descripcionActividad String? @map("descripcion_actividad")
+  activo               Boolean @default(true)
+
+  insumo              Insumo              @relation(fields: [insumoId], references: [id])
+  actividadesRegistro ActividadRegistro[]
+  actividadesMeta     ActividadMeta[]
+
+  @@map("productos_servicio")
+}
+
+model GerenciaRequiriente {
+  id             Int     @id @default(autoincrement())
+  departamentoId Int     @map("departamento_id")
+  nombre         String
+  activo         Boolean @default(true)
+
+  departamento        Departamento        @relation(fields: [departamentoId], references: [id])
+  actividadesRegistro ActividadRegistro[]
+
+  @@map("gerencias_requiriente")
+}
+
+model ActividadRegistro {
+  id                    BigInt   @id @default(autoincrement())
+  productoServicioId    Int      @map("producto_servicio_id")
+  usuarioId             Int      @map("usuario_id")
+  // Reutiliza RegionMtto (nullable = alcance nacional) - misma fuente de verdad que Mantenimiento.
+  regionId              Int?     @map("region_id")
+  fechaDesde            DateTime @map("fecha_desde") @db.Date
+  fechaHasta            DateTime @map("fecha_hasta") @db.Date
+  cantidad              Int
+  hh                    Decimal  @db.Decimal(10, 2)
+  gerenciaRequirienteId Int      @map("gerencia_requiriente_id")
+  // Catálogo cerrado de 3 (RECIBIDO, EN PROCESO, FINALIZADO) - ERD lo declara `string`, se respeta tal cual.
+  estatus               String
+  detalle               String?
+
+  productoServicio    ProductoServicio    @relation(fields: [productoServicioId], references: [id])
+  usuario             Usuario             @relation(fields: [usuarioId], references: [id])
+  region              RegionMtto?         @relation(fields: [regionId], references: [id])
+  gerenciaRequiriente GerenciaRequiriente @relation(fields: [gerenciaRequirienteId], references: [id])
+
+  @@index([fechaDesde, fechaHasta])
+  @@map("actividades_registro")
+}
+
+model ActividadMeta {
+  id                 BigInt  @id @default(autoincrement())
+  productoServicioId Int     @map("producto_servicio_id")
+  anio               Int
+  mes                Int
+  cantidadMeta       Int     @map("cantidad_meta")
+  hhMeta             Decimal @map("hh_meta") @db.Decimal(10, 2)
+
+  productoServicio ProductoServicio @relation(fields: [productoServicioId], references: [id])
+
+  @@unique([productoServicioId, anio, mes])
+  @@map("actividades_meta")
+}
+
+// ===== SEGURIDAD (§3 - agregadas explícitamente, no dibujadas en el ERD original) =====
+
+model SesionRefresh {
+  id         BigInt    @id @default(autoincrement())
+  usuarioId  Int       @map("usuario_id")
+  // Nunca se guarda el refresh token en claro, solo su hash.
+  tokenHash  String    @unique @map("token_hash")
+  expiraEn   DateTime  @map("expira_en")
+  creadoEn   DateTime  @default(now()) @map("creado_en")
+  revocadoEn DateTime? @map("revocado_en")
+  ip         String?
+  userAgent  String?   @map("user_agent")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("sesiones_refresh")
+}
+
+model LogLogin {
+  id        BigInt   @id @default(autoincrement())
+  // Nullable: un intento con un nombre de usuario inexistente no tiene FK válida.
+  usuarioId Int?     @map("usuario_id")
+  nombre    String
+  exitoso   Boolean
+  ip        String
+  creadoEn  DateTime @default(now()) @map("creado_en")
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([creadoEn])
+  @@map("logs_login")
+}
+
+model LogIntentoNoAutorizado {
+  id        BigInt   @id @default(autoincrement())
+  usuarioId Int      @map("usuario_id")
+  ruta      String
+  motivo    String
+  ip        String
+  creadoEn  DateTime @default(now()) @map("creado_en")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([creadoEn])
+  @@map("logs_intento_no_autorizado")
+}
