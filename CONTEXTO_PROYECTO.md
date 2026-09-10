@@ -193,6 +193,9 @@ ctrl-operacional-gas/
     - **`OTROS OCCIDENTE`** (grupo "ENTREGAS DIRECTAS OCC", 15 MMPCED) se carga como `CLIENTE` del sistema *Ulé - Amuay*. Ese grupo no existe en el Manual DAO — es una convención del balance, no un sistema de transporte.
     - **El seed pasó a ser aditivo**: inserta sólo lo que falta en vez de saltarse el catálogo entero si ya tiene filas, así se puede ampliar sin borrar la base. La clave de comparación **no puede ser sólo el nombre**: el Excel trae homónimos legítimos (`ALCASA` en dos regiones, y una bolsa `OTROS` por sistema), así que se compara por nombre+sistema(+región para clientes). Los homónimos además se desambiguan al generar el catálogo, agregando la agrupación de origen entre paréntesis (`OTROS (PUERTO ORDAZ)`, `ALCASA (CENTRO/OCCIDENTE)`): en la hoja se distinguen por dónde están, pero en una grilla no.
 48. **Las presiones de estaciones quedan fuera del alcance de SICOG.** El Excel las trae en dos bloques de la hoja `FUENTES` (`I49:N54` e `I57:N62`, con espejo en `EJECUTIVO PUNTUAL` `G55:G64`), pero **no se digitan**: son 11 celdas alimentadas por el complemento de **AspenTech InfoPlus.21** vía `ATGetTimeVal("EPA:PT105.PRPUL.", ...)` — 9 tags de presión (`PT`) y uno de flujo (`N70:FT006.FLIDI.`). Motivo de dejarlas fuera, confirmado por el owner: **los analistas ya miran esas presiones directo del SCADA**, no del Excel, así que replicarlas en SICOG no agrega valor y abriría un frente de integración con el historiador (accesos, credenciales, consulta desde el servidor) sin beneficio real. El bloque del Excel es una copia de conveniencia de algo que ya tienen en vivo en mejor forma. **Consecuencia**: el modelo no tiene ni tendrá campos de presión; quien las necesite usa el SCADA.
+49. **Ningún token de sesión viaja en el cuerpo de la respuesta ni es accesible desde JavaScript.** Access (15 min) y refresh (7 días) van en cookies `httpOnly` + `sameSite: strict` + `secure` en producción. Completa la sección 3, que sólo había decidido la cookie del refresh. Motivo: si el frontend guarda el access token en memoria o en storage, un XSS puede leerlo y usarlo fuera del sitio; con `httpOnly` no puede, y `sameSite: strict` corta el CSRF sin necesidad de un token anti-CSRF aparte. **Impacto**: `requireAuth` lee la cookie además del header `Authorization: Bearer`, que se conserva para pruebas y clientes que no son navegador.
+50. **El refresh token rota en cada uso y el reuso se trata como robo.** Cada `POST /auth/refresh` emite un par nuevo y revoca el anterior; si llega un refresh **ya revocado**, se revocan **todas** las sesiones de ese usuario y se registra el hecho. El `@unique` sobre `token_hash` y la columna `revocado_en` ya estaban en el schema para esto. El token se guarda con **SHA-256, no bcrypt**: es aleatorio de 256 bits, no un secreto elegido por una persona, así que bcrypt sólo agregaría latencia sin encarecer ningún ataque real.
+51. **Los intentos fallidos de login NO bloquean la cuenta.** La única defensa automática es el rate limiting (5 intentos fallidos / 15 min); el campo `USUARIO.bloqueado` queda como acción manual del superadmin (§3, decisión #11). Motivo: bloquear por intentos fallidos habilita una denegación de servicio trivial — cualquiera que conozca un nombre de usuario podría dejar afuera a esa persona hasta que un administrador la libere. En cambio, **bloquear a alguien sí le corta el acceso de inmediato**: el refresh verifica `bloqueado` y revoca sus sesiones en vez de esperar a que expire el token.
 
 ---
 
@@ -466,7 +469,7 @@ erDiagram
 
 **Lo que sigue, en orden:**
 
-1. **Módulo `auth` — el endpoint de login.** Hoy existe sólo la *verificación* de JWT (`requireAuth`, fail-closed) y el RBAC contra la BD (`requireDepartamento`). Falta lo que **emite** los tokens, el refresh contra `SESION_REFRESH` y el bloqueo de cuenta (§3, Seguridad). Hasta que exista, para probar cualquier endpoint hay que firmar tokens a mano. Es lo que bloquea que alguien use el sistema de verdad.
+1. ~~Módulo `auth`~~ **Hecho** (sección 12): login, refresh con rotación y detección de reuso, logout, `GET /sesion`, rate limiting y auditoría. Verificado con 24 checks end to end. **Falta la gestión de usuarios** (alta, cambio de contraseña, bloquear/desbloquear), que por la decisión #11 es exclusiva del superadmin — hoy los usuarios se crean sólo por SQL o seed, así que nadie puede entrar al sistema todavía sin crear uno a mano.
 2. **Resto de las rebanadas de Despacho**, con el contrato de la sección 11 ya escrito: `LECTURA_FUENTE`, `QUEMA_NACIONAL`, `NOVEDAD_OPERATIVA`, `CONTACTO`, los catálogos y los dos reportes query-calculados.
 3. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de la sección 11).
 4. **Frontend**: `apps/web` tiene el stack instalado pero ninguna pantalla.
@@ -477,6 +480,8 @@ erDiagram
 - El manual se contradice sobre el nombre del 7º sistema: "Transcaribeño" (índice) vs "Transoceánico" (diapositivas). Se sembró como Transcaribeño (decisión #16).
 - El sector `Empresa Mixta` quedó con 0 clientes tras la decisión #47 — corresponde desactivarlo (soft-delete) si no se le encuentra uso.
 - Decidir si los aportes y transferencias entre sistemas (`APORTE A EYP`, `TRANSFERENCIA ICO-NURGAS`), que quedaron fuera del catálogo `CLIENTE` por la decisión #46, necesitan modelarse de otra forma.
+- **Gestión de usuarios** (alta, cambio de contraseña, bloquear/desbloquear) y la regla de complejidad de contraseña — ver §12.3. Sin esto nadie puede entrar sin crear un usuario por SQL.
+- Limpiar periódicamente las filas vencidas o revocadas de `SESION_REFRESH` (§12.3); podría ir en el mismo job del cierre diario.
 - Migrar la configuración del seed de `package.json#prisma` a `prisma.config.ts` antes de Prisma 7 (hoy sólo emite un warning).
 
 ---
@@ -552,3 +557,37 @@ Diseñado con la skill `api-and-interface-design` (contract-first). Los tipos **
 - **`condicion` del Balance Nación**: el Excel real muestra `EMPAQUE` cuando la variación (recibido − transportado) es positiva y `DESEMPAQUE` cuando es negativa. **No está confirmado qué se muestra si la variación es exactamente 0**, ni si hay un umbral de tolerancia en vez de un corte en cero. El tipo hoy sólo declara los dos valores evidenciados.
 - **Volúmenes no negativos**: los schemas rechazan valores negativos (un volumen entregado no puede serlo, y "Desvío" es una `FUENTE`, decisión #5). Si existiera algún caso real de lectura negativa, hay que revisarlo.
 - **Borrado de novedades**: hoy no hay endpoint. Si los analistas necesitan borrar una novedad mal cargada, hay que decidir entre borrado físico o agregar soft-delete al modelo.
+
+---
+
+## 12. Contrato de la API — Módulo `auth`
+
+Mismo enfoque contract-first de la sección 11. Schemas en `packages/shared-validators/src/auth.ts`, DTO de salida en `packages/shared-types/src/auth.ts`.
+
+### 12.1 Rutas
+
+| Método | Ruta | Notas |
+|---|---|---|
+| POST | `/api/auth/login` | `{ nombre, password }`. Devuelve el usuario y **pone dos cookies**. Rate limit: 5 intentos fallidos / 15 min. |
+| POST | `/api/auth/refresh` | Sin cuerpo: usa la cookie de refresh. Rota el par y revoca el anterior. |
+| POST | `/api/auth/logout` | Revoca la sesión actual y borra las cookies. `204`. |
+| GET | `/api/auth/sesion` | Quién soy. Requiere estar autenticado. |
+
+**Excepción consciente a la regla de "sustantivos, sin verbos"** de la sección 11.1: son acciones sobre una sesión, no CRUD sobre un recurso, y `login`/`logout`/`refresh` es lo que cualquiera espera encontrar. Se documenta la excepción en vez de ser inconsistente en silencio.
+
+### 12.2 Decisiones de seguridad
+
+- **Ningún token viaja en el cuerpo ni lo ve JavaScript** (decisión #49): access (15 min) y refresh (7 días) van en cookies `httpOnly` + `sameSite: strict` + `secure` en producción. Un XSS no puede robarlos, y `sameSite: strict` corta el CSRF sin necesidad de un token aparte. `requireAuth` lee la cookie y **además** acepta `Authorization: Bearer`, que es lo práctico para pruebas y clientes que no son un navegador.
+- **Rotación con detección de reuso** (decisión #50): cada refresh emite un par nuevo y revoca el anterior. Si aparece un refresh **ya revocado**, se asume robo y se **revocan todas las sesiones del usuario**. El `@unique` de `token_hash` y el campo `revocado_en` del schema estaban puestos justo para esto. Verificado.
+- **El refresh se guarda con SHA-256, no con bcrypt.** Es un token aleatorio de 256 bits, no un secreto elegido por una persona: bcrypt existe para encarecer el ataque por diccionario y acá no aportaría nada, sólo latencia en cada refresh.
+- **No se filtra qué usuarios existen**: mismo mensaje y mismo `401` para "usuario inexistente" y "contraseña incorrecta", y **siempre** se ejecuta un `bcrypt.compare` (contra un hash señuelo si el usuario no existe) para que tampoco se distingan por el tiempo de respuesta. Que la cuenta está bloqueada se informa **sólo después** de acertar la contraseña.
+- **Los intentos fallidos NO bloquean la cuenta** (decisión #51). La única defensa automática es el rate limiting; el campo `bloqueado` lo maneja el superadmin a mano (§3). Motivo: bloquear por intentos fallidos habilita una denegación de servicio trivial — cualquiera que conozca un nombre de usuario podría dejar afuera a esa persona a propósito.
+- **Bloquear a alguien le corta el acceso de inmediato**: el refresh verifica `bloqueado` y, si lo está, revoca todas sus sesiones en vez de esperar a que expire el token.
+- **Auditoría**: `LOG_LOGIN` registra todo intento (exitoso o no) con IP; `LOG_INTENTO_NO_AUTORIZADO` registra los 403 de `requireDepartamento` con ruta y motivo. Nunca se loguea la contraseña, el cuerpo del login ni los tokens.
+- **`trust proxy` activado**: Coolify termina TLS por delante, así que sin esto `req.ip` sería siempre la del proxy y tanto el rate limiting como los logs quedarían inservibles.
+
+### 12.3 Lo que todavía no existe
+
+- **Gestión de usuarios** (alta, cambio de contraseña, bloquear/desbloquear). Por la decisión #11 es exclusiva del superadmin y no hay auto-registro; hoy los usuarios se crean sólo por SQL o seed.
+- **Reglas de complejidad de contraseña**: no están definidas. El login a propósito **no** valida formato — rechazar por forma sólo le diría a un atacante qué no vale la pena probar —, pero al **crear** una contraseña hará falta una regla.
+- **Limpieza de sesiones vencidas**: las filas de `SESION_REFRESH` expiradas o revocadas se acumulan. Conviene un borrado periódico, quizá en el mismo job del cierre diario.

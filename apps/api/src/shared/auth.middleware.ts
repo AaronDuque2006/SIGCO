@@ -1,6 +1,7 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import jwt from "jsonwebtoken";
 import { autorizacionRepository } from "../modules/auth/repositories/autorizacion.repository.js";
+import { sesionRepository } from "../modules/auth/repositories/sesion.repository.js";
 import { env } from "./env.js";
 import { ForbiddenError, UnauthorizedError } from "./errors.js";
 
@@ -26,15 +27,25 @@ const payloadSchema = (value: unknown): UsuarioAutenticado | null => {
   return { id, nombre };
 };
 
-export const requireAuth: RequestHandler = (req, _res, next) => {
+// El access token viaja en una cookie httpOnly (así JavaScript nunca lo toca).
+// Se acepta además el header Authorization porque es lo práctico para pruebas
+// y para clientes que no son un navegador.
+function extraerToken(req: Request): string | null {
+  const cookie = (req.cookies as Record<string, unknown> | undefined)?.["sicog_access"];
+  if (typeof cookie === "string" && cookie.length > 0) return cookie;
   const header = req.headers.authorization;
-  if (!header?.startsWith("Bearer ")) {
+  return header?.startsWith("Bearer ") ? header.slice("Bearer ".length) : null;
+}
+
+export const requireAuth: RequestHandler = (req, _res, next) => {
+  const token = extraerToken(req);
+  if (!token) {
     next(new UnauthorizedError());
     return;
   }
 
   try {
-    const payload = jwt.verify(header.slice("Bearer ".length), env.JWT_SECRET);
+    const payload = jwt.verify(token, env.JWT_SECRET);
     const usuario = payloadSchema(payload);
     if (!usuario) {
       next(new UnauthorizedError("Token con contenido inválido"));
@@ -62,7 +73,18 @@ export const requireDepartamento =
         req.usuario.id,
         nombreDepartamento,
       );
-      next(permitido ? undefined : new ForbiddenError(`No puede editar ${nombreDepartamento}`));
+      if (permitido) {
+        next();
+        return;
+      }
+      // Auditoría de seguridad (§3): queda registro de quién intentó qué.
+      await sesionRepository.registrarIntentoNoAutorizado({
+        usuarioId: req.usuario.id,
+        ruta: `${req.method} ${req.originalUrl}`,
+        motivo: `No pertenece a ${nombreDepartamento} ni lo cubre`,
+        ip: req.ip ?? "desconocida",
+      });
+      next(new ForbiddenError(`No puede editar ${nombreDepartamento}`));
     } catch (err) {
       next(err);
     }
