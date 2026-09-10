@@ -465,24 +465,26 @@ erDiagram
 
 ## 10. Próximo paso inmediato
 
-**Estado**: base de datos migrada y sembrada con los catálogos reales; contrato de la API de Despacho escrito (sección 11); la rebanada `LECTURA_BALANCE` y el job de cierre diario funcionando y verificados end to end contra la BD real.
+**Estado al cierre de la sesión del 2026-09-10**: base de datos migrada y sembrada con los catálogos reales (7 sistemas, 31 fuentes, 111 clientes); contratos de API escritos para Despacho (§11) y `auth` (§12); funcionando y verificado end to end contra la BD real: el módulo `auth` completo, la rebanada `LECTURA_BALANCE` y el job de cierre diario.
 
-**Lo que sigue, en orden:**
+### Por acá arranca la próxima sesión
 
-1. ~~Módulo `auth`~~ **Hecho** (sección 12): login, refresh con rotación y detección de reuso, logout, `GET /sesion`, rate limiting y auditoría. Verificado con 24 checks end to end. **Falta la gestión de usuarios** (alta, cambio de contraseña, bloquear/desbloquear), que por la decisión #11 es exclusiva del superadmin — hoy los usuarios se crean sólo por SQL o seed, así que nadie puede entrar al sistema todavía sin crear uno a mano.
-2. **Resto de las rebanadas de Despacho**, con el contrato de la sección 11 ya escrito: `LECTURA_FUENTE`, `QUEMA_NACIONAL`, `NOVEDAD_OPERATIVA`, `CONTACTO`, los catálogos y los dos reportes query-calculados.
-3. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de la sección 11).
-4. **Frontend**: `apps/web` tiene el stack instalado pero ninguna pantalla.
+1. **Gestión de usuarios — es lo que desbloquea todo lo demás.** El login funciona pero **no hay forma de crear un usuario salvo por SQL**, así que hoy nadie puede entrar al sistema. Por la decisión #11 es exclusiva del superadmin y no hay auto-registro. Incluye alta, cambio de contraseña y bloquear/desbloquear.
+   - **Decisión pendiente del owner**: no hay **regla de complejidad de contraseña** definida. El login a propósito *no* valida formato (rechazar por forma sólo le diría a un atacante qué no probar), pero al **crear** una contraseña hace falta una regla.
+2. **Frontend con las dos pantallas que ya tienen backend** (login y Balance Diario). *Recomendación del asistente, no confirmada por el owner*: hacer esto **antes** de terminar las rebanadas restantes de Despacho, porque la pantalla real va a revelar cosas del contrato que desde el backend no se ven —si el filtro por sistema alcanza, si hacen falta subtotales en la grilla, si `OTROS (PUERTO ORDAZ)` se lee bien— y corregirlas ahora es más barato que con seis módulos construidos encima. El tradeoff: el backend de Despacho queda incompleto un tiempo más.
+3. **Resto de las rebanadas de Despacho**, con el contrato de §11 ya escrito: `LECTURA_FUENTE`, `QUEMA_NACIONAL`, `NOVEDAD_OPERATIVA`, `CONTACTO`, los catálogos y los dos reportes query-calculados.
+4. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de §11).
 
-**Pendientes menores, no bloqueantes:**
+### Pendientes menores, no bloqueantes
 
 - Revisar con el Supervisor de Mantenimiento los dos valores de `ESTADO_TELEMETRIA` que se infirieron por simetría (§9.4 #9).
-- El manual se contradice sobre el nombre del 7º sistema: "Transcaribeño" (índice) vs "Transoceánico" (diapositivas). Se sembró como Transcaribeño (decisión #16).
+- El Manual DAO se contradice sobre el nombre del 7º sistema: "Transcaribeño" (índice) vs "Transoceánico" (diapositivas internas). Se sembró como Transcaribeño (decisión #16).
 - El sector `Empresa Mixta` quedó con 0 clientes tras la decisión #47 — corresponde desactivarlo (soft-delete) si no se le encuentra uso.
-- Decidir si los aportes y transferencias entre sistemas (`APORTE A EYP`, `TRANSFERENCIA ICO-NURGAS`), que quedaron fuera del catálogo `CLIENTE` por la decisión #46, necesitan modelarse de otra forma.
-- **Gestión de usuarios** (alta, cambio de contraseña, bloquear/desbloquear) y la regla de complejidad de contraseña — ver §12.3. Sin esto nadie puede entrar sin crear un usuario por SQL.
+- Decidir si los aportes y transferencias entre sistemas (`APORTE A EYP`, `TRANSFERENCIA ICO-NURGAS`), excluidos del catálogo `CLIENTE` por la decisión #46, necesitan modelarse de otra forma.
 - Limpiar periódicamente las filas vencidas o revocadas de `SESION_REFRESH` (§12.3); podría ir en el mismo job del cierre diario.
 - Migrar la configuración del seed de `package.json#prisma` a `prisma.config.ts` antes de Prisma 7 (hoy sólo emite un warning).
+- Dominios C (Calidad de Gas) y D (Análisis Operacional) siguen sin diseñar: falta el Excel/especificación de cada uno (§9.1).
+- El prototipo visual del repo hermano sigue sin reflejar los cambios de diseño (§8).
 
 ---
 

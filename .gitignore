@@ -8,3 +8,7 @@ build/
 *.log
 .turbo/
 archivos-fuente/
+
+# Clon del repo de skills de terceros (addyosmani/agent-skills): trae su
+# propio .git, no es fuente de este proyecto.
+agent-skills/

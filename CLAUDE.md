@@ -10,11 +10,11 @@ This directory (`SICOG`) is the home of the real monorepo for **SICOG** (Sistema
 
 - Monorepo scaffolded and installing cleanly; local Postgres via `docker compose up -d` (`pgvector/pgvector:pg16`, database `ctrl_operacional_gas`).
 - `packages/db`: full `schema.prisma` for the closed domains, two applied migrations, and a seed with the real catalogs — 7 systems, 31 sources, 111 clients, regions, sectors, departments, positions, telemetry states, and Mantenimiento's activity catalog. The seed is **additive and idempotent**: re-running it inserts only what is missing.
-- `packages/shared-validators` (zod inputs) and `packages/shared-types` (output DTOs) hold the **Despacho API contract** — see `CONTEXTO_PROYECTO.md` §11.
-- `apps/api`: the `LECTURA_BALANCE` slice end to end (Repository → Service → Controller → routes), JWT auth middleware and DB-backed RBAC, and the daily closing job.
+- `packages/shared-validators` (zod inputs) and `packages/shared-types` (output DTOs) hold the **API contracts** — Despacho in `CONTEXTO_PROYECTO.md` §11, `auth` in §12.
+- `apps/api`: the full `auth` module (login, rotating refresh with reuse detection, logout, current session, rate limiting, audit logging — see §12), DB-backed RBAC, the `LECTURA_BALANCE` slice end to end (Repository → Service → Controller → routes), and the daily closing job.
 - `apps/web`: scaffolded with the confirmed stack, but no application screens yet.
 
-**Not built yet**: the login endpoint that issues tokens (only verification exists, so tokens must be minted by hand to test), the remaining Despacho slices (`LECTURA_FUENTE`, `QUEMA_NACIONAL`, `NOVEDAD_OPERATIVA`, `CONTACTO`, and the two reports), and the Mantenimiento/Actividades API.
+**Not built yet**: user management — logging in works but there is no way to create a user except by SQL, so **nobody can actually get in yet**; this is the first thing to do. Also missing: the remaining Despacho slices (`LECTURA_FUENTE`, `QUEMA_NACIONAL`, `NOVEDAD_OPERATIVA`, `CONTACTO`, and the two reports), the Mantenimiento/Actividades API, and every screen in `apps/web`.
 
 A separate, unrelated repo at `../SIGCO-GAS-Prototipo-v1` holds an earlier throwaway React/Vite/Tailwind visual prototype (`control-operacional-prototipo.jsx`, 8 views, no backend). It predates several design decisions (telemetry redesign, Actividades module, department/hierarchy model) and has not been updated to match. Treat it as reference only unless the user asks to update or port from it.
 
