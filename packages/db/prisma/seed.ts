@@ -2,11 +2,68 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-// NOTA: SISTEMA y FUENTE quedan fuera de este seed a propósito. La decisión
-// #16 (9 sistemas) está en revisión — el owner del proyecto indicó que en
-// realidad son 7, con un sistema nuevo ("Jusepín Criogénico") no contemplado
-// antes, pendiente de confirmar contra el manual DAO. No se siembra un
-// catálogo bajo disputa (CONTEXTO_PROYECTO.md, "ask before assuming").
+// SISTEMA (7, decisión #16) y la asignación sistema_id de FUENTE (decisión
+// #41) confirmados con Manual DAO.pptx ("Guía de Información Sistemas de
+// Transporte de Gas 2023", en archivos-fuente/) - nomenclatura oficial de
+// estaciones por sistema.
+const SISTEMAS = [
+  "Anaco - José - Puerto La Cruz - Sinorgas",
+  "Anaco - Puerto Ordaz",
+  "La Toscana - San Vicente",
+  "Jusepín - Criogénico",
+  "Anaco - Caracas - Barquisimeto - Río Seco",
+  "Ulé - Amuay",
+  "Transcaribeño",
+] as const;
+
+async function seedSistemaYFuente() {
+  if ((await prisma.sistema.count()) > 0) return;
+
+  const sistemas = new Map<string, { id: number }>();
+  for (const nombre of SISTEMAS) {
+    sistemas.set(nombre, await prisma.sistema.create({ data: { nombre } }));
+  }
+
+  const anacoJosePLC = sistemas.get("Anaco - José - Puerto La Cruz - Sinorgas")!.id;
+  const jusepinCriogenico = sistemas.get("Jusepín - Criogénico")!.id;
+  const uleAmuay = sistemas.get("Ulé - Amuay")!.id;
+
+  const fuentes: { nombre: string; sistemaId: number }[] = [
+    // Manual DAO: "Extracción San Joaquín" / "Criogénico San Joaquín" -> este sistema.
+    { nombre: "San Joaquín Tren A y B", sistemaId: anacoJosePLC },
+    { nombre: "San Joaquín Tren C", sistemaId: anacoJosePLC },
+    // RECAT SJ / SJB FI FII: no aparecen con ese nombre exacto en el manual,
+    // inferido por convención "SJ" = San Joaquín (decisión #41, sin confirmar al 100%).
+    { nombre: "RECAT SJ", sistemaId: anacoJosePLC },
+    { nombre: "SJB FI FII", sistemaId: anacoJosePLC },
+
+    // Manual DAO: "Santa Bárbara STB", "Soto STO", "Aguasay Nueva AGN",
+    // "Bajo Guanipa BJG", "Zapato Viejo ZPV", "Estación Terminal San Joaquín ETSJ".
+    { nombre: "Santa Bárbara Tren A y B", sistemaId: jusepinCriogenico },
+    { nombre: "Santa Bárbara Tren C", sistemaId: jusepinCriogenico },
+    { nombre: "Jusepín", sistemaId: jusepinCriogenico },
+    { nombre: "Soto", sistemaId: jusepinCriogenico },
+    { nombre: "Aguasay 5A", sistemaId: jusepinCriogenico },
+    { nombre: "Bajo Guanipa", sistemaId: jusepinCriogenico },
+    { nombre: "ETSJ", sistemaId: jusepinCriogenico },
+    { nombre: "Zapato Viejo", sistemaId: jusepinCriogenico },
+    { nombre: "Corredor Jusepín-Criogénico", sistemaId: jusepinCriogenico },
+
+    // Manual DAO: segmento de tubería "La Pica - El Tablazo" dentro de la
+    // sección técnica de Ulé-Amuay.
+    { nombre: "El Tablazo LGN1", sistemaId: uleAmuay },
+    { nombre: "El Tablazo LGN2", sistemaId: uleAmuay },
+    { nombre: "C. Petroquímico", sistemaId: uleAmuay },
+    { nombre: "Planta Fertilizante", sistemaId: uleAmuay },
+    { nombre: "Comb. Trans. a Pequiven", sistemaId: uleAmuay },
+    { nombre: "Hacia La Paz Gas E&P", sistemaId: uleAmuay },
+    { nombre: "Hacia Ramón Laguna", sistemaId: uleAmuay },
+    { nombre: "Hacia La Pica-Ule Amuay", sistemaId: uleAmuay },
+    { nombre: "Hacia La Pica-Retorno a Prod.", sistemaId: uleAmuay },
+  ];
+
+  await prisma.fuente.createMany({ data: fuentes });
+}
 
 async function seedRegionOperativa() {
   if ((await prisma.regionOperativa.count()) > 0) return;
@@ -173,6 +230,7 @@ async function seedInsumoProductoServicio() {
 }
 
 async function main() {
+  await seedSistemaYFuente();
   await seedRegionOperativa();
   await seedRegionMtto();
   await seedSectorCliente();
