@@ -156,7 +156,7 @@ export const CLIENTES_SEED: ClienteSeed[] = [
     "derivado": true
   },
   {
-    "nombre": "OTROS",
+    "nombre": "OTROS (ANACO-JOSE-ORIENTE)",
     "sistema": "Anaco - José - Puerto La Cruz - Sinorgas",
     "region": "Oriente",
     "sector": "Otros",
@@ -303,7 +303,7 @@ export const CLIENTES_SEED: ClienteSeed[] = [
     "derivado": true
   },
   {
-    "nombre": "OTROS",
+    "nombre": "OTROS (PUERTO ORDAZ)",
     "sistema": "Anaco - Puerto Ordaz",
     "region": "Oriente",
     "sector": "Otros",
@@ -324,7 +324,7 @@ export const CLIENTES_SEED: ClienteSeed[] = [
     "derivado": false
   },
   {
-    "nombre": "ALCASA",
+    "nombre": "ALCASA (PUERTO ORDAZ)",
     "sistema": "Anaco - Puerto Ordaz",
     "region": "Oriente",
     "sector": "Siderúrgico",
@@ -513,7 +513,7 @@ export const CLIENTES_SEED: ClienteSeed[] = [
     "derivado": false
   },
   {
-    "nombre": "ALCASA",
+    "nombre": "ALCASA (CENTRO/OCCIDENTE)",
     "sistema": "Anaco - Caracas - Barquisimeto - Río Seco",
     "region": "Centro-Occidente",
     "sector": "Siderúrgico",

@@ -82,12 +82,23 @@ rows.forEach((row, i) => {
 
   clientes.push({
     nombre,
+    etiqueta,
     sistema,
     region: REGION_DB[regionExcel],
     sector: SECTOR_DB[sectorExcel],
     derivado: !deFormula,
   });
 });
+
+// El Excel repite nombres entre bloques (ALCASA en dos regiones, una bolsa
+// "OTROS" por sistema). En la hoja se distinguen por dónde están; en una
+// grilla no, así que se les agrega la agrupación de origen entre paréntesis.
+const vecesPorNombre = new Map();
+for (const c of clientes) vecesPorNombre.set(c.nombre, (vecesPorNombre.get(c.nombre) || 0) + 1);
+for (const c of clientes) {
+  if (vecesPorNombre.get(c.nombre) > 1) c.nombre = `${c.nombre} (${c.etiqueta})`;
+  delete c.etiqueta;
+}
 
 const cabecera = `// GENERADO desde "NUEVO BALANCE ACTUALIZADO.xlsm" (hoja CEN-ORI).
 // region y sector NO están inferidos por el nombre: salen de las fórmulas de
