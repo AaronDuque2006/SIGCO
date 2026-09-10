@@ -95,19 +95,35 @@ model Sistema {
 }
 
 model Cliente {
-  id         Int    @id @default(autoincrement())
-  regionId   Int    @map("region_id")
-  sistemaId  Int    @map("sistema_id")
-  nombre     String
-  tipoSector String @map("tipo_sector")
+  id        Int    @id @default(autoincrement())
+  regionId  Int    @map("region_id")
+  sistemaId Int    @map("sistema_id")
+  sectorId  Int    @map("sector_id")
+  nombre    String
 
   region             RegionOperativa    @relation(fields: [regionId], references: [id])
   sistema            Sistema            @relation(fields: [sistemaId], references: [id])
+  sector             SectorCliente      @relation(fields: [sectorId], references: [id])
   lecturasBalance    LecturaBalance[]
   novedadesOperativa NovedadOperativa[]
   contactos          Contacto[]
 
   @@map("clientes")
+}
+
+// Catálogo editable (patrón de la decisión #31/#32): antes era CLIENTE.tipo_sector
+// como String libre; la auditoría de NUEVO_BALANCE_ACTUALIZADO.xlsm (tabla
+// "CONSUMO POR SECTORES") reveló una lista real de valores de negocio (Empresa
+// Mixta + 6 sectores económicos) que crece con el tiempo - mismo riesgo de
+// typos que motivó convertir INSUMO/ESTADO_TELEMETRIA en catálogo.
+model SectorCliente {
+  id     Int     @id @default(autoincrement())
+  nombre String
+  activo Boolean @default(true)
+
+  clientes Cliente[]
+
+  @@map("sectores_cliente")
 }
 
 model Fuente {
