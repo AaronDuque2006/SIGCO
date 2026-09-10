@@ -48,6 +48,7 @@ export interface ILecturaBalanceRepository {
   findGrid(params: GridParams): Promise<FilaGrid[]>;
   countClientes(filtros: Pick<GridParams, "sistemaId" | "regionId">): Promise<number>;
   findById(id: bigint): Promise<LecturaBalanceRow | null>;
+  findPuntualDe(clienteId: number, fecha: string): Promise<LecturaBalanceRow | null>;
   clienteExiste(clienteId: number): Promise<boolean>;
   create(input: {
     clienteId: number;
@@ -100,6 +101,14 @@ export class PrismaLecturaBalanceRepository implements ILecturaBalanceRepository
 
   findById(id: bigint): Promise<LecturaBalanceRow | null> {
     return prisma.lecturaBalance.findUnique({ where: { id } });
+  }
+
+  findPuntualDe(clienteId: number, fecha: string): Promise<LecturaBalanceRow | null> {
+    return prisma.lecturaBalance.findUnique({
+      where: {
+        clienteId_fecha_tipoCorte: { clienteId, fecha: fechaToDate(fecha), tipoCorte: "PUNTUAL" },
+      },
+    });
   }
 
   async clienteExiste(clienteId: number): Promise<boolean> {

@@ -6,6 +6,7 @@ import helmet from "helmet";
 import despachoRoutes from "./modules/despacho/despacho.routes.js";
 import { env } from "./shared/env.js";
 import { errorHandler, notFoundHandler } from "./shared/http.js";
+import { iniciarCierreDiario } from "./shared/scheduler.js";
 
 const app = express();
 
@@ -25,4 +26,5 @@ app.use(errorHandler);
 
 app.listen(env.PORT, () => {
   console.log(`API escuchando en el puerto ${env.PORT}`);
+  iniciarCierreDiario();
 });

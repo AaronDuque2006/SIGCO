@@ -8,6 +8,10 @@ import type {
 import type { ListLecturasBalanceQuery } from "@sicog/shared-validators";
 import { NotFoundError } from "../../../shared/errors.js";
 import { paginate } from "../../../shared/http.js";
+import { sumarDias } from "./cierre-diario.service.js";
+
+// Tope de seguridad: una cadena de copias intactas no debería pasar de un año.
+const MAX_DIAS_PROPAGACION = 366;
 import {
   dateToFecha,
   lecturaBalanceRepository,
@@ -83,8 +87,38 @@ export class LecturaBalanceService {
   // siempre dice quién es responsable del valor actual, y el historial guarda
   // la cadena completa.
   async corregir(id: bigint, volumenMmpced: number, usuarioId: number): Promise<LecturaBalanceDto> {
-    await this.obtenerOFallar(id);
-    return toLecturaDto(await this.repo.corregir(id, volumenMmpced, usuarioId));
+    const previa = await this.obtenerOFallar(id);
+    const corregida = await this.repo.corregir(id, volumenMmpced, usuarioId);
+
+    if (corregida.tipoCorte === "PUNTUAL") {
+      await this.propagarACopiasIntactas(previa, corregida, usuarioId);
+    }
+    return toLecturaDto(corregida);
+  }
+
+  // Decisión #45: corregir un día viejo arrastra la corrección a los días
+  // siguientes que siguen siendo copias intactas del carry-forward, y se
+  // detiene en el primero que un analista fijó a mano.
+  //
+  // "Intacto" se detecta comparando el valor con el que se heredó, no por
+  // "no tiene historial": la propia propagación escribe historial, así que ese
+  // criterio se rompería en la segunda corrección de la misma cadena.
+  private async propagarACopiasIntactas(
+    previa: LecturaBalanceRow,
+    corregida: LecturaBalanceRow,
+    usuarioId: number,
+  ): Promise<void> {
+    const heredado = previa.volumenMmpced;
+    if (heredado.equals(corregida.volumenMmpced)) return;
+
+    let fecha = dateToFecha(corregida.fecha);
+    for (let saltos = 0; saltos < MAX_DIAS_PROPAGACION; saltos++) {
+      fecha = sumarDias(fecha, 1);
+      const siguiente = await this.repo.findPuntualDe(corregida.clienteId, fecha);
+      if (!siguiente || !siguiente.volumenMmpced.equals(heredado)) return;
+
+      await this.repo.corregir(siguiente.id, corregida.volumenMmpced.toNumber(), usuarioId);
+    }
   }
 
   async obtenerHistorial(
