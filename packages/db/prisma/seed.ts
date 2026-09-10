@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { CLIENTES_SEED } from "./clientes.seed.js";
 
 const prisma = new PrismaClient();
 
@@ -229,6 +230,34 @@ async function seedInsumoProductoServicio() {
   }
 }
 
+// Los 110 clientes reales de la hoja CEN-ORI (decisión #46). El sistema sale
+// del mapeo etiqueta-del-Excel -> sistema oficial del Manual DAO; la región y
+// el sector salen de las fórmulas de "Consumo por Sectores", no de inferir por
+// el nombre.
+async function seedClientes() {
+  if ((await prisma.cliente.count()) > 0) return;
+
+  const [sistemas, regiones, sectores] = await Promise.all([
+    prisma.sistema.findMany({ select: { id: true, nombre: true } }),
+    prisma.regionOperativa.findMany({ select: { id: true, nombre: true } }),
+    prisma.sectorCliente.findMany({ select: { id: true, nombre: true } }),
+  ]);
+  const idPor = (filas: { id: number; nombre: string }[], nombre: string, que: string) => {
+    const fila = filas.find((f) => f.nombre === nombre);
+    if (!fila) throw new Error(`Seed de clientes: no existe ${que} "${nombre}"`);
+    return fila.id;
+  };
+
+  await prisma.cliente.createMany({
+    data: CLIENTES_SEED.map((c) => ({
+      nombre: c.nombre,
+      sistemaId: idPor(sistemas, c.sistema, "sistema"),
+      regionId: idPor(regiones, c.region, "región"),
+      sectorId: idPor(sectores, c.sector, "sector"),
+    })),
+  });
+}
+
 async function main() {
   await seedSistemaYFuente();
   await seedRegionOperativa();
@@ -237,6 +266,7 @@ async function main() {
   await seedDepartamentoYPuesto();
   await seedEstadoTelemetria();
   await seedInsumoProductoServicio();
+  await seedClientes();
 }
 
 main()
