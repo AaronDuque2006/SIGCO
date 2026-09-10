@@ -106,11 +106,14 @@ ctrl-operacional-gas/
 | `INVENTARIO_ESTACIONES.xls` | 251 estaciones T&D. Auditado: confirma el catálogo real de 6 regiones de Mantenimiento (Nor-Oriente, Este-Oriente, Sur-Oriente, Centro, Centro-Occidente, Occidente), 16 tipos de instrumento ISA, `tipo_enlace_com` cerrado a 3 valores (IP PDVSA, SATELITAL, SERIAL PDVSA). | Base y auditoría del Dominio B. |
 | `DISPON_SISUGAS_Semana_35.xls` | Reporte semanal de disponibilidad/telemetría real (6 hojas). Reveló que el estatus de telemetría real tiene 4 dimensiones independientes por estación (Comunicación, Eléctrico, Instrumentación, Caseta), no un solo campo — forzó el rediseño de `REPORTE_TELEMETRIA_ESTACION`. | Usado para rediseñar telemetría. |
 | `ACTIVIDADES_MDC_FINAL_V4.xls` | Formato real de control de horas-hombre y actividades de Mantenimiento (bitácora + plan/real + % derivados). Estructura genérica reutilizable por los 4 departamentos; catálogos (`INSUMO`, `PRODUCTO_SERVICIO`) varían por departamento. | Base del módulo Actividades. |
-| `Plantilla_Standar_2.pptx` | Manual técnico: 8 sistemas de transporte reales, puntos de entrega/recepción, calidad de gas por fuente. Confirmó la jerarquía Región→Subregión (opción c) para Oriente. | Seed data, confirmación de jerarquía de regiones. |
+| `Manual DAO.pptx` | **"Guía de Información Sistemas de Transporte de Gas 2023" — documento oficial y autoridad sobre los sistemas.** 110 diapositivas: índice de sistemas, nomenclatura de estaciones por sistema, puntos de entrega/recepción, calidad de gas, data técnica de tuberías. Es la fuente de las decisiones #16 (7 sistemas), #41 (`sistema_id` de cada fuente), #47 (Empresas Mixtas como fuente) y del mapeo de la #46. | Analizado a fondo. En `archivos-fuente/`. |
+| `Plantilla_Standar_2.pptx` | Manual técnico de una sesión anterior; **no está en `archivos-fuente/`**, no se pudo re-verificar. Su afirmación de "8 sistemas de transporte" **queda superada** por el `Manual DAO.pptx`, que confirma 7 (decisión #16). Sigue válido lo que aportó sobre la jerarquía Región→Subregión (opción c) para Oriente. | Superado parcialmente; conservar sólo lo de regiones. |
 | `CLIENTE_Interaction-correccion.pdf` | Correcciones manuscritas al primer ERD. | Aplicadas. |
 | `ESTACIONES.accdb` / 16 CSVs exportados | Catálogo de 288 estaciones T&D, bitácora de actividades/indicadores GCO, directorio de contactos. | Resuelto vía CSVs; mayormente Dominio B. |
 
 **Privacidad**: los datos personales sensibles de `PERSONAL.csv` (cédula, fecha de nacimiento, dirección, tallas) **no se replican** en el modelo ni en logs de la aplicación.
+
+**Dónde viven**: los archivos fuente están en `archivos-fuente/` en la raíz del repo, **gitignoreada a propósito** — son documentos internos de PDVSA y archivos binarios grandes, no tienen por qué entrar al historial de git. Hoy están ahí: `NUEVO BALANCE ACTUALIZADO.xlsm`, `Manual DAO.pptx`, `ACTIVIDADES MDC FINAL V4.xls`, `DISPON_SISUGAS_Semana_35.xls`, `INVENTARIO ESTACIONES.xls` y `ESTACIONES TyD.csv`.
 
 ---
 
@@ -436,10 +439,6 @@ erDiagram
 ### 9.3 Mantenimiento / histórico
 5. `SOLICITANTE` en actividades del Access viejo (campo texto libre) — ¿normalizar a FK? (bajo prioridad, dato histórico).
 
-### 9.6 Despacho — verificar
-6. ~~"Quema Puntual" vs. "Quema TyD"~~ **Resuelto, ver decisión #38** — son el mismo dato (confirmado por fórmula: ambas vistas apuntan a la misma celda origen). No requirió cambio de schema.
-7. ~~Granularidad real del catálogo `FUENTE`~~ **Resuelto, ver decisión #39** — el catálogo real es más granular de lo asumido (plantas por tren, Jusepín, y las 15 fuentes de "Directo a Ventas"/"Gas manejado desde El Tablazo"). No requirió cambio de schema, solo corrige el alcance del seed data pendiente (§9.4 #9).
-
 ### 9.4 Implementación (no son decisiones de negocio)
 6. ~~Escribir el `schema.prisma` completo~~ **Hecho** (`packages/db/prisma/schema.prisma`: Dominios A/B/E + Autorización + tablas de seguridad, con `@@unique`/`@@index`). ~~Falta correr la migración inicial~~ **Hecho**: aplicada contra el Postgres local en Docker (decisión #40), migración `20260910144045_init`.
 6b. ~~Sincronizar `schema.prisma` con la decisión #35~~ **Hecho** — se quitó `estado` de `LecturaBalance`/`LecturaFuente` y `estadoAnt` de sus `*Historial`. No existía migración inicial aún, así que no hizo falta una migración correctiva; verificado con `prisma generate` (sin errores) y sin referencias sueltas a esos campos en `apps/web`/`apps/api`.
@@ -455,18 +454,30 @@ erDiagram
 ### 9.5 Fase 2 — RAG
 14. Plan definido (Ollama + pgvector, modelo 7-8B cuantizado, CPU puro, vía Coolify — mismo despliegue que la app, contenedor de Ollama se agrega solo cuando arranque esta fase). Falta: RAM real de la VM, y si los manuales de procedimientos ya existen documentados o requieren levantamiento con los analistas.
 
+### 9.6 Despacho — verificar
+6. ~~"Quema Puntual" vs. "Quema TyD"~~ **Resuelto, ver decisión #38** — son el mismo dato (confirmado por fórmula: ambas vistas apuntan a la misma celda origen). No requirió cambio de schema.
+7. ~~Granularidad real del catálogo `FUENTE`~~ **Resuelto, ver decisión #39** — el catálogo real es más granular de lo asumido (plantas por tren, Jusepín, y las 15 fuentes de "Directo a Ventas"/"Gas manejado desde El Tablazo"). No requirió cambio de schema, solo corrige el alcance del seed data pendiente (§9.4 #9).
+
 ---
 
 ## 10. Próximo paso inmediato
 
-`schema.prisma`, la estructura inicial del monorepo, el Postgres local en Docker (decisión #40), las dos migraciones (`init` + los `CHECK` de "exactamente uno", §9.4 #7), y el seed data completo — incluyendo `SISTEMA`/`FUENTE` ya confirmados contra el Manual DAO (decisiones #16 y #41) — ya están hechos y aplicados. Falta:
-1. Revisar con el Supervisor de Mantenimiento los valores inferidos de `ESTADO_TELEMETRIA` (ver nota en §9.4 #9) — es catálogo editable, se puede ajustar sin migración. No bloqueante.
-2. Confirmar "RECAT SJ"/"SJB FI FII" y el nombre real del 7º sistema (Transcaribeño vs. Transoceánico) — decisión #41, no bloqueante.
-3. **Implementar el módulo Despacho** siguiendo el contrato de la sección 11, en rebanadas verticales. **`LECTURA_BALANCE`: hecha** (Repository → Service → Controller + rutas, verificada end-to-end con 28 checks contra la API y la BD reales). Faltan las rebanadas de `LECTURA_FUENTE`, `QUEMA_NACIONAL`, `NOVEDAD_OPERATIVA`, `CONTACTO`, catálogos y los dos reportes.
-4. ~~Job de cierre diario~~ **Hecho** (sección 11.4): cierra los días pendientes, abre el nuevo con carry-forward, recalcula cierres ante correcciones tardías (#44) y propaga a las copias intactas (#45). Verificado con 21 checks contra la BD real.
-5. **Módulo `auth`**: hoy existe sólo `requireAuth` (verificación de JWT, fail-closed) y `requireDepartamento` (RBAC contra la BD, decisiones #21-#24). **Falta el endpoint de login que emite los tokens**, el refresh contra `SESION_REFRESH`, y el bloqueo de cuenta — hasta entonces los tokens hay que emitirlos a mano para probar.
-6. ~~Seed de los clientes reales~~ **Hecho**: 111 clientes y 31 fuentes (decisiones #46 y #47). Las dos dudas que quedaban (`OTROS OCCIDENTE` y el sector de las Empresas Mixtas) se resolvieron en la decisión #47.
-7. Contrato de la API de Mantenimiento y Actividades (mismo patrón de la sección 11).
+**Estado**: base de datos migrada y sembrada con los catálogos reales; contrato de la API de Despacho escrito (sección 11); la rebanada `LECTURA_BALANCE` y el job de cierre diario funcionando y verificados end to end contra la BD real.
+
+**Lo que sigue, en orden:**
+
+1. **Módulo `auth` — el endpoint de login.** Hoy existe sólo la *verificación* de JWT (`requireAuth`, fail-closed) y el RBAC contra la BD (`requireDepartamento`). Falta lo que **emite** los tokens, el refresh contra `SESION_REFRESH` y el bloqueo de cuenta (§3, Seguridad). Hasta que exista, para probar cualquier endpoint hay que firmar tokens a mano. Es lo que bloquea que alguien use el sistema de verdad.
+2. **Resto de las rebanadas de Despacho**, con el contrato de la sección 11 ya escrito: `LECTURA_FUENTE`, `QUEMA_NACIONAL`, `NOVEDAD_OPERATIVA`, `CONTACTO`, los catálogos y los dos reportes query-calculados.
+3. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de la sección 11).
+4. **Frontend**: `apps/web` tiene el stack instalado pero ninguna pantalla.
+
+**Pendientes menores, no bloqueantes:**
+
+- Revisar con el Supervisor de Mantenimiento los dos valores de `ESTADO_TELEMETRIA` que se infirieron por simetría (§9.4 #9).
+- El manual se contradice sobre el nombre del 7º sistema: "Transcaribeño" (índice) vs "Transoceánico" (diapositivas). Se sembró como Transcaribeño (decisión #16).
+- El sector `Empresa Mixta` quedó con 0 clientes tras la decisión #47 — corresponde desactivarlo (soft-delete) si no se le encuentra uso.
+- Decidir si los aportes y transferencias entre sistemas (`APORTE A EYP`, `TRANSFERENCIA ICO-NURGAS`), que quedaron fuera del catálogo `CLIENTE` por la decisión #46, necesitan modelarse de otra forma.
+- Migrar la configuración del seed de `package.json#prisma` a `prisma.config.ts` antes de Prisma 7 (hoy sólo emite un warning).
 
 ---
 

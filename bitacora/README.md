@@ -32,3 +32,4 @@ Si hay conflicto entre lo que dice una entrada vieja de la bitácora y
 ## Índice
 
 - [`2026-09-08-scaffold-inicial-y-schema-prisma.md`](./2026-09-08-scaffold-inicial-y-schema-prisma.md) — recuperación del `pnpm install`, stack de `apps/web` (shadcn/ui + TanStack + react-hook-form), `schema.prisma` completo de los dominios cerrados, conexión a Supabase, corrección de la mecánica PUNTUAL/CIERRE_PROMEDIO (decisión #34), `git init` + primeros 9 commits.
+- [`2026-09-10-migracion-seed-y-primer-modulo-de-api.md`](./2026-09-10-migracion-seed-y-primer-modulo-de-api.md) — se abandonó Supabase por Postgres en Docker (#40), migraciones aplicadas, seed real completo (7 sistemas, 31 fuentes, 111 clientes), corrección del catálogo `SISTEMA` con el Manual DAO (#16), contrato de la API de Despacho, rebanada `LECTURA_BALANCE` end to end, job de cierre diario (#42-#45), y las Empresas Mixtas como fuente *y* cliente (#47). Decisiones #35 a #48.
