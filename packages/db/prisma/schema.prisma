@@ -40,11 +40,11 @@ generator client {
 }
 
 datasource db {
-  provider   = "postgresql"
-  // Conexión pooled (pgbouncer, puerto 6543 en Supabase) - la usa la app en runtime.
-  url        = env("DATABASE_URL")
-  // Conexión directa (puerto 5432) - la necesita Prisma Migrate/introspección.
-  directUrl  = env("DIRECT_URL")
+  provider  = "postgresql"
+  // Postgres local en Docker (decisión #40) - misma URL para runtime y
+  // migraciones (ver .env y docker-compose.yml).
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
   extensions = [vector]
 }
 
