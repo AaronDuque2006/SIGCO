@@ -172,6 +172,8 @@ ctrl-operacional-gas/
     - Santa Bárbara Tren A y B, Santa Bárbara Tren C, Jusepín, SOTO, AGUASAY 5A, BAJO GUANIPA, ETSJ, ZAPATO VIEJO, CORREDOR JUSEPIN-CRIOGENICO → **Jusepín - Criogénico** (el manual lista textualmente "Santa Bárbara STB", "Soto STO", "Aguasay Nueva AGN", "Bajo Guanipa BJG", "Zapato Viejo ZPV" y "Estación Terminal San Joaquín ETSJ" como estaciones de este sistema).
     - El Tablazo LGN1, El Tablazo LGN2, y las 7 fuentes de "Gas manejado desde El Tablazo" (C. Petroquímico, Planta Fertilizante, Comb. Trans. a Pequiven, Hacia La Paz Gas E&P, Hacia Ramón Laguna, Hacia La Pica-Ule Amuay, Hacia La Pica-Retorno a Prod.) → **Ulé - Amuay** (el manual ubica el segmento de tubería "La Pica - El Tablazo" dentro de la sección técnica de este sistema).
     **Sembrado** en `packages/db/prisma/seed.ts` junto con el catálogo `SISTEMA` de la decisión #16.
+42. **El cierre diario lo dispara un job automático a medianoche, no una acción humana** (completa la decisión #34, que decía "al cumplirse las 24 horas" sin especificar el disparador). Un job programado dentro de `apps/api` hace dos cosas en la misma corrida: (a) **cierra el día anterior** calculando el `CIERRE_PROMEDIO` de cada cliente (media aritmética simple de todos los valores que tuvo su `PUNTUAL` ese día: las filas de `LECTURA_BALANCE_HISTORIAL` de esa fecha más el valor final vigente) y guardándolo como fila propia; y (b) **abre el día nuevo** con el carry-forward de la decisión #43. Motivo de elegir job sobre un endpoint de "cerrar día" manual: el cierre alimenta el informe formal y no puede quedar sin hacerse porque nadie se acordó, ni hacerse dos veces. Aplica igual a `QUEMA_NACIONAL` (decisión #14). **`CIERRE_PROMEDIO` no se puede crear por la API** — el `POST` de lecturas sólo acepta `PUNTUAL`; el job es el único que escribe filas de cierre. Corregir un cierre ya calculado sí se permite (decisión #3), vía `PATCH`, y genera historial como cualquier otra corrección.
+43. **El carry-forward del `PUNTUAL` se persiste como fila real, no es sólo una sugerencia de pantalla** (precisa la decisión #34). Cuando el job de la decisión #42 abre el día, crea la fila `PUNTUAL` de cada cliente con el último valor vigente del día anterior. Motivo: si un cliente no se toca en todo el día, igual tiene un valor vigente y entra al cierre — no quedan huecos en el informe formal. El analista sólo corrige lo que cambió, y esas correcciones son las que alimentan la media del cierre.
 
 ---
 
@@ -429,7 +431,7 @@ erDiagram
 8. ~~`UNIQUE(estacion_id, fecha_reporte)` en `REPORTE_TELEMETRIA_ESTACION`~~ **Hecho** en el schema (además de `UNIQUE(cliente_id, fecha, tipo_corte)` en `LECTURA_BALANCE`, `UNIQUE(fuente_id, fecha)` en `LECTURA_FUENTE` y `UNIQUE(producto_servicio_id, anio, mes)` en `ACTIVIDAD_META`, derivadas de las decisiones #2 y #30).
 9. Seed data: **hecho** vía `packages/db/prisma/seed.ts` (`pnpm --filter @sicog/db run seed`) — 4 regiones de Despacho, 6 regiones de Mantenimiento, `SECTOR_CLIENTE` (7, decisión #36), `DEPARTAMENTO` (4), `PUESTO` (5), `ESTADO_TELEMETRIA` (valores reales de `DISPON_SISUGAS_Semana_35.xls`, typos corregidos — ver nota abajo), `INSUMO`/`PRODUCTO_SERVICIO` de Mantenimiento (18 productos/9 insumos reales de `ACTIVIDADES_MDC_FINAL_V4.xls`, typos corregidos). **Pendiente**: `SISTEMA` y `FUENTE` (decisión #16 en revisión — no se siembran hasta confirmar contra el manual DAO). Los 5 archivos fuente ya analizados viven ahora en `archivos-fuente/` (gitignored, no se commitean).
     - `ESTADO_TELEMETRIA` sembrado: COMUNICACION (Activo, En falla, Fuera de servicio), ELECTRICO (Activo, En falla, Hurtado), INSTRUMENTACION (Activo, En falla), CASETA (Operativo, Necesita mantenimiento). "Activo" en Comunicación y "En falla" en Eléctrico/Instrumentación se infirieron por simetría (el Excel solo lista estaciones con problemas, no un censo completo) — revisar con el Supervisor de Mantenimiento antes de darlo por cerrado; es catálogo editable (decisión #31), se ajusta sin tocar código.
-10. Diseñar endpoints/rutas de la API por módulo.
+10. Diseñar endpoints/rutas de la API por módulo. **Despacho: hecho** — contrato completo en la sección 11 (rutas, formato de error, paginación, idempotencia), con los schemas zod en `packages/shared-validators` y los DTOs en `packages/shared-types`. Falta el contrato de Mantenimiento, Actividades y `auth`, y falta implementar Despacho (Repository → Service → Controller).
 11. Estructura inicial del monorepo (carpetas y configs) — descrita en sección 3, falta materializarla.
 12. Actualizar el prototipo visual con los hallazgos de esta sesión.
 13. Rotación de secreto JWT — pospuesta explícitamente, implementar cuando el sistema esté en producción estable.
@@ -441,7 +443,73 @@ erDiagram
 
 ## 10. Próximo paso inmediato
 
-`schema.prisma`, la estructura inicial del monorepo, el Postgres local en Docker (decisión #40), las dos migraciones (`init` + los `CHECK` de "exactamente uno", §9.4 #7), y el seed data de los catálogos no disputados (§9.4 #9) ya están hechos y aplicados. Falta:
-1. Cerrar la revisión de la decisión #16 (¿7 sistemas o 9? "Jusepín Criogénico") contra el manual DAO, y sembrar `SISTEMA` + `FUENTE` una vez confirmado.
-2. Revisar con el Supervisor de Mantenimiento los valores inferidos de `ESTADO_TELEMETRIA` (ver nota en §9.4 #9) — es catálogo editable, se puede ajustar sin migración.
-3. Diseño de endpoints/rutas de la API por módulo (punto (b), aún no retomado).
+`schema.prisma`, la estructura inicial del monorepo, el Postgres local en Docker (decisión #40), las dos migraciones (`init` + los `CHECK` de "exactamente uno", §9.4 #7), y el seed data completo — incluyendo `SISTEMA`/`FUENTE` ya confirmados contra el Manual DAO (decisiones #16 y #41) — ya están hechos y aplicados. Falta:
+1. Revisar con el Supervisor de Mantenimiento los valores inferidos de `ESTADO_TELEMETRIA` (ver nota en §9.4 #9) — es catálogo editable, se puede ajustar sin migración. No bloqueante.
+2. Confirmar "RECAT SJ"/"SJB FI FII" y el nombre real del 7º sistema (Transcaribeño vs. Transoceánico) — decisión #41, no bloqueante.
+3. **Implementar el módulo Despacho** siguiendo el contrato de la sección 11, en rebanadas verticales. **`LECTURA_BALANCE`: hecha** (Repository → Service → Controller + rutas, verificada end-to-end con 28 checks contra la API y la BD reales). Faltan las rebanadas de `LECTURA_FUENTE`, `QUEMA_NACIONAL`, `NOVEDAD_OPERATIVA`, `CONTACTO`, catálogos y los dos reportes.
+4. **Job de cierre diario** (decisiones #42/#43): calcular `CIERRE_PROMEDIO` del día anterior y abrir el día nuevo con carry-forward. Aún no implementado — hace falta elegir el planificador (ninguna librería de cron está instalada todavía).
+5. **Módulo `auth`**: hoy existe sólo `requireAuth` (verificación de JWT, fail-closed) y `requireDepartamento` (RBAC contra la BD, decisiones #21-#24). **Falta el endpoint de login que emite los tokens**, el refresh contra `SESION_REFRESH`, y el bloqueo de cuenta — hasta entonces los tokens hay que emitirlos a mano para probar.
+6. **Seed de los 117 clientes reales** (contados en la hoja `CEN-ORI`): no están cargados. Ojo: el Excel los agrupa con las 9 etiquetas viejas de reporte, que no mapean 1:1 contra los 7 sistemas oficiales de la decisión #16 — hay que resolver ese mapeo antes de sembrarlos.
+7. Contrato de la API de Mantenimiento y Actividades (mismo patrón de la sección 11).
+
+---
+
+## 11. Contrato de la API — Módulo Despacho
+
+Diseñado con la skill `api-and-interface-design` (contract-first). Los tipos **son** la documentación: los schemas de entrada (zod, compartidos frontend/backend) viven en `packages/shared-validators/src/despacho.ts` y los DTOs de salida en `packages/shared-types/src/despacho.ts`. Verificado con 15 checks de comportamiento en runtime (exactamente-uno, rangos de fecha, defaults, coerción de query params).
+
+### 11.1 Convenciones transversales
+
+- **Prefijo**: `/api/despacho`. Sustantivos en plural, sin verbos en la URL.
+- **Formato único de error** en todos los endpoints: `{ error: { code, message, details? } }` con `code` ∈ `VALIDATION_ERROR` (422) · `NOT_FOUND` (404) · `UNAUTHORIZED` (401) · `FORBIDDEN` (403) · `CONFLICT` (409) · `INTERNAL_ERROR` (500).
+- **Validación sólo en el borde** (controller), con zod. De ahí para adentro Service y Repository confían en los tipos.
+- **Representación en el cable**: `id` de tablas BigInt → `string` (JSON no tiene BigInt); `Decimal(14,4)` → `number` (los volúmenes rondan 1.800 MMPCED, muy por debajo del límite de precisión de un double, y las sumas de los reportes se calculan en SQL con `numeric` exacto); `fecha` → `YYYY-MM-DD` (día operativo, sin hora ni zona); timestamps → ISO 8601.
+- **Idempotencia**: no se usa header `Idempotency-Key`. Los `POST` de lecturas están protegidos por los `@@unique` que ya existen (`LECTURA_BALANCE(cliente,fecha,tipo_corte)`, `LECTURA_FUENTE(fuente,fecha)`, `QUEMA_NACIONAL(fecha,tipo_corte)`): un reintento no crea una segunda fila, devuelve `409 CONFLICT`. El constraint **es** el mecanismo atómico; no hace falta más porque ningún endpoint tiene efectos externos (no hay pagos, correos ni terceros) — sólo escrituras en la propia BD.
+- **Paginación** (`?page=&pageSize=`, máx. 100) **obligatoria** en las listas que crecen sin techo: novedades, contactos, historiales, clientes y fuentes.
+- **Paginación en las grillas diarias: opcional, apagada por defecto** (`pageSize` hasta 200). Son 117 clientes reales (contados en la hoja `CEN-ORI`), repartidos por sistema en bloques de 1 a 34 — el Excel nunca los muestra como lista plana. La forma primaria de acortar la grilla es **filtrar por `sistemaId`/`regionId`**, que es como ya trabajan los analistas, no cortar en páginas de N: (a) digitar un día completo serían ~6 cargas de página, cada una con riesgo de perder lo no guardado; (b) los subtotales por sistema y el Balance Nación se calculan sobre todo el bloque, no caben en una página; (c) el corte de página no coincide con ninguna agrupación real (la página 2 arrancaría a mitad de un sistema). Aun así los parámetros existen para no encerrar al frontend. **La respuesta viene siempre envuelta en `Paginated<T>`**, se pidan o no — sin ellos, todo el filtro llega en una sola página. La forma nunca cambia según los parámetros.
+- **RBAC** (decisión #22): cualquier usuario autenticado puede hacer `GET` de cualquier módulo; sólo los de Despacho pueden escribir. El catálogo `SECTOR_CLIENTE` además exige Supervisor+ (decisión #31).
+
+### 11.2 Rutas
+
+| Método | Ruta | Notas |
+|---|---|---|
+| GET | `/sistemas` | Catálogo (7, decisión #16). Sin paginar. |
+| GET | `/regiones` | Catálogo (4, decisión #17). Sin paginar. |
+| GET | `/sectores-cliente` | Catálogo (7, decisión #36). Sin paginar. |
+| POST | `/sectores-cliente` | Supervisor+ de Despacho. |
+| PATCH | `/sectores-cliente/:id` | Supervisor+. Soft-delete con `{ activo: false }` — **no hay DELETE** (decisión #31). |
+| GET | `/clientes` | Filtros: `sistemaId`, `regionId`, `sectorId`, `q`. Paginado. |
+| POST · GET · PATCH | `/clientes` · `/clientes/:id` | |
+| GET | `/fuentes` | Filtros: `sistemaId`, `q`. Paginado. |
+| POST · GET · PATCH | `/fuentes` · `/fuentes/:id` | |
+| GET | `/lecturas-balance?fecha&tipoCorte` | Grilla del día: una fila por cliente, con su lectura o `null`. Filtros `sistemaId`/`regionId`; paginación opcional. |
+| POST | `/lecturas-balance` | **Sólo crea `PUNTUAL`** — no acepta `tipoCorte` (decisiones #34/#42). `409` si ya existe. |
+| PATCH | `/lecturas-balance/:id` | Sólo cambia `volumenMmpced`; genera fila de historial. Mover de cliente/fecha no es una corrección. |
+| GET | `/lecturas-balance/:id/historial` | Paginado. |
+| GET | `/lecturas-fuente?fecha` | Grilla del día, filtro `sistemaId`, paginación opcional. **Sin `tipoCorte`**: el schema tiene `@@unique(fuenteId, fecha)`, una lectura por día; la mecánica de la decisión #34 no aplica a fuentes. |
+| POST · PATCH | `/lecturas-fuente` · `/lecturas-fuente/:id` | |
+| GET | `/lecturas-fuente/:id/historial` | Paginado. |
+| GET | `/quema-nacional?fecha&tipoCorte` | Una fila por fecha+corte. |
+| POST · PATCH | `/quema-nacional` · `/quema-nacional/:id` | Mismo trato que `LECTURA_BALANCE` (decisión #14). |
+| GET | `/quema-nacional/:id/historial` | Paginado. |
+| GET | `/novedades` | Filtros: `desde`, `hasta`, `clienteId`, `fuenteId`. Paginado. |
+| POST · GET · PATCH | `/novedades` · `/novedades/:id` | `PATCH` no permite cambiar el origen (cliente↔fuente). **Sin DELETE**: no hay campo `activo` y el dominio es auditable; si hace falta borrar, se decide aparte. |
+| GET · POST · PATCH · DELETE | `/contactos` · `/contactos/:id` | Único recurso con borrado físico: es un directorio telefónico, no un dato operativo histórico. |
+| GET | `/reportes/balance-nacion?fecha&tipoCorte` | Query-calculado (decisión #15), vía `$queryRaw` parametrizado en el Repository. |
+| GET | `/reportes/consumo-por-sectores?fecha&tipoCorte` | Query-calculado (decisión #37): totales por sector y por región. |
+
+### 11.3 Notas de implementación (rebanada `LECTURA_BALANCE`)
+
+- **Capas**: `repositories/lectura-balance.repository.ts` (único lugar con Prisma; expone `ILecturaBalanceRepository`) → `services/lectura-balance.service.ts` (recibe la interfaz por constructor, no la implementación) → `controllers/` (traduce HTTP y valida con zod) → `despacho.routes.ts`.
+- **Corrección atómica**: el `PATCH` escribe la fila de historial y actualiza el valor **en una sola transacción**. Si fallara el historial no puede quedar el valor cambiado sin rastro (decisión #3).
+- **`usuarioId` de la fila vigente = quien fijó el valor actual**, no quien la creó originalmente; el historial guarda la cadena completa de quién cambió qué. Esto además resuelve quién "digita" las filas que crea el job de carry-forward: hereda el usuario del día anterior, sin necesidad de inventar un usuario "sistema".
+- **`P2002` se traduce a `CONFLICT` dentro del Repository**, para que el Service no conozca códigos de error de Prisma. Se intenta insertar y se traduce la violación, en vez de consultar-y-después-insertar (que sería una carrera entre dos reintentos simultáneos).
+- **Fechas ancladas a UTC** (`fechaToDate`/`dateToFecha`): la columna es `@db.Date` y así `"2026-09-10"` vuelve como `"2026-09-10"` sin corrimiento por la zona horaria del servidor. Verificado en la prueba end-to-end.
+- **Arranque fail-closed**: `shared/env.ts` valida la configuración con zod y **mata el proceso si falta `JWT_SECRET`** o mide menos de 32 caracteres. Preferible a levantar firmando tokens con un secreto vacío. (Esto detectó un bug real: `apps/api` no cargaba el `.env` de la raíz; se corrigió usando `dotenv -e ../../.env` en el script `dev`, igual que `packages/db`.)
+- **RBAC contra la BD, no contra el token**: el token dice *quién sos*, la consulta dice *qué podés hacer*. Un token viejo de alguien que cambió de departamento no alcanza para escribir.
+
+### 11.4 Abierto en este contrato
+
+- **`condicion` del Balance Nación**: el Excel real muestra `EMPAQUE` cuando la variación (recibido − transportado) es positiva y `DESEMPAQUE` cuando es negativa. **No está confirmado qué se muestra si la variación es exactamente 0**, ni si hay un umbral de tolerancia en vez de un corte en cero. El tipo hoy sólo declara los dos valores evidenciados.
+- **Volúmenes no negativos**: los schemas rechazan valores negativos (un volumen entregado no puede serlo, y "Desvío" es una `FUENTE`, decisión #5). Si existiera algún caso real de lectura negativa, hay que revisarlo.
+- **Borrado de novedades**: hoy no hay endpoint. Si los analistas necesitan borrar una novedad mal cargada, hay que decidir entre borrado físico o agregar soft-delete al modelo.
