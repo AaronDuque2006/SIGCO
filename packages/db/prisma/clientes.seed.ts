@@ -784,5 +784,12 @@ export const CLIENTES_SEED: ClienteSeed[] = [
     "region": "Occidente",
     "sector": "Eléctrico",
     "derivado": false
+  },
+  {
+    "nombre": "OTROS OCCIDENTE",
+    "sistema": "Ulé - Amuay",
+    "region": "Occidente",
+    "sector": "Otros",
+    "derivado": false
   }
 ];

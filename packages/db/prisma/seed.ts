@@ -18,14 +18,15 @@ const SISTEMAS = [
 ] as const;
 
 async function seedSistemaYFuente() {
-  if ((await prisma.sistema.count()) > 0) return;
-
   const sistemas = new Map<string, { id: number }>();
   for (const nombre of SISTEMAS) {
-    sistemas.set(nombre, await prisma.sistema.create({ data: { nombre } }));
+    const existente = await prisma.sistema.findFirst({ where: { nombre }, select: { id: true } });
+    sistemas.set(nombre, existente ?? (await prisma.sistema.create({ data: { nombre } })));
   }
 
   const anacoJosePLC = sistemas.get("Anaco - José - Puerto La Cruz - Sinorgas")!.id;
+  const anacoPuertoOrdaz = sistemas.get("Anaco - Puerto Ordaz")!.id;
+  const anacoCaracas = sistemas.get("Anaco - Caracas - Barquisimeto - Río Seco")!.id;
   const jusepinCriogenico = sistemas.get("Jusepín - Criogénico")!.id;
   const uleAmuay = sistemas.get("Ulé - Amuay")!.id;
 
@@ -61,9 +62,49 @@ async function seedSistemaYFuente() {
     { nombre: "Hacia Ramón Laguna", sistemaId: uleAmuay },
     { nombre: "Hacia La Pica-Ule Amuay", sistemaId: uleAmuay },
     { nombre: "Hacia La Pica-Retorno a Prod.", sistemaId: uleAmuay },
+
+    // Empresas Mixtas/LIC (decisión #47). El Manual DAO las llama textualmente
+    // "FUENTES QUE APORTAN GAS AL SISTEMA" (slide 27), y el bloque "APORTE" de
+    // la hoja FUENTES lleva volúmenes distintos a los que estas mismas empresas
+    // consumen como CLIENTE: son dos flujos, no uno.
+    { nombre: "Petro Monagas", sistemaId: anacoPuertoOrdaz },
+    { nombre: "Mavegas (Pesados)", sistemaId: anacoPuertoOrdaz },
+    { nombre: "Bitor (Extrapesados)", sistemaId: anacoPuertoOrdaz },
+    { nombre: "Petropiar", sistemaId: anacoPuertoOrdaz },
+    { nombre: "Petro Delta", sistemaId: anacoPuertoOrdaz },
+    { nombre: "Gas Guárico", sistemaId: anacoCaracas },
+    { nombre: "Ypergas", sistemaId: anacoCaracas },
+    { nombre: "Cardón IV", sistemaId: uleAmuay },
+    { nombre: "PAGMI", sistemaId: anacoJosePLC },
   ];
 
-  await prisma.fuente.createMany({ data: fuentes });
+  await insertarFaltantes(
+    fuentes,
+    (f) => `${f.nombre}|${f.sistemaId}`,
+    async () =>
+      (await prisma.fuente.findMany({ select: { nombre: true, sistemaId: true } })).map(
+        (f) => `${f.nombre}|${f.sistemaId}`,
+      ),
+    (nuevas) => prisma.fuente.createMany({ data: nuevas }),
+  );
+}
+
+// Inserta sólo lo que todavía no está. Permite ampliar un catálogo sin borrar
+// la base ni duplicar filas al re-correr el seed.
+//
+// La clave no puede ser sólo el nombre: el Excel real trae clientes homónimos
+// legítimos (ALCASA en dos regiones, y una bolsa "OTROS" por sistema), así que
+// cada catálogo define qué combinación lo identifica.
+async function insertarFaltantes<T>(
+  deseadas: T[],
+  clave: (item: T) => string,
+  existentes: () => Promise<string[]>,
+  crear: (nuevas: T[]) => Promise<unknown>,
+): Promise<number> {
+  const yaEstan = new Set(await existentes());
+  const faltantes = deseadas.filter((d) => !yaEstan.has(clave(d)));
+  if (faltantes.length > 0) await crear(faltantes);
+  return faltantes.length;
 }
 
 async function seedRegionOperativa() {
@@ -235,8 +276,6 @@ async function seedInsumoProductoServicio() {
 // el sector salen de las fórmulas de "Consumo por Sectores", no de inferir por
 // el nombre.
 async function seedClientes() {
-  if ((await prisma.cliente.count()) > 0) return;
-
   const [sistemas, regiones, sectores] = await Promise.all([
     prisma.sistema.findMany({ select: { id: true, nombre: true } }),
     prisma.regionOperativa.findMany({ select: { id: true, nombre: true } }),
@@ -248,14 +287,20 @@ async function seedClientes() {
     return fila.id;
   };
 
-  await prisma.cliente.createMany({
-    data: CLIENTES_SEED.map((c) => ({
+  await insertarFaltantes(
+    CLIENTES_SEED.map((c) => ({
       nombre: c.nombre,
       sistemaId: idPor(sistemas, c.sistema, "sistema"),
       regionId: idPor(regiones, c.region, "región"),
       sectorId: idPor(sectores, c.sector, "sector"),
     })),
-  });
+    (c) => `${c.nombre}|${c.sistemaId}|${c.regionId}`,
+    async () =>
+      (await prisma.cliente.findMany({ select: { nombre: true, sistemaId: true, regionId: true } })).map(
+        (c) => `${c.nombre}|${c.sistemaId}|${c.regionId}`,
+      ),
+    (nuevos) => prisma.cliente.createMany({ data: nuevos }),
+  );
 }
 
 async function main() {
