@@ -129,7 +129,6 @@ model LecturaBalance {
   fecha         DateTime  @db.Date
   tipoCorte     TipoCorte @map("tipo_corte")
   volumenMmpced Decimal   @map("volumen_mmpced") @db.Decimal(14, 4)
-  estado        String
   usuarioId     Int       @map("usuario_id")
 
   cliente   Cliente                   @relation(fields: [clienteId], references: [id])
@@ -145,7 +144,6 @@ model LecturaBalanceHistorial {
   id               BigInt   @id @default(autoincrement())
   lecturaId        BigInt   @map("lectura_id")
   volumenMmpcedAnt Decimal  @map("volumen_mmpced_ant") @db.Decimal(14, 4)
-  estadoAnt        String   @map("estado_ant")
   usuarioId        Int      @map("usuario_id")
   modificadoEn     DateTime @default(now()) @map("modificado_en")
 
@@ -160,7 +158,6 @@ model LecturaFuente {
   fuenteId      Int      @map("fuente_id")
   fecha         DateTime @db.Date
   volumenMmpced Decimal  @map("volumen_mmpced") @db.Decimal(14, 4)
-  estado        String
   usuarioId     Int      @map("usuario_id")
 
   fuente    Fuente                   @relation(fields: [fuenteId], references: [id])
@@ -176,7 +173,6 @@ model LecturaFuenteHistorial {
   id               BigInt   @id @default(autoincrement())
   lecturaFuenteId  BigInt   @map("lectura_fuente_id")
   volumenMmpcedAnt Decimal  @map("volumen_mmpced_ant") @db.Decimal(14, 4)
-  estadoAnt        String   @map("estado_ant")
   usuarioId        Int      @map("usuario_id")
   modificadoEn     DateTime @default(now()) @map("modificado_en")
 

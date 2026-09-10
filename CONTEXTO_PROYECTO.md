@@ -148,6 +148,7 @@ ctrl-operacional-gas/
 32. Distinción ENUM técnico vs. catálogo editable: ENUM de base de datos solo para campos **estructurales** (el sistema ramifica lógica según el valor, ej. `tipo_corte`, `tipo_red`, `dimension` de `ESTADO_TELEMETRIA`); catálogo editable en tabla para listas **de negocio** que crecen sin tocar código (estados, tipos de actividad, insumos).
 33. **Nombre oficial del sistema: SICOG** (Sistema de Control Operacional de Gas) — elegido por no chocar con nombres de sistemas reales ya existentes en la operación (`SISUGAS`, `WEBGAS`, `Infoplus21`) y por no favorecer a un solo dominio.
 34. **Mecánica real de PUNTUAL/CIERRE_PROMEDIO** (corrige la decisión #2, aplica igual a `LECTURA_BALANCE` y `QUEMA_NACIONAL` — ver #14): el valor `PUNTUAL` de un cliente/fecha (o de la quema nacional/fecha) se puede corregir varias veces durante el día; cada corrección genera una fila en su propio `*_HISTORIAL` (mecanismo ya existente, reusado tal cual). Al cumplirse las 24 horas se calcula `CIERRE_PROMEDIO` como la **media aritmética simple** (no ponderada por el tiempo que cada valor estuvo vigente) de todos los valores que tuvo el `PUNTUAL` ese día — el historial de ese día más el valor final vigente —, y **se guarda como fila propia** (no es query-calculado como "Balance Nación", decisión #15, porque alimenta el informe formal de cierre). El `PUNTUAL` del día siguiente **arranca con el último valor del día anterior** (carry-forward), nunca en blanco — ese arranque es lógica de Service, no cambia el schema.
+35. **Se elimina el campo `estado` (Cerrado/Pendiente) de `LECTURA_BALANCE` y `LECTURA_FUENTE`, y `estado_ant` de sus respectivos `*_HISTORIAL`** — corrige las decisiones #13 y #34 en este punto específico. Motivo: (a) no existe columna equivalente en ninguna de las hojas reales auditadas de `NUEVO_BALANCE_ACTUALIZADO.xlsm`, era una suposición previa sin evidencia; (b) el registro "cerrado" nunca restringe edición (decisión #3, cualquier analista corrige cualquier registro), por lo que el campo no gatilla ninguna regla de negocio real; (c) tras la decisión #34, `CIERRE_PROMEDIO` se deriva automáticamente a las 24h, lo que reduce aún más la utilidad de un estado manual. El historial de auditoría (`*_HISTORIAL`) sigue siendo obligatorio — esto no cambia, solo se retira el campo `estado` en sí. **Impacto**: actualizar `schema.prisma` (quitar `estado`/`estadoAnt` de `LecturaBalance`, `LecturaBalanceHistorial`, `LecturaFuente`, `LecturaFuenteHistorial`) y, si ya se generó, la migración de Prisma.
 
 ---
 
@@ -232,24 +233,20 @@ erDiagram
     date fecha
     string tipo_corte
     numeric volumen_mmpced
-    string estado
     int usuario_id FK }
   LECTURA_BALANCE_HISTORIAL { bigint id PK
     bigint lectura_id FK
     numeric volumen_mmpced_ant
-    string estado_ant
     int usuario_id FK
     timestamp modificado_en }
   LECTURA_FUENTE { bigint id PK
     int fuente_id FK
     date fecha
     numeric volumen_mmpced
-    string estado
     int usuario_id FK }
   LECTURA_FUENTE_HISTORIAL { bigint id PK
     bigint lectura_fuente_id FK
     numeric volumen_mmpced_ant
-    string estado_ant
     int usuario_id FK
     timestamp modificado_en }
   QUEMA_NACIONAL { bigint id PK
@@ -394,8 +391,13 @@ erDiagram
 ### 9.3 Mantenimiento / histórico
 5. `SOLICITANTE` en actividades del Access viejo (campo texto libre) — ¿normalizar a FK? (bajo prioridad, dato histórico).
 
+### 9.6 Despacho — verificar
+6. **"Quema Puntual" vs. "Quema TyD"**: `QUEMA_NACIONAL` con `tipo_corte` asume que son el mismo dato visto en dos cortes (puntual/cierre_promedio) — esta equivalencia **no está confirmada explícitamente**, quedó como supuesto implícito al reusar el patrón de `LECTURA_BALANCE`. En el Excel real, "Quema Puntual" aparece en la hoja `FUENTES` y "Quema TyD" aparece por separado en `EJECUTIVO PUNTUAL` y como categoría del gráfico de "Consumo por Sectores" — "TyD" podría significar Transporte y Distribución, es decir, un tipo de quema distinto (por red), no el mismo valor en otro corte. Confirmar antes de dar el diseño de `QUEMA_NACIONAL` por definitivo.
+7. **Granularidad real del catálogo `FUENTE`**: al revisar la hoja `FUENTES` de `NUEVO_BALANCE_ACTUALIZADO.xlsm` se detectaron entradas más finas de lo esperado — San Joaquín aparece dividido en "Tren A y B" / "Tren C", y hay una sección "Directo a Ventas" con ~8 renglones adicionales (RECAT SJ, SJB FI FII, SOTO, AGUASAY 5A, BAJO GUANIPA, ETSJ, ZAPATO VIEJO, CORREDOR JUSEPIN-CRIOGENICO). No está confirmado si el catálogo `FUENTE` ya contempla esta granularidad o si el "consistente, sin gaps" de la sección 5 se refiere solo a la estructura general — verificar contra el estado actual del catálogo antes de continuar.
+
 ### 9.4 Implementación (no son decisiones de negocio)
 6. ~~Escribir el `schema.prisma` completo~~ **Hecho** (`packages/db/prisma/schema.prisma`: Dominios A/B/E + Autorización + tablas de seguridad, con `@@unique`/`@@index`). Falta correr la migración inicial contra Supabase (pendiente de credenciales) y generar seed data (ver punto 9).
+6b. ~~Sincronizar `schema.prisma` con la decisión #35~~ **Hecho** — se quitó `estado` de `LecturaBalance`/`LecturaFuente` y `estadoAnt` de sus `*Historial`. No existía migración inicial aún, así que no hizo falta una migración correctiva; verificado con `prisma generate` (sin errores) y sin referencias sueltas a esos campos en `apps/web`/`apps/api`.
 7. `CHECK` de "exactamente uno" (`cliente_id`/`fuente_id`) en `NOVEDAD_OPERATIVA` y `CONTACTO` — **pendiente**: Prisma no soporta `CHECK` arbitrario declarativo, hay que agregarlo a mano al SQL generado por `prisma migrate dev --create-only` antes de aplicarlo.
 8. ~~`UNIQUE(estacion_id, fecha_reporte)` en `REPORTE_TELEMETRIA_ESTACION`~~ **Hecho** en el schema (además de `UNIQUE(cliente_id, fecha, tipo_corte)` en `LECTURA_BALANCE`, `UNIQUE(fuente_id, fecha)` en `LECTURA_FUENTE` y `UNIQUE(producto_servicio_id, anio, mes)` en `ACTIVIDAD_META`, derivadas de las decisiones #2 y #30).
 9. Seed data real: 9 sistemas, 4 regiones de Despacho, 6 regiones de Mantenimiento, catálogos iniciales de `INSUMO`/`PRODUCTO_SERVICIO` de Mantenimiento (de `ACTIVIDADES_MDC_FINAL_V4.xls`), valores iniciales de `ESTADO_TELEMETRIA` por dimensión.
