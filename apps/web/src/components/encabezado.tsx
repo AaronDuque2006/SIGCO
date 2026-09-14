@@ -29,15 +29,24 @@ export function Encabezado() {
             {sesion.esSuperadmin ? " · Superadmin" : ""}
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={() =>
-            logout.mutate(undefined, { onSuccess: () => router.replace("/login") })
-          }
-          disabled={logout.isPending}
-        >
-          Salir
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Sólo se muestra a quien puede usarla. La puerta real es el 403 de
+              `requireSuperadmin`, que además deja registro del intento. */}
+          {sesion.esSuperadmin ? (
+            <Button variant="ghost" onClick={() => router.push("/usuarios")}>
+              Usuarios
+            </Button>
+          ) : null}
+          <Button
+            variant="outline"
+            onClick={() =>
+              logout.mutate(undefined, { onSuccess: () => router.replace("/login") })
+            }
+            disabled={logout.isPending}
+          >
+            Salir
+          </Button>
+        </div>
       </div>
     </header>
   );
