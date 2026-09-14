@@ -57,9 +57,10 @@ abiertas.
 
 ## Queda pendiente
 
-1. **Probar el recorrido en un navegador**: crear el superadmin, entrar, que
-   fuerce el cambio, y dejar la pestaña quieta 15 minutos para ver si el refresh
-   automático funciona.
+1. ~~**Probar el recorrido en un navegador**~~ **Hecho por el owner**: crear el
+   superadmin, entrar y el cambio forzado funcionan contra un cliente real.
+   Falta sólo dejar una pestaña quieta 15 minutos para ver la renovación
+   automática del token, que no se ejercitó.
 2. **Balance Diario**, la primera pantalla operativa.
 3. Resto de las rebanadas de Despacho, la API de Mantenimiento/Actividades y la
    pantalla de gestión de usuarios. Ver `CONTEXTO_PROYECTO.md` §10.
