@@ -210,6 +210,13 @@ ctrl-operacional-gas/
     - **Cambiar la propia contraseña exige la actual y revoca todas las sesiones**, emitiendo un par nuevo para la sesión en curso: si la contraseña se cambió porque alguien más la conocía, esa sesión ajena tiene que morir ahí. Lo mismo al reiniciarla el superadmin.
     - Las dos columnas (`debe_cambiar_password`, `password_expira_en`) describen **un solo estado** y se amarran con un `CHECK` en la base: una contraseña definitiva nunca lleva vencimiento y una temporal siempre lo lleva.
 55. **El primer superadmin se crea con un comando de arranque único, fuera de la API.** `pnpm --filter api run crear-superadmin <nombre>` crea la cuenta, imprime su contraseña temporal una sola vez y **se niega a correr si ya existe un superadmin** — de ahí en adelante las cuentas se crean por la API, auditadas. Resuelve el huevo y la gallina que dejaba la decisión #11 (gestión exclusiva del superadmin, sin auto-registro): sin esto, la única forma de crear la primera cuenta sería escribir SQL y un hash bcrypt a mano contra la base de producción. Se descartó sembrarlo desde el seed con credenciales de `.env` porque deja una contraseña real escrita en un archivo de configuración.
+56. **La revocación de sesiones se sella con una fecha en `USUARIO`, porque revocar el refresh no alcanza.** El access token es un JWT sin estado: una vez emitido, la API no puede retirarlo y vale hasta que expire. Revocar las filas de `SESION_REFRESH` corta la **renovación**, pero no el token que ya está en manos de alguien. En la verificación end to end esto se reprodujo: tras cambiar la contraseña porque un tercero la conocía, la sesión ajena siguió leyendo datos de Despacho con normalidad hasta 15 minutos después. La promesa de la decisión #54 ("esa sesión ajena tiene que morir ahí") no se estaba cumpliendo.
+    - **El mecanismo**: `USUARIO.sesiones_invalidas_antes_de` guarda el instante de la última revocación y `requireAuth` rechaza todo token emitido antes de esa marca. Se sella dentro de `establecerPassword` del repositorio, que es el único punto por el que pasan tanto el reinicio del superadmin como el cambio propio: puesto en los Services, un tercer camino podría olvidarlo.
+    - **Por qué se aceptó el costo de una consulta por petición**: el argumento a favor de un JWT sin estado es ahorrar el viaje a la base, pero la API ya consultaba la base en casi toda ruta protegida (`requirePasswordVigente`, `requireSuperadmin`, `requireDepartamento`), así que ese ahorro no se estaba cobrando. Se descartó acortar el TTL del access token: encoge la ventana, no la cierra, y multiplica los refresh.
+    - **El token lleva un `iatMs` propio** además del `iat` estándar, que sólo tiene precisión de segundos. Cambiar la contraseña sella la revocación y emite el par nuevo dentro del mismo segundo: comparando por segundo, la sesión recién entregada se mataría a sí misma.
+    - **Hacia afuera el rechazo es indistinguible de un token vencido** (mismo 401, mismo mensaje), para no revelar que la sesión fue revocada.
+    - **El logout no sella**: cierra su propia sesión, no las de los otros dispositivos de la persona.
+
 ---
 
 ## 7. ERD consolidado (vigente)
@@ -294,7 +301,8 @@ erDiagram
     boolean bloqueado
     boolean es_superadmin "rol de sistema, ortogonal al puesto (#53)"
     boolean debe_cambiar_password "true mientras use la temporal (#54)"
-    timestamp password_expira_en "vigencia de la temporal, null = definitiva" }
+    timestamp password_expira_en "vigencia de la temporal, null = definitiva"
+    timestamp sesiones_invalidas_antes_de "sello de revocacion de access tokens (#56)" }
   LECTURA_BALANCE { bigint id PK
     int cliente_id FK
     date fecha
@@ -481,9 +489,11 @@ erDiagram
 
 ## 10. Próximo paso inmediato
 
-**Estado al cierre de la sesión del 2026-09-14**: base de datos migrada y sembrada con los catálogos reales (7 sistemas, 31 fuentes, 111 clientes); contratos de API escritos para Despacho (§11), `auth` (§12) y gestión de usuarios (§13). Verificado end to end contra la BD real en sesiones anteriores: el módulo `auth` completo, la rebanada `LECTURA_BALANCE` y el job de cierre diario.
+**Estado al cierre de la segunda sesión del 2026-09-14**: base de datos migrada y sembrada con los catálogos reales (7 sistemas, 31 fuentes, 111 clientes); contratos de API escritos para Despacho (§11), `auth` (§12) y gestión de usuarios (§13). Verificado end to end contra la BD real: el módulo `auth` completo, la rebanada `LECTURA_BALANCE`, el job de cierre diario y —desde esta sesión— **toda la gestión de usuarios (§13)**.
 
-⚠️ **La gestión de usuarios (§13) está escrita pero NO verificada todavía** — falta correr la migración `20260914120000_gestion_usuarios`, el typecheck y las pruebas end to end. No se pudo hacer en la sesión en que se escribió porque `node` no estaba disponible en el entorno del asistente. **Es lo primero que hay que hacer antes de darla por buena.**
+✅ **La gestión de usuarios quedó verificada.** Las **cuatro** migraciones están aplicadas (aparecieron dos pendientes, no una: `20260910150000_check_exactamente_uno` tampoco se había corrido), los cuatro paquetes compilan limpios y se ejercitaron contra la BD real el arranque en frío, el cambio forzado, las cinco reglas del §13.2, el bloqueo, la auditoría del 403, el vencimiento de la temporal y las diez reglas de contraseña. Las filas de prueba se borraron: la tabla `USUARIO` quedó vacía.
+
+⚠️ **La verificación encontró y cerró un hueco de seguridad** (decisión #56): revocar las sesiones no invalidaba los access token ya emitidos, así que cambiar la contraseña por sospecha de robo dejaba viva la sesión ajena hasta 15 minutos. Se agregó el sello `USUARIO.sesiones_invalidas_antes_de` y la migración `20260914160000_sello_revocacion_sesiones`.
 
 **Ya se puede entrar al sistema**: `pnpm --filter api run crear-superadmin <nombre>` crea la primera cuenta (decisión #55) y de ahí en adelante el superadmin crea las demás por la API.
 
@@ -605,7 +615,8 @@ Mismo enfoque contract-first de la sección 11. Schemas en `packages/shared-vali
 - **El refresh se guarda con SHA-256, no con bcrypt.** Es un token aleatorio de 256 bits, no un secreto elegido por una persona: bcrypt existe para encarecer el ataque por diccionario y acá no aportaría nada, sólo latencia en cada refresh.
 - **No se filtra qué usuarios existen**: mismo mensaje y mismo `401` para "usuario inexistente" y "contraseña incorrecta", y **siempre** se ejecuta un `bcrypt.compare` (contra un hash señuelo si el usuario no existe) para que tampoco se distingan por el tiempo de respuesta. Que la cuenta está bloqueada se informa **sólo después** de acertar la contraseña.
 - **Los intentos fallidos NO bloquean la cuenta** (decisión #51). La única defensa automática es el rate limiting; el campo `bloqueado` lo maneja el superadmin a mano (§3). Motivo: bloquear por intentos fallidos habilita una denegación de servicio trivial — cualquiera que conozca un nombre de usuario podría dejar afuera a esa persona a propósito.
-- **Bloquear a alguien le corta el acceso de inmediato**: el refresh verifica `bloqueado` y, si lo está, revoca todas sus sesiones en vez de esperar a que expire el token.
+- **Bloquear a alguien le corta el acceso de inmediato**: el refresh verifica `bloqueado` y, si lo está, revoca todas sus sesiones en vez de esperar a que expire el token. Lo mismo `requireSuperadmin` y `requireDepartamento`, que resuelven contra la BD.
+- **Cambiar o reiniciar la contraseña invalida los access token ya emitidos** (decisión #56): `USUARIO.sesiones_invalidas_antes_de` sella el momento y `requireAuth` rechaza todo token anterior. Sin esto, revocar el refresh dejaba viva la sesión ajena hasta 15 minutos — reproducido en la verificación del 2026-09-14.
 - **Auditoría**: `LOG_LOGIN` registra todo intento (exitoso o no) con IP; `LOG_INTENTO_NO_AUTORIZADO` registra los 403 de `requireDepartamento` con ruta y motivo. Nunca se loguea la contraseña, el cuerpo del login ni los tokens.
 - **`trust proxy` activado**: Coolify termina TLS por delante, así que sin esto `req.ip` sería siempre la del proxy y tanto el rate limiting como los logs quedarían inservibles.
 
