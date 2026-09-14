@@ -91,9 +91,9 @@ export default function CambiarPasswordPage() {
               {...form.register("passwordNueva")}
             />
             <p id="ayuda-password" className="text-xs text-muted-foreground">
-              Mínimo {PASSWORD_MIN_LARGO} caracteres. No se exigen mayúsculas, números
-              ni símbolos: una frase larga y fácil de recordar es más segura que{" "}
-              <span className="font-mono">Clave2026!</span>
+              Mínimo {PASSWORD_MIN_LARGO} caracteres, con al menos una letra y un
+              número. No se exigen mayúsculas ni símbolos, y no se aceptan
+              contraseñas obvias ni palabras del trabajo.
             </p>
             <MensajeDeCampo texto={form.formState.errors.passwordNueva?.message} />
           </div>

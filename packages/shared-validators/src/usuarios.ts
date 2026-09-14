@@ -4,23 +4,26 @@ import { paginationQuerySchema } from "./common.js";
 // ---------------------------------------------------------------------------
 // Reglas de contraseña (decisión #52)
 // ---------------------------------------------------------------------------
-// Se sigue NIST SP 800-63B: longitud mínima alta y lista de bloqueo, SIN
-// reglas de composición. Exigir "una mayúscula, un número y un símbolo"
-// empuja a patrones predecibles (`Pdvsa2026!` cumple las cuatro reglas y está
-// en el primer millar de cualquier diccionario de ataque) y de paso rechaza
-// frases largas que sí son fuertes. Longitud + lista de bloqueo compran mucha
-// más entropía real que los cuatro tipos de carácter.
+// Mínimo 6 caracteres, con al menos una letra y un número (decisión #58, que
+// ajusta la #52). La regla anterior seguía NIST SP 800-63B —mínimo 12 y nada
+// de reglas de composición— y se bajó a pedido del owner porque la longitud
+// estaba fastidiando a la gente.
+//
+// El intercambio conviene tenerlo presente: a 6 caracteres la longitud ya no
+// es la que defiende la cuenta. Lo que queda parando lo que un atacante prueba
+// primero es la **lista de bloqueo**, y por eso acá se amplió en vez de
+// recortarse. La otra defensa es el rate limiting del login (5 intentos
+// fallidos cada 15 minutos, §12.2), que hace inviable recorrer el espacio de
+// 6 alfanuméricos por fuerza bruta contra el servidor.
 
-export const PASSWORD_MIN_LARGO = 12;
+export const PASSWORD_MIN_LARGO = 6;
 
 // Límite duro de bcrypt, no una decisión de política: bcrypt sólo mira los
 // primeros 72 bytes y descarta el resto en silencio. Sin este tope, dos
 // contraseñas que difieren después del byte 72 serían la misma contraseña.
 export const PASSWORD_MAX_BYTES = 72;
 
-// Términos que un atacante contra *este* sistema prueba primero. Se dejan
-// afuera a propósito palabras genéricas del español como "gas" o "despacho":
-// aparecen de forma natural en frases largas y legítimas.
+// Términos que un atacante contra *este* sistema prueba primero.
 const TERMINOS_INSTITUCIONALES = [
   "pdvsa",
   "sicog",
@@ -39,6 +42,15 @@ const BASES_DEBILES = [
   "maracaibo", "anaco", "secreto", "usuario", "sistema", "cambiame",
   "temporal", "prueba", "test", "root", "master", "analista", "supervisor",
   "gerente", "ingeniero", "superintendente",
+  // Vocabulario del dominio. Antes quedaban afuera a propósito, porque con un
+  // mínimo de 12 aparecían de forma natural dentro de frases largas y
+  // legítimas. Con un mínimo de 6 eso ya no pasa —una contraseña de 6 no es
+  // una frase— y en cambio son lo primero que alguien escribe: `gas123`,
+  // `planta1`. La comparación es contra el esqueleto completo, así que
+  // "el gas fluye por el sistema" (esqueleto `elgasfluyeporelsistema`) sigue
+  // pasando sin problema.
+  "gas", "despacho", "planta", "estacion", "operaciones", "control", "turno",
+  "guardia", "nurgas", "anaco", "jusepin", "muscar", "tablazo",
 ];
 
 const esqueleto = (s: string): string =>
@@ -61,10 +73,14 @@ const largoEnBytes = (s: string): number => {
   return bytes;
 };
 
-// Detecta `aaaaaaaaaaaa`, `123456789012`, `abcdefghijkl` y similares, que
-// pasan la longitud mínima sin aportar entropía.
+// Detecta `aaaaaa`, `123456`, `abcdef` y similares, que pasan la longitud
+// mínima sin aportar entropía.
+//
+// El piso de caracteres distintos es 4 y no 5: con un mínimo de 6, exigir 5
+// distintos rechazaría cosas razonables como `mama12` y la regla dejaría de
+// atajar basura para pasar a estorbar.
 const esSecuenciaORepeticion = (s: string): boolean => {
-  if (new Set(s).size < 5) return true;
+  if (new Set(s).size < 4) return true;
   let ascendente = true;
   let descendente = true;
   for (let i = 1; i < s.length; i++) {
@@ -106,6 +122,13 @@ export const passwordSchema = z
   })
   .refine((s) => !esSecuenciaORepeticion(s), {
     message: "La contraseña no puede ser una secuencia ni una repetición de caracteres.",
+  })
+  // Regla de composición pedida por el owner (decisión #58). No se exige
+  // mayúscula ni símbolo: pedir los cuatro tipos empuja a `Gas2026!` y no
+  // compra seguridad real. Los símbolos siguen permitidos, sólo que no
+  // obligatorios.
+  .refine((s) => /\p{L}/u.test(s) && /\p{Nd}/u.test(s), {
+    message: "La contraseña debe tener al menos una letra y un número.",
   });
 
 // ---------------------------------------------------------------------------
