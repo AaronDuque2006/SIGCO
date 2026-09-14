@@ -237,6 +237,8 @@ ctrl-operacional-gas/
     - **Con corte `CIERRE_PROMEDIO` sólo se pueden corregir filas existentes, no crear nuevas**, porque esas filas las escribe únicamente el job de medianoche (decisión #42). La pantalla lo dice y deshabilita las celdas vacías en vez de dejar que el backend responda un error que nadie esperaba.
     - **Abierto**: cuántos decimales mostrar. Hoy son entre 2 y 4 (la columna es `Decimal(14,4)`), pero la convención real del área no se preguntó todavía. Es justo el tipo de detalle que sólo aparece con la pantalla en uso.
 
+61. **Los catálogos del organigrama se sirven desde la gestión de usuarios, no desde un módulo de catálogos aparte.** `GET /api/usuarios/catalogos` devuelve puestos y departamentos juntos. Apareció construyendo la pantalla: el §13 no tenía forma de listarlos, así que el formulario de alta no podía armar sus desplegables. Se descartó cablear los ids en el frontend —dependen del orden del seed y en una base nueva podrían ser otros— y se descartó un módulo de catálogos transversal por sobre-diseño para dos listas de cinco y cuatro filas cuyo único consumidor hoy es esta pantalla; viviendo acá heredan además su misma puerta, que es sólo el superadmin. Van en una sola respuesta porque se piden juntos. Los puestos se ordenan **por id y no alfabéticamente**: el id sigue la jerarquía del organigrama (Gerente primero, Analista último, decisión #23), que es como la gente espera verlos.
+
 ---
 
 ## 7. ERD consolidado (vigente)
@@ -675,6 +677,7 @@ Todo `/api/usuarios` va detrás de tres puertas: **autenticado**, **con la contr
 
 | Método | Ruta | Notas |
 |---|---|---|
+| GET | `/api/usuarios/catalogos` | Puestos y departamentos para el formulario de alta. **Va antes que `/:id` en el router**, que si no se traga la ruta. |
 | POST | `/api/usuarios` | Alta. `201` con el usuario **y la contraseña temporal — única vez que existe en claro**. |
 | GET | `/api/usuarios` | Listado paginado. Filtros: `busqueda` (por nombre), `soloBloqueados`. |
 | GET | `/api/usuarios/:id` | Detalle. |
