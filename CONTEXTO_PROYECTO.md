@@ -197,6 +197,19 @@ ctrl-operacional-gas/
 50. **El refresh token rota en cada uso y el reuso se trata como robo.** Cada `POST /auth/refresh` emite un par nuevo y revoca el anterior; si llega un refresh **ya revocado**, se revocan **todas** las sesiones de ese usuario y se registra el hecho. El `@unique` sobre `token_hash` y la columna `revocado_en` ya estaban en el schema para esto. El token se guarda con **SHA-256, no bcrypt**: es aleatorio de 256 bits, no un secreto elegido por una persona, así que bcrypt sólo agregaría latencia sin encarecer ningún ataque real.
 51. **Los intentos fallidos de login NO bloquean la cuenta.** La única defensa automática es el rate limiting (5 intentos fallidos / 15 min); el campo `USUARIO.bloqueado` queda como acción manual del superadmin (§3, decisión #11). Motivo: bloquear por intentos fallidos habilita una denegación de servicio trivial — cualquiera que conozca un nombre de usuario podría dejar afuera a esa persona hasta que un administrador la libere. En cambio, **bloquear a alguien sí le corta el acceso de inmediato**: el refresh verifica `bloqueado` y revoca sus sesiones en vez de esperar a que expire el token.
 
+52. **Reglas de complejidad de contraseña: longitud y lista de bloqueo, SIN reglas de composición.** Cierra el pendiente que §12.3 dejaba abierto. Concreto: **mínimo 12 caracteres**, **máximo 72 bytes**, lista de bloqueo local, y **sin expiración periódica obligatoria**. Se sigue NIST SP 800-63B. Motivo de no exigir "una mayúscula, un número y un símbolo": esas reglas empujan a patrones predecibles —`Pdvsa2026!` cumple las cuatro y está en el primer millar de cualquier diccionario de ataque— y de paso rechazan frases largas que sí son fuertes; la longitud más la lista de bloqueo compran mucha más entropía real. Motivo de no forzar el cambio cada N días: produce `Gas2026-1`, `Gas2026-2`; se cambia ante sospecha, no por calendario.
+    - **El tope de 72 bytes no es política, es un límite duro de bcrypt**: bcrypt sólo mira los primeros 72 bytes y descarta el resto en silencio. Sin el tope, dos contraseñas que difieran después del byte 72 serían la misma contraseña. `loginSchema` aceptaba `max(200)`, así que este hueco existía y quedó cerrado.
+    - **La lista de bloqueo** cubre tres cosas: términos institucionales (`pdvsa`, `sicog`, `gasnatural`…), bases débiles conocidas comparadas contra el "esqueleto" de la contraseña (sin acentos, mayúsculas ni dígitos, de modo que `Contraseña2026!` colapsa a `contrasena` y cae), y secuencias o repeticiones (`aaaaaaaaaaaa`, `abcdefghijkl`). **No incluye a propósito** palabras genéricas del español como "gas" o "despacho": aparecen de forma natural en frases largas y legítimas.
+    - **La contraseña no puede contener el nombre de usuario.** La regla vive una sola vez en `shared-validators` (`passwordContieneNombre`) porque al cambiar la propia contraseña el nombre no viaja en el cuerpo, sale de la sesión.
+    - **`loginSchema` sigue sin validar la forma** — esto no cambia. Las reglas aplican al *crear* una contraseña, no al presentarla: rechazar por formato al entrar sólo le diría a un atacante qué no vale la pena probar.
+53. **El superadmin es un campo booleano de `USUARIO`, no un `PUESTO` más.** El catálogo `PUESTO` tiene 5 filas (Gerente, Superintendente, Supervisor, Ingeniero, Analista) y ninguna es "Superadmin", pero las decisiones #11, #21 y #31 lo dan por existente: no tenía representación en el modelo de datos. Se agrega `USUARIO.es_superadmin boolean` como **rol de sistema ortogonal al cargo**. Motivo: `PUESTO` modela el organigrama real de PDVSA (decisión #23, que no lo menciona) y la decisión #31 lo deja explícitamente fuera del negocio ("nunca Superadmin — no conoce el dominio"); meterlo como un puesto más obligaría a que quien administra cuentas no pueda tener además un cargo real, cuando en una gerencia de este tamaño va a ser la misma persona. Se descartó una tabla de roles con permisos por sobre-diseño para un solo rol. **Consecuencia**: `requireDepartamento` no cambia — un superadmin sin departamento sigue sin poder editar datos operativos, que es justo lo que #31 pide.
+54. **Contraseña temporal generada por el sistema, cambio forzado en el primer ingreso, vigencia de 72 horas.** Al crear un usuario —y al reiniciarle la contraseña— el sistema **genera** una temporal aleatoria (15 caracteres sobre un alfabeto de 56 sin caracteres que se confundan al dictarla: sin `0/O`, sin `1/l/I`) y la devuelve **una sola vez**; no se guarda en claro ni hay forma de volver a consultarla. Motivo de que la genere el sistema y no la escriba el superadmin: elegida a mano, en la práctica todas las cuentas arrancarían con la misma cadena y esa se volvería la llave maestra del sistema. Motivo de las 72 h: el modelo `USUARIO` **no tiene correo**, así que la entrega es en persona; 72 h cubren un fin de semana y un cambio de guardia sin dejar la cuenta abierta indefinidamente.
+    - **El cambio se fuerza, no se sugiere**: mientras `debe_cambiar_password` esté en `true`, la sesión sólo puede llamar a `PUT /api/auth/password` y `GET /api/auth/sesion`; todo lo demás responde 403 (`requirePasswordVigente`). Sin esto la temporal se quedaría puesta para siempre.
+    - **La vigencia se verifica en cada petición, no sólo al entrar**: si sólo se mirara en el login, entrar un minuto antes del vencimiento dejaría una sesión válida por los 7 días del refresh.
+    - **`UsuarioSesionDto.debeCambiarPassword`** existe para que el frontend sepa a dónde mandar a la persona; es una pista para la UI, **no** la defensa. La defensa es el 403 del backend.
+    - **Cambiar la propia contraseña exige la actual y revoca todas las sesiones**, emitiendo un par nuevo para la sesión en curso: si la contraseña se cambió porque alguien más la conocía, esa sesión ajena tiene que morir ahí. Lo mismo al reiniciarla el superadmin.
+    - Las dos columnas (`debe_cambiar_password`, `password_expira_en`) describen **un solo estado** y se amarran con un `CHECK` en la base: una contraseña definitiva nunca lleva vencimiento y una temporal siempre lo lleva.
+55. **El primer superadmin se crea con un comando de arranque único, fuera de la API.** `pnpm --filter api run crear-superadmin <nombre>` crea la cuenta, imprime su contraseña temporal una sola vez y **se niega a correr si ya existe un superadmin** — de ahí en adelante las cuentas se crean por la API, auditadas. Resuelve el huevo y la gallina que dejaba la decisión #11 (gestión exclusiva del superadmin, sin auto-registro): sin esto, la única forma de crear la primera cuenta sería escribir SQL y un hash bcrypt a mano contra la base de producción. Se descartó sembrarlo desde el seed con credenciales de `.env` porque deja una contraseña real escrita en un archivo de configuración.
 ---
 
 ## 7. ERD consolidado (vigente)
@@ -278,7 +291,10 @@ erDiagram
     int puesto_id FK
     int departamento_id "FK, nullable (Gerente/Superadmin)"
     int supervisor_id "FK a USUARIO, nullable"
-    boolean bloqueado }
+    boolean bloqueado
+    boolean es_superadmin "rol de sistema, ortogonal al puesto (#53)"
+    boolean debe_cambiar_password "true mientras use la temporal (#54)"
+    timestamp password_expira_en "vigencia de la temporal, null = definitiva" }
   LECTURA_BALANCE { bigint id PK
     int cliente_id FK
     date fecha
@@ -465,15 +481,18 @@ erDiagram
 
 ## 10. Próximo paso inmediato
 
-**Estado al cierre de la sesión del 2026-09-10**: base de datos migrada y sembrada con los catálogos reales (7 sistemas, 31 fuentes, 111 clientes); contratos de API escritos para Despacho (§11) y `auth` (§12); funcionando y verificado end to end contra la BD real: el módulo `auth` completo, la rebanada `LECTURA_BALANCE` y el job de cierre diario.
+**Estado al cierre de la sesión del 2026-09-14**: base de datos migrada y sembrada con los catálogos reales (7 sistemas, 31 fuentes, 111 clientes); contratos de API escritos para Despacho (§11), `auth` (§12) y gestión de usuarios (§13). Verificado end to end contra la BD real en sesiones anteriores: el módulo `auth` completo, la rebanada `LECTURA_BALANCE` y el job de cierre diario.
+
+⚠️ **La gestión de usuarios (§13) está escrita pero NO verificada todavía** — falta correr la migración `20260914120000_gestion_usuarios`, el typecheck y las pruebas end to end. No se pudo hacer en la sesión en que se escribió porque `node` no estaba disponible en el entorno del asistente. **Es lo primero que hay que hacer antes de darla por buena.**
+
+**Ya se puede entrar al sistema**: `pnpm --filter api run crear-superadmin <nombre>` crea la primera cuenta (decisión #55) y de ahí en adelante el superadmin crea las demás por la API.
 
 ### Por acá arranca la próxima sesión
 
-1. **Gestión de usuarios — es lo que desbloquea todo lo demás.** El login funciona pero **no hay forma de crear un usuario salvo por SQL**, así que hoy nadie puede entrar al sistema. Por la decisión #11 es exclusiva del superadmin y no hay auto-registro. Incluye alta, cambio de contraseña y bloquear/desbloquear.
-   - **Decisión pendiente del owner**: no hay **regla de complejidad de contraseña** definida. El login a propósito *no* valida formato (rechazar por forma sólo le diría a un atacante qué no probar), pero al **crear** una contraseña hace falta una regla.
-2. **Frontend con las dos pantallas que ya tienen backend** (login y Balance Diario). *Recomendación del asistente, no confirmada por el owner*: hacer esto **antes** de terminar las rebanadas restantes de Despacho, porque la pantalla real va a revelar cosas del contrato que desde el backend no se ven —si el filtro por sistema alcanza, si hacen falta subtotales en la grilla, si `OTROS (PUERTO ORDAZ)` se lee bien— y corregirlas ahora es más barato que con seis módulos construidos encima. El tradeoff: el backend de Despacho queda incompleto un tiempo más.
-3. **Resto de las rebanadas de Despacho**, con el contrato de §11 ya escrito: `LECTURA_FUENTE`, `QUEMA_NACIONAL`, `NOVEDAD_OPERATIVA`, `CONTACTO`, los catálogos y los dos reportes query-calculados.
-4. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de §11).
+1. **Frontend con las tres pantallas que ya tienen backend**: login, **cambio de contraseña forzado** (sin ésta nadie puede pasar del primer ingreso) y Balance Diario. *Recomendación del asistente, sigue sin confirmar por el owner*: hacer esto **antes** de terminar las rebanadas restantes de Despacho, porque la pantalla real va a revelar cosas del contrato que desde el backend no se ven —si el filtro por sistema alcanza, si hacen falta subtotales en la grilla, si `OTROS (PUERTO ORDAZ)` se lee bien— y corregirlas ahora es más barato que con seis módulos construidos encima. El tradeoff: el backend de Despacho queda incompleto un tiempo más.
+2. **Resto de las rebanadas de Despacho**, con el contrato de §11 ya escrito: `LECTURA_FUENTE`, `QUEMA_NACIONAL`, `NOVEDAD_OPERATIVA`, `CONTACTO`, los catálogos y los dos reportes query-calculados.
+3. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de §11).
+4. **Pantalla de gestión de usuarios** para el superadmin (el backend ya está, §13).
 
 ### Pendientes menores, no bloqueantes
 
@@ -482,6 +501,8 @@ erDiagram
 - El sector `Empresa Mixta` quedó con 0 clientes tras la decisión #47 — corresponde desactivarlo (soft-delete) si no se le encuentra uso.
 - Decidir si los aportes y transferencias entre sistemas (`APORTE A EYP`, `TRANSFERENCIA ICO-NURGAS`), excluidos del catálogo `CLIENTE` por la decisión #46, necesitan modelarse de otra forma.
 - Limpiar periódicamente las filas vencidas o revocadas de `SESION_REFRESH` (§12.3); podría ir en el mismo job del cierre diario.
+- Cargar una lista real de contraseñas filtradas en vez de la lista curada de ≈35 bases (§13.3).
+- Tener **al menos dos superadmins** desde el arranque: no hay recuperación técnica si el único pierde el acceso, y no se construyó una a propósito (§12.3).
 - Migrar la configuración del seed de `package.json#prisma` a `prisma.config.ts` antes de Prisma 7 (hoy sólo emite un warning).
 - Dominios C (Calidad de Gas) y D (Análisis Operacional) siguen sin diseñar: falta el Excel/especificación de cada uno (§9.1).
 - El prototipo visual del repo hermano sigue sin reflejar los cambios de diseño (§8).
@@ -590,6 +611,44 @@ Mismo enfoque contract-first de la sección 11. Schemas en `packages/shared-vali
 
 ### 12.3 Lo que todavía no existe
 
-- **Gestión de usuarios** (alta, cambio de contraseña, bloquear/desbloquear). Por la decisión #11 es exclusiva del superadmin y no hay auto-registro; hoy los usuarios se crean sólo por SQL o seed.
-- **Reglas de complejidad de contraseña**: no están definidas. El login a propósito **no** valida formato — rechazar por forma sólo le diría a un atacante qué no vale la pena probar —, pero al **crear** una contraseña hará falta una regla.
+- ~~**Gestión de usuarios**~~ **Hecha** — ver §13 (decisiones #52-#55).
+- ~~**Reglas de complejidad de contraseña**~~ **Definidas** — decisión #52. El login sigue a propósito **sin** validar formato; las reglas aplican al crear la contraseña.
 - **Limpieza de sesiones vencidas**: las filas de `SESION_REFRESH` expiradas o revocadas se acumulan. Conviene un borrado periódico, quizá en el mismo job del cierre diario.
+- **Recuperación sin superadmin disponible**: si la única persona con el rol se va de vacaciones o pierde su contraseña, no hay forma de recuperar el acceso salvo volver a la base. Mitigación operativa: tener **al menos dos** superadmins. No hay mecanismo técnico y no se construyó uno a propósito (cualquier "recuperación de emergencia" es una puerta trasera).
+
+---
+
+## 13. Contrato de la API — Gestión de usuarios
+
+Mismo enfoque contract-first de §11 y §12. Schemas en `packages/shared-validators/src/usuarios.ts`, DTOs en `packages/shared-types/src/usuarios.ts`. Decisiones #52-#55.
+
+### 13.1 Rutas
+
+Todo `/api/usuarios` va detrás de tres puertas: **autenticado**, **con la contraseña ya cambiada** y **superadmin** (decisión #11). El 403 de la última queda registrado en `LOG_INTENTO_NO_AUTORIZADO`, igual que el de `requireDepartamento`.
+
+| Método | Ruta | Notas |
+|---|---|---|
+| POST | `/api/usuarios` | Alta. `201` con el usuario **y la contraseña temporal — única vez que existe en claro**. |
+| GET | `/api/usuarios` | Listado paginado. Filtros: `busqueda` (por nombre), `soloBloqueados`. |
+| GET | `/api/usuarios/:id` | Detalle. |
+| PATCH | `/api/usuarios/:id` | Puesto, departamento, supervisor, `esSuperadmin`. Parcial. |
+| PUT | `/api/usuarios/:id/bloqueo` | `{ bloqueado: boolean }`. Bloquear revoca todas las sesiones de esa persona. |
+| POST | `/api/usuarios/:id/password-temporal` | Reinicio. `201` con una temporal nueva; revoca todas las sesiones. |
+| PUT | `/api/auth/password` | **Cambio de la propia contraseña.** Cualquier usuario autenticado. Vive en `auth` porque vuelve a emitir la sesión (cookies nuevas). |
+
+`PUT /api/auth/password` es **la única ruta protegida que no lleva `requirePasswordVigente`**: quien entró con una temporal tiene que poder cambiarla, y es lo único que puede hacer hasta entonces. `GET /api/auth/sesion` tampoco lo lleva, para que el frontend pueda leer `debeCambiarPassword` y saber a dónde mandar a la persona.
+
+**No hay endpoint de borrado.** Un usuario tiene filas de auditoría e historial colgando (`LECTURA_BALANCE`, `LOG_LOGIN`, `*_HISTORIAL`); dar de baja es `bloqueado = true`, no un `DELETE`. Mismo criterio de soft-delete que la decisión #31 para catálogos.
+
+### 13.2 Reglas que hace cumplir el Service
+
+- **Decisión #21**: un usuario debe pertenecer a un departamento **salvo** que sea Gerente o superadmin. Se verifica contra el estado *resultante* de un `PATCH`, no contra el que venía — cambiar sólo el puesto puede dejar sin departamento a alguien que sí necesita tenerlo.
+- **Nadie puede quitarse a sí mismo el superadmin, ni bloquear su propia cuenta.** Con esas dos reglas es imposible dejar al sistema sin ningún superadmin activo: el único que podría hacerlo sería él mismo.
+- **La cadena de supervisión no puede tener ciclos.** Al asignar supervisor se recorre la cadena hacia arriba; si el candidato ya está por debajo, se rechaza. Sin esto, el recorrido "un superior ve toda la cadena hacia abajo" (decisión #25) no terminaría nunca.
+- **El nombre de usuario se normaliza a minúsculas** y se acota a `[a-z0-9._-]`: sin espacios ni mayúsculas no hay dos nombres que se vean iguales y sean distintos al iniciar sesión. `loginSchema` sigue aceptando cualquier cosa, a propósito (§12.2).
+
+### 13.3 Abierto en este contrato
+
+- **No hay pantalla de "olvidé mi contraseña"** y no se planea: sin correo en el modelo `USUARIO`, la recuperación es pedirle al superadmin un reinicio en persona. Si más adelante se agrega correo institucional, esto se puede revisar.
+- **La lista de bloqueo de contraseñas es curada, no exhaustiva** (≈35 bases + 5 términos institucionales). Con el mínimo de 12 caracteres la mayoría de las contraseñas más comunes ya caen por longitud, pero cargar una lista real de las N más filtradas sería más sólido. Pendiente menor.
+- **El puesto del primer superadmin** lo pone el comando de arranque como `Analista` por defecto, porque el superadmin no tiene un cargo del organigrama que le corresponda por sí mismo (#53). Si la persona además tiene un cargo real, se corrige después por `PATCH`.

@@ -9,12 +9,14 @@ This directory (`SICOG`) is the home of the real monorepo for **SICOG** (Sistema
 **What exists today** (see `CONTEXTO_PROYECTO.md` §9/§10 for the authoritative state):
 
 - Monorepo scaffolded and installing cleanly; local Postgres via `docker compose up -d` (`pgvector/pgvector:pg16`, database `ctrl_operacional_gas`).
-- `packages/db`: full `schema.prisma` for the closed domains, two applied migrations, and a seed with the real catalogs — 7 systems, 31 sources, 111 clients, regions, sectors, departments, positions, telemetry states, and Mantenimiento's activity catalog. The seed is **additive and idempotent**: re-running it inserts only what is missing.
-- `packages/shared-validators` (zod inputs) and `packages/shared-types` (output DTOs) hold the **API contracts** — Despacho in `CONTEXTO_PROYECTO.md` §11, `auth` in §12.
-- `apps/api`: the full `auth` module (login, rotating refresh with reuse detection, logout, current session, rate limiting, audit logging — see §12), DB-backed RBAC, the `LECTURA_BALANCE` slice end to end (Repository → Service → Controller → routes), and the daily closing job.
+- `packages/db`: full `schema.prisma` for the closed domains, three migrations (the third, `20260914120000_gestion_usuarios`, **not applied yet**), and a seed with the real catalogs — 7 systems, 31 sources, 111 clients, regions, sectors, departments, positions, telemetry states, and Mantenimiento's activity catalog. The seed is **additive and idempotent**: re-running it inserts only what is missing.
+- `packages/shared-validators` (zod inputs) and `packages/shared-types` (output DTOs) hold the **API contracts** — Despacho in `CONTEXTO_PROYECTO.md` §11, `auth` in §12, user management in §13.
+- `apps/api`: the full `auth` module (login, rotating refresh with reuse detection, logout, current session, rate limiting, audit logging — see §12), DB-backed RBAC, the `LECTURA_BALANCE` slice end to end (Repository → Service → Controller → routes), the daily closing job, and user management (§13) — **written but not yet verified**, see §10.
 - `apps/web`: scaffolded with the confirmed stack, but no application screens yet.
 
-**Not built yet**: user management — logging in works but there is no way to create a user except by SQL, so **nobody can actually get in yet**; this is the first thing to do. Also missing: the remaining Despacho slices (`LECTURA_FUENTE`, `QUEMA_NACIONAL`, `NOVEDAD_OPERATIVA`, `CONTACTO`, and the two reports), the Mantenimiento/Actividades API, and every screen in `apps/web`.
+**Getting in**: `pnpm --filter api run crear-superadmin <nombre>` creates the first superadmin (decision #55); from there the superadmin creates the rest through `/api/usuarios`. New accounts get a system-generated 72-hour temporary password and must change it before they can do anything else (decision #54).
+
+**Not built yet**: every screen in `apps/web` — login, the forced password change, and Balance Diario are the three that already have a backend. Also missing: the remaining Despacho slices (`LECTURA_FUENTE`, `QUEMA_NACIONAL`, `NOVEDAD_OPERATIVA`, `CONTACTO`, and the two reports) and the Mantenimiento/Actividades API.
 
 A separate, unrelated repo at `../SIGCO-GAS-Prototipo-v1` holds an earlier throwaway React/Vite/Tailwind visual prototype (`control-operacional-prototipo.jsx`, 8 views, no backend). It predates several design decisions (telemetry redesign, Actividades module, department/hierarchy model) and has not been updated to match. Treat it as reference only unless the user asks to update or port from it.
 
