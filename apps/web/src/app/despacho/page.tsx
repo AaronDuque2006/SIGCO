@@ -2,14 +2,16 @@
 
 import type { FilaBalanceDiarioDto, TipoCorte } from "@sicog/shared-types";
 import { useMemo, useState } from "react";
+import Link from "next/link";
+import { CeldaVolumen } from "@/components/celda-volumen";
 import { Encabezado } from "@/components/encabezado";
 import { GuardiaSesion } from "@/components/guardia-sesion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatearVolumen, hoy, useGrillaBalance } from "@/lib/despacho";
+import { formatearVolumen, hoy, useGrillaBalance, useGuardarLectura } from "@/lib/despacho";
 import { useSesion } from "@/lib/sesion";
-import { CeldaVolumen } from "./celda-volumen";
+import { TarjetasBalance } from "./tarjetas-balance";
 
 export default function BalanceDiarioPage() {
   return (
@@ -58,12 +60,19 @@ function BalanceDiario() {
       <Encabezado />
       <main className="mx-auto w-full max-w-5xl p-4">
         <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
-          <h1 className="text-lg font-semibold tracking-tight">Balance diario</h1>
+          <div className="flex items-baseline gap-3">
+            <h1 className="text-lg font-semibold tracking-tight">Balance diario</h1>
+            <Link href="/despacho/fuentes" className="text-sm text-primary hover:underline">
+              Ir a lecturas de fuentes
+            </Link>
+          </div>
           <p className="text-sm text-muted-foreground">
             {cargadas} de {visibles.length} clientes con lectura · total{" "}
             <span className="font-mono text-foreground">{formatearVolumen(total)}</span> MMPCED
           </p>
         </div>
+
+        <TarjetasBalance fecha={fecha} tipoCorte={tipoCorte} />
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1.5">
@@ -188,7 +197,7 @@ function Tabla({
                 {fila.cliente.region.nombre}
               </td>
               <td className="px-3 py-1.5 text-right">
-                <CeldaVolumen
+                <CeldaCliente
                   fila={fila}
                   fecha={fecha}
                   tipoCorte={tipoCorte}
@@ -200,5 +209,40 @@ function Tabla({
         </tbody>
       </table>
     </div>
+  );
+}
+
+function CeldaCliente({
+  fila,
+  fecha,
+  tipoCorte,
+  puedeEditar,
+}: {
+  fila: FilaBalanceDiarioDto;
+  fecha: string;
+  tipoCorte: TipoCorte;
+  puedeEditar: boolean;
+}) {
+  const guardar = useGuardarLectura(fecha, tipoCorte);
+
+  // `CIERRE_PROMEDIO` sólo lo escribe el job de cierre (decisión #42): se puede
+  // corregir una fila existente, nunca crear una.
+  const editable = puedeEditar && (tipoCorte === "PUNTUAL" || fila.lectura !== null);
+
+  return (
+    <CeldaVolumen
+      valor={fila.lectura?.volumenMmpced ?? null}
+      etiqueta={`Volumen de ${fila.cliente.nombre} en MMPCED`}
+      editable={editable}
+      guardando={guardar.isPending}
+      error={guardar.error?.message ?? null}
+      onGuardar={(volumenMmpced) =>
+        guardar.mutate({
+          clienteId: fila.cliente.id,
+          lecturaId: fila.lectura?.id ?? null,
+          volumenMmpced,
+        })
+      }
+    />
   );
 }

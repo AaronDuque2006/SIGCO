@@ -1,8 +1,11 @@
 "use client";
 
 import type {
+  BalanceNacionDto,
   FilaBalanceDiarioDto,
+  FilaFuenteDiariaDto,
   LecturaBalanceDto,
+  LecturaFuenteDto,
   Paginated,
   TipoCorte,
 } from "@sicog/shared-types";
@@ -57,7 +60,11 @@ export function useGuardarLectura(fecha: string, tipoCorte: TipoCorte) {
             metodo: "PATCH",
             cuerpo: { volumenMmpced },
           }),
-    onSuccess: () => cliente.invalidateQueries({ queryKey: claveGrilla(fecha, tipoCorte) }),
+    onSuccess: () => {
+      void cliente.invalidateQueries({ queryKey: claveGrilla(fecha, tipoCorte) });
+      // El transportado del balance sale de estas lecturas.
+      void cliente.invalidateQueries({ queryKey: ["balance-nacion", fecha] });
+    },
   });
 }
 
@@ -72,3 +79,55 @@ export function hoy(): string {
 
 export const formatearVolumen = (v: number): string =>
   v.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+
+// ---------------------------------------------------------------------------
+// Fuentes y balance nación
+// ---------------------------------------------------------------------------
+
+export const claveGrillaFuentes = (fecha: string) => ["fuentes", fecha] as const;
+
+/** Las fuentes no tienen tipo de corte: el modelo guarda una lectura por
+ *  fuente y por día (decisión #34 no aplica acá). */
+export function useGrillaFuentes(fecha: string) {
+  return useQuery<Paginated<FilaFuenteDiariaDto>, ApiError>({
+    queryKey: claveGrillaFuentes(fecha),
+    queryFn: () =>
+      api<Paginated<FilaFuenteDiariaDto>>(`/despacho/lecturas-fuente?fecha=${fecha}`),
+  });
+}
+
+export function useGuardarLecturaFuente(fecha: string) {
+  const cliente = useQueryClient();
+  return useMutation<
+    LecturaFuenteDto,
+    ApiError,
+    { fuenteId: number; lecturaId: string | null; volumenMmpced: number }
+  >({
+    mutationFn: ({ fuenteId, lecturaId, volumenMmpced }) =>
+      lecturaId === null
+        ? api<LecturaFuenteDto>("/despacho/lecturas-fuente", {
+            metodo: "POST",
+            cuerpo: { fuenteId, fecha, volumenMmpced },
+          })
+        : api<LecturaFuenteDto>(`/despacho/lecturas-fuente/${lecturaId}`, {
+            metodo: "PATCH",
+            cuerpo: { volumenMmpced },
+          }),
+    onSuccess: () => {
+      void cliente.invalidateQueries({ queryKey: claveGrillaFuentes(fecha) });
+      // El recibido del balance sale de las fuentes, así que las tarjetas
+      // quedan desactualizadas apenas se toca una.
+      void cliente.invalidateQueries({ queryKey: ["balance-nacion", fecha] });
+    },
+  });
+}
+
+export function useBalanceNacion(fecha: string, tipoCorte: TipoCorte) {
+  return useQuery<BalanceNacionDto, ApiError>({
+    queryKey: ["balance-nacion", fecha, tipoCorte],
+    queryFn: () =>
+      api<BalanceNacionDto>(
+        `/despacho/reportes/balance-nacion?fecha=${fecha}&tipoCorte=${tipoCorte}`,
+      ),
+  });
+}
