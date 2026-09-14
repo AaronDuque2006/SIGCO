@@ -509,13 +509,29 @@ erDiagram
 
 ## 10. Próximo paso inmediato
 
-**Estado al cierre de la segunda sesión del 2026-09-14**: base de datos migrada y sembrada con los catálogos reales (7 sistemas, 31 fuentes, 111 clientes); contratos de API escritos para Despacho (§11), `auth` (§12) y gestión de usuarios (§13). Verificado end to end contra la BD real: el módulo `auth` completo, la rebanada `LECTURA_BALANCE`, el job de cierre diario y —desde esta sesión— **toda la gestión de usuarios (§13)**.
+**Estado al 2026-09-14** (cinco tandas de trabajo ese día; detalle narrativo en `bitacora/`).
 
-✅ **La gestión de usuarios quedó verificada.** Las **cuatro** migraciones están aplicadas (aparecieron dos pendientes, no una: `20260910150000_check_exactamente_uno` tampoco se había corrido), los cuatro paquetes compilan limpios y se ejercitaron contra la BD real el arranque en frío, el cambio forzado, las cinco reglas del §13.2, el bloqueo, la auditoría del 403, el vencimiento de la temporal y las diez reglas de contraseña. Las filas de prueba se borraron: la tabla `USUARIO` quedó vacía.
+**Base de datos**: las **cuatro** migraciones aplicadas sobre el Postgres local, sembrada con los catálogos reales — 7 sistemas, 31 fuentes, 111 clientes, 4 regiones, 7 sectores, 4 departamentos, 5 puestos, estados de telemetría y el catálogo de actividades de Mantenimiento. El seed es aditivo e idempotente.
 
-⚠️ **La verificación encontró y cerró un hueco de seguridad** (decisión #56): revocar las sesiones no invalidaba los access token ya emitidos, así que cambiar la contraseña por sospecha de robo dejaba viva la sesión ajena hasta 15 minutos. Se agregó el sello `USUARIO.sesiones_invalidas_antes_de` y la migración `20260914160000_sello_revocacion_sesiones`.
+**Backend (`apps/api`)** — todo verificado end to end contra la BD real:
+- Módulo `auth` completo (§12): login, refresh con rotación y detección de reuso, logout, sesión actual, rate limiting y auditoría.
+- Gestión de usuarios (§13): alta, listado, detalle, edición, bloqueo y reinicio de contraseña, más el comando de arranque del primer superadmin.
+- Rebanada `LECTURA_BALANCE` de Despacho (§11) y el job de cierre diario.
+- RBAC resuelto contra la BD en cada petición, nunca contra el token.
 
-**Ya se puede entrar al sistema, ahora también por pantalla**: `pnpm --filter api run crear-superadmin <nombre>` crea la primera cuenta (decisión #55) y de ahí en adelante el superadmin crea las demás por la API. El frontend sirve `/login` y `/cambiar-password` (decisión #57).
+**Frontend (`apps/web`)** — stack confirmado, paleta del prototipo cargada como tokens de shadcn, oscuro fijo:
+- `/login` y `/cambiar-password` (decisión #57). **Probadas en el navegador por el owner.**
+- `/` — hub de los cuatro dominios (decisión #59) y `/despacho` — Balance Diario (decisión #60). Sus endpoints están verificados contra la BD real, pero **las pantallas todavía no se abrieron en un navegador**.
+
+**Contratos**: escritos y en uso para Despacho (§11), `auth` (§12) y gestión de usuarios (§13). `shared-types` y `shared-validators` se compilan a `dist` y los consumen la API y el frontend por igual (decisión #57).
+
+⚠️ **Dos huecos de seguridad encontrados y cerrados** al verificar, ambos con migración propia:
+- **#56** — revocar las sesiones no invalidaba los access token ya emitidos, así que cambiar la contraseña por sospecha de robo dejaba viva la sesión ajena hasta 15 minutos. Cerrado con el sello `USUARIO.sesiones_invalidas_antes_de`.
+- **#52** — `loginSchema` aceptaba 200 caracteres cuando bcrypt sólo mira los primeros 72 bytes.
+
+⚠️ **Las reglas de contraseña se aflojaron a pedido del área** (decisión #58): mínimo 6 caracteres con al menos una letra y un número, y temporal corta con formato `palabra-1234`. **Consecuencia que conviene no perder de vista**: a 6 caracteres la longitud ya no defiende la cuenta, así que la lista de bloqueo y el rate limiting del login son ahora las dos defensas reales. Si alguna vez se quita el rate limiting, la entropía de la temporal deja de alcanzar.
+
+**Para entrar**: `pnpm --filter api run crear-superadmin <nombre>` crea la primera cuenta (decisión #55); de ahí en adelante el superadmin crea las demás por la API. Hoy existe **un solo superadmin**, y no hay recuperación técnica si pierde el acceso — ver el pendiente correspondiente más abajo.
 
 ### Por acá arranca la próxima sesión
 
