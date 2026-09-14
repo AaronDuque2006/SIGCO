@@ -24,6 +24,13 @@
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger-soft: var(--danger-soft);
+  --color-accent-soft: var(--accent-soft);
+  --color-panel-raised: var(--panel-raised);
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
@@ -84,37 +91,49 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Paleta del prototipo visual (sala de control): azul-negro de fondo, acento
+     azul, y tres colores de estado que las pantallas operativas van a
+     necesitar para telemetría y novedades. */
+  --background: #0a0f1a;
+  --foreground: #e7edf6;
+  --card: #101828;
+  --card-foreground: #e7edf6;
+  --panel-raised: #141f30;
+  --popover: #141f30;
+  --popover-foreground: #e7edf6;
+  --primary: #3b82f6;
+  --primary-foreground: #f8faff;
+  --secondary: #141f30;
+  --secondary-foreground: #e7edf6;
+  --muted: #141f30;
+  --muted-foreground: #8492a8;
+  --accent: #1d4ed8;
+  --accent-foreground: #f8faff;
+  --accent-soft: rgba(59, 130, 246, 0.12);
+  --destructive: #f2545b;
+  --danger-soft: rgba(242, 84, 91, 0.12);
+  --ok: #34d399;
+  --ok-soft: rgba(52, 211, 153, 0.12);
+  --warn: #f2b84b;
+  --warn-soft: rgba(242, 184, 75, 0.12);
+  /* Los bordes van en color plano y no en blanco translúcido: sobre un fondo
+     tan oscuro, el translúcido de shadcn casi no se ve. */
+  --border: #22304a;
+  --input: #22304a;
+  --ring: #3b82f6;
+  --chart-1: #3b82f6;
+  --chart-2: #34d399;
+  --chart-3: #f2b84b;
+  --chart-4: #f2545b;
+  --chart-5: #8492a8;
+  --sidebar: #101828;
+  --sidebar-foreground: #e7edf6;
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: #f8faff;
+  --sidebar-accent: #141f30;
+  --sidebar-accent-foreground: #e7edf6;
+  --sidebar-border: #22304a;
+  --sidebar-ring: #3b82f6;
 }
 
 @layer base {
