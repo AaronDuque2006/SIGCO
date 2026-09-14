@@ -239,6 +239,14 @@ ctrl-operacional-gas/
 
 61. **Los catálogos del organigrama se sirven desde la gestión de usuarios, no desde un módulo de catálogos aparte.** `GET /api/usuarios/catalogos` devuelve puestos y departamentos juntos. Apareció construyendo la pantalla: el §13 no tenía forma de listarlos, así que el formulario de alta no podía armar sus desplegables. Se descartó cablear los ids en el frontend —dependen del orden del seed y en una base nueva podrían ser otros— y se descartó un módulo de catálogos transversal por sobre-diseño para dos listas de cinco y cuatro filas cuyo único consumidor hoy es esta pantalla; viviendo acá heredan además su misma puerta, que es sólo el superadmin. Van en una sola respuesta porque se piden juntos. Los puestos se ordenan **por id y no alfabéticamente**: el id sigue la jerarquía del organigrama (Gerente primero, Analista último, decisión #23), que es como la gente espera verlos.
 
+62. **Composición del Balance Nación, y las tarjetas de resumen de Balance Diario.** Confirmado por el owner el 2026-09-14, a partir de su pedido de ver arriba de la grilla el volumen manejado, el recibido, el entregado y si el sistema está empacado.
+    - **`recibido`** = suma de las lecturas de `LECTURA_FUENTE` del día. Las fuentes no tienen tipo de corte (una lectura por día), así que no se filtran por él.
+    - **`transportado`** (lo "entregado") = suma de `LECTURA_BALANCE` en ese corte. **La quema nacional queda afuera de los dos términos**: sale del sistema, pero no se le entrega a nadie. Si alguna vez hace falta verla, va como dato propio, no sumada.
+    - **La tarjeta de "volumen total manejado" se descartó**: el owner confirmó que sería la misma cifra que `recibido`, así que duplicarla sólo agregaría ruido. Las tarjetas quedaron en cuatro: recibido, entregado, variación y condición.
+    - **La condición se muestra como "Empacado"/"Desempacado"** y replica la fórmula del workbook (§11.5): corte estricto en cero, sin umbral, y la variación exactamente 0 cae en desempacado.
+    - **Implementación**: el reporte usa `aggregate` de Prisma y no `$queryRaw`, apartándose de la nota del §11.3. Son dos sumas simples sobre una tabla cada una; el `$queryRaw` parametrizado se reserva para los reportes que sí agrupan y cruzan, como Consumo por Sectores.
+    - **Las lecturas de fuentes no tienen carry-forward.** El job de cierre (decisión #42) sólo toca `LECTURA_BALANCE` y `QUEMA_NACIONAL`, así que corregir una lectura de fuente no se propaga a los días siguientes como sí pasa en balance (decisión #45). Una lectura de fuente es un dato aislado de su día.
+
 ---
 
 ## 7. ERD consolidado (vigente)
@@ -626,7 +634,7 @@ Diseñado con la skill `api-and-interface-design` (contract-first). Los tipos **
 ### 11.5 Abierto en este contrato
 
 - ~~**`condicion` del Balance Nación**~~ **Resuelto leyendo la fórmula del workbook** (`EJECUTIVO PUNTUAL!G14`): `=IF(F14>0,"EMPAQUE","DESEMPAQUE")` sobre `F14 = D14 - E14` (recibido − transportado). O sea: **corte estricto en cero, sin umbral de tolerancia, y la variación exactamente 0 cae en `DESEMPAQUE`** por la rama else del `IF`. Los dos valores del tipo `CondicionBalance` son entonces exhaustivos. Nota: que el cero caiga en DESEMPAQUE es consecuencia de cómo está escrita la fórmula, no necesariamente una decisión deliberada del área — vale confirmarlo, pero el sistema replica el Excel mientras tanto.
-- **Qué entra exactamente en `recibido` y en `transportado`**: en el workbook, `transportado` es `TOTAL ENTREGADO M.I.` (una suma de grupos por región) y `recibido` sale del bloque de fuentes. Falta confirmar contra el área si la quema nacional entra en alguno de los dos o va aparte, antes de escribir el `$queryRaw` del reporte.
+- ~~**Qué entra exactamente en `recibido` y en `transportado`**~~ **Confirmado por el owner** (decisión #62): `recibido` = suma de las lecturas de FUENTES del día; `transportado` = suma de las lecturas de CLIENTES en ese corte; **la quema nacional no entra en ninguno de los dos**.
 - **Volúmenes no negativos**: los schemas rechazan valores negativos (un volumen entregado no puede serlo, y "Desvío" es una `FUENTE`, decisión #5). Si existiera algún caso real de lectura negativa, hay que revisarlo.
 - **Borrado de novedades**: hoy no hay endpoint. Si los analistas necesitan borrar una novedad mal cargada, hay que decidir entre borrado físico o agregar soft-delete al modelo.
 
