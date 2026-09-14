@@ -5,6 +5,9 @@ export interface UsuarioAuth {
   nombre: string;
   passwordHash: string;
   bloqueado: boolean;
+  esSuperadmin: boolean;
+  debeCambiarPassword: boolean;
+  passwordExpiraEn: Date | null;
   puesto: string;
   departamento: string | null;
   departamentosCubiertos: string[];
@@ -49,6 +52,9 @@ const seleccionUsuario = {
   nombre: true,
   passwordHash: true,
   bloqueado: true,
+  esSuperadmin: true,
+  debeCambiarPassword: true,
+  passwordExpiraEn: true,
   puesto: { select: { nombre: true } },
   departamento: { select: { nombre: true } },
   superintendencias: { select: { departamento: { select: { nombre: true } } } },
@@ -59,6 +65,9 @@ type FilaUsuario = {
   nombre: string;
   passwordHash: string;
   bloqueado: boolean;
+  esSuperadmin: boolean;
+  debeCambiarPassword: boolean;
+  passwordExpiraEn: Date | null;
   puesto: { nombre: string };
   departamento: { nombre: string } | null;
   superintendencias: { departamento: { nombre: string } }[];
@@ -69,6 +78,9 @@ const aUsuarioAuth = (u: FilaUsuario): UsuarioAuth => ({
   nombre: u.nombre,
   passwordHash: u.passwordHash,
   bloqueado: u.bloqueado,
+  esSuperadmin: u.esSuperadmin,
+  debeCambiarPassword: u.debeCambiarPassword,
+  passwordExpiraEn: u.passwordExpiraEn,
   puesto: u.puesto.nombre,
   departamento: u.departamento?.nombre ?? null,
   departamentosCubiertos: u.superintendencias.map((s) => s.departamento.nombre),

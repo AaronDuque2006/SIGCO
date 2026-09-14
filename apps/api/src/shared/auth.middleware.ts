@@ -90,6 +90,72 @@ export const requireDepartamento =
     }
   };
 
+// Gestión de usuarios: exclusiva del superadmin, sin auto-registro
+// (decisión #11). Mismo criterio que requireDepartamento — se resuelve contra
+// la BD y deja registro del 403 en LOG_INTENTO_NO_AUTORIZADO.
+export const requireSuperadmin = async (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  if (!req.usuario) {
+    next(new UnauthorizedError());
+    return;
+  }
+  try {
+    if (await autorizacionRepository.esSuperadmin(req.usuario.id)) {
+      next();
+      return;
+    }
+    await sesionRepository.registrarIntentoNoAutorizado({
+      usuarioId: req.usuario.id,
+      ruta: `${req.method} ${req.originalUrl}`,
+      motivo: "No es superadmin",
+      ip: req.ip ?? "desconocida",
+    });
+    next(new ForbiddenError("Sólo el superadmin puede administrar usuarios"));
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Mientras la persona siga con la contraseña temporal, su sesión no puede
+// hacer nada salvo cambiarla (decisión #54). Se verifica acá y no sólo en el
+// frontend porque `UsuarioSesionDto.debeCambiarPassword` es una pista para la
+// UI, no una defensa. No se monta sobre /api/auth: cambiar la contraseña y
+// consultar la sesión tienen que seguir funcionando en ese estado.
+export const requirePasswordVigente = async (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  if (!req.usuario) {
+    next(new UnauthorizedError());
+    return;
+  }
+  try {
+    const estado = await autorizacionRepository.estadoPassword(req.usuario.id);
+    if (!estado) {
+      next(new UnauthorizedError());
+      return;
+    }
+    // La vigencia se revisa en cada petición, no sólo al iniciar sesión: si
+    // sólo se mirara en el login, entrar un minuto antes del vencimiento
+    // dejaría una sesión válida por los 7 días del refresh.
+    if (estado.expiraEn !== null && estado.expiraEn.getTime() <= Date.now()) {
+      next(new ForbiddenError("La contraseña temporal venció. Solicite un reinicio al administrador."));
+      return;
+    }
+    if (estado.debeCambiar) {
+      next(new ForbiddenError("Debe cambiar su contraseña temporal antes de usar el sistema."));
+      return;
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
+
 export function usuarioActual(req: Request): UsuarioAutenticado {
   if (!req.usuario) throw new UnauthorizedError();
   return req.usuario;

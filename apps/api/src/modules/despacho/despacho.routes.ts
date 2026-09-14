@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { requireAuth, requireDepartamento } from "../../shared/auth.middleware.js";
+import {
+  requireAuth,
+  requireDepartamento,
+  requirePasswordVigente,
+} from "../../shared/auth.middleware.js";
 import { asyncHandler } from "../../shared/http.js";
 import * as lecturaBalance from "./controllers/lectura-balance.controller.js";
 
@@ -8,7 +12,9 @@ import * as lecturaBalance from "./controllers/lectura-balance.controller.js";
 const router: Router = Router();
 
 // Decisión #22: cualquier usuario autenticado consulta; sólo Despacho escribe.
-router.use(requireAuth);
+// `requirePasswordVigente` corta el paso a quien siga con la contraseña
+// temporal: hasta cambiarla no puede ni consultar (decisión #54).
+router.use(requireAuth, asyncHandler(requirePasswordVigente));
 const soloDespacho = asyncHandler(requireDepartamento("Despacho"));
 
 router.get("/lecturas-balance", asyncHandler(lecturaBalance.listarGrilla));

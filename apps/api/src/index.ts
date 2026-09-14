@@ -5,6 +5,7 @@ import express from "express";
 import helmet from "helmet";
 import authRoutes from "./modules/auth/auth.routes.js";
 import despachoRoutes from "./modules/despacho/despacho.routes.js";
+import usuariosRoutes from "./modules/usuarios/usuarios.routes.js";
 import { env } from "./shared/env.js";
 import { errorHandler, notFoundHandler } from "./shared/http.js";
 import { iniciarCierreDiario } from "./shared/scheduler.js";
@@ -26,6 +27,7 @@ app.get("/health", (_req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/despacho", despachoRoutes);
+app.use("/api/usuarios", usuariosRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

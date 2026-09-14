@@ -20,11 +20,30 @@ const limiteLogin = rateLimit({
   },
 });
 
+// La contraseña actual se verifica acá, así que este endpoint es un segundo
+// oráculo de fuerza bruta sobre una cuenta ya abierta. Va con su propio
+// límite, más holgado que el del login porque acá ya hay sesión válida.
+const limiteCambioPassword = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: {
+    error: { code: "FORBIDDEN", message: "Demasiados intentos. Espere unos minutos." },
+  },
+});
+
 const router: Router = Router();
 
 router.post("/login", limiteLogin, asyncHandler(auth.login));
 router.post("/refresh", asyncHandler(auth.refrescar));
 router.post("/logout", asyncHandler(auth.cerrarSesion));
 router.get("/sesion", requireAuth, asyncHandler(auth.sesionActual));
+
+// A propósito NO lleva `requirePasswordVigente`: quien entró con una
+// contraseña temporal tiene que poder cambiarla, y es lo único que puede hacer
+// hasta entonces (decisión #54).
+router.put("/password", requireAuth, limiteCambioPassword, asyncHandler(auth.cambiarPassword));
 
 export default router;

@@ -9,4 +9,11 @@ export interface UsuarioSesionDto {
   // Sólo para que la UI sepa qué habilitar. La autorización real la resuelve
   // el backend contra la BD en cada request (decisión #22).
   departamentosQueEdita: string[];
+  // Rol de sistema, ortogonal al puesto: administra cuentas, no datos
+  // operativos (decisión #53).
+  esSuperadmin: boolean;
+  // Cuando es true la persona está usando la contraseña temporal y lo único
+  // que puede hacer es cambiarla. El backend lo hace cumplir igual; esto
+  // existe para que el frontend sepa a dónde mandarla (decisión #54).
+  debeCambiarPassword: boolean;
 }

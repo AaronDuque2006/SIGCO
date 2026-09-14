@@ -1,7 +1,14 @@
 import { prisma } from "../../../shared/prisma-client.js";
 
+export interface EstadoPassword {
+  debeCambiar: boolean;
+  expiraEn: Date | null;
+}
+
 export interface IAutorizacionRepository {
   puedeEditarDepartamento(usuarioId: number, nombreDepartamento: string): Promise<boolean>;
+  esSuperadmin(usuarioId: number): Promise<boolean>;
+  estadoPassword(usuarioId: number): Promise<EstadoPassword | null>;
 }
 
 // Regla de las decisiones #21-#24: un Gerente cubre los 4 departamentos; un
@@ -25,6 +32,25 @@ export class PrismaAutorizacionRepository implements IAutorizacionRepository {
     if (usuario.departamento?.nombre === nombreDepartamento) return true;
 
     return usuario.superintendencias.some((s) => s.departamento.nombre === nombreDepartamento);
+  }
+
+  // El rol de sistema también se resuelve contra la BD y no contra el token:
+  // quitarle el superadmin a alguien debe surtir efecto en la petición
+  // siguiente, no cuando expire su access token.
+  async esSuperadmin(usuarioId: number): Promise<boolean> {
+    const u = await prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { bloqueado: true, esSuperadmin: true },
+    });
+    return u !== null && !u.bloqueado && u.esSuperadmin;
+  }
+
+  async estadoPassword(usuarioId: number): Promise<EstadoPassword | null> {
+    const u = await prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { debeCambiarPassword: true, passwordExpiraEn: true },
+    });
+    return u === null ? null : { debeCambiar: u.debeCambiarPassword, expiraEn: u.passwordExpiraEn };
   }
 }
 

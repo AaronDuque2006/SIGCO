@@ -2,8 +2,14 @@ import { createHash, randomBytes } from "node:crypto";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import type { UsuarioSesionDto } from "@sicog/shared-types";
+import { passwordContieneNombre } from "@sicog/shared-validators";
 import { env } from "../../../shared/env.js";
-import { ForbiddenError, UnauthorizedError } from "../../../shared/errors.js";
+import { ForbiddenError, UnauthorizedError, ValidationError } from "../../../shared/errors.js";
+import { COSTO_BCRYPT, hashPassword, verificarPassword } from "../../../shared/password.js";
+import {
+  usuarioRepository,
+  type IUsuarioRepository,
+} from "../../usuarios/repositories/usuario.repository.js";
 import {
   sesionRepository,
   type ISesionRepository,
@@ -16,7 +22,7 @@ export const REFRESH_TTL_SEGUNDOS = 7 * 24 * 60 * 60;
 // Hash de descarte con el mismo costo que los reales. Se compara contra él
 // cuando el usuario no existe, para que un atacante no distinga "no existe"
 // de "contraseña equivocada" por el tiempo que tarda la respuesta.
-const HASH_SEÑUELO = bcrypt.hashSync("usuario-inexistente", 12);
+const HASH_SEÑUELO = bcrypt.hashSync("usuario-inexistente", COSTO_BCRYPT);
 
 // El refresh es un token aleatorio de alta entropía, no una contraseña: se
 // guarda con SHA-256, no con bcrypt. bcrypt existe para hacer lento el ataque
@@ -49,10 +55,24 @@ const aDto = (u: UsuarioAuth): UsuarioSesionDto => ({
     u.puesto === "Gerente"
       ? ["Despacho", "Mantenimiento", "Análisis Operacional", "Calidad de Gas"]
       : [...new Set([u.departamento, ...u.departamentosCubiertos].filter((d): d is string => !!d))],
+  esSuperadmin: u.esSuperadmin,
+  debeCambiarPassword: u.debeCambiarPassword,
 });
 
+// Una temporal vencida no sirve para entrar. Se avisa sólo después de haber
+// acertado la contraseña, igual que con `bloqueado`: antes de eso el mensaje
+// revelaría que la cuenta existe.
+const exigirPasswordNoVencida = (usuario: UsuarioAuth): void => {
+  if (usuario.passwordExpiraEn !== null && usuario.passwordExpiraEn.getTime() <= Date.now()) {
+    throw new ForbiddenError("La contraseña temporal venció. Solicite un reinicio al administrador.");
+  }
+};
+
 export class AuthService {
-  constructor(private readonly repo: ISesionRepository) {}
+  constructor(
+    private readonly repo: ISesionRepository,
+    private readonly usuarios: IUsuarioRepository,
+  ) {}
 
   async login(nombre: string, password: string, pedido: DatosPeticion): Promise<ResultadoSesion> {
     const usuario = await this.repo.buscarUsuarioPorNombre(nombre);
@@ -78,6 +98,8 @@ export class AuthService {
       await this.repo.registrarLogin({ usuarioId: usuario.id, nombre, exitoso: false, ip: pedido.ip });
       throw new ForbiddenError("Cuenta bloqueada. Contacte al administrador del sistema.");
     }
+
+    exigirPasswordNoVencida(usuario);
 
     await this.repo.registrarLogin({ usuarioId: usuario.id, nombre, exitoso: true, ip: pedido.ip });
     return { usuario: aDto(usuario), tokens: await this.emitirTokens(usuario, pedido) };
@@ -111,6 +133,8 @@ export class AuthService {
       throw new ForbiddenError("Cuenta bloqueada. Contacte al administrador del sistema.");
     }
 
+    exigirPasswordNoVencida(usuario);
+
     await this.repo.revocarSesion(sesion.id);
     return { usuario: aDto(usuario), tokens: await this.emitirTokens(usuario, pedido) };
   }
@@ -125,6 +149,50 @@ export class AuthService {
     const usuario = await this.repo.buscarUsuarioPorId(usuarioId);
     if (!usuario || usuario.bloqueado) throw new UnauthorizedError();
     return aDto(usuario);
+  }
+
+  /**
+   * Cambio de la propia contraseña. Vive en `auth` y no en `usuarios` porque
+   * vuelve a emitir la sesión: es la misma operación que cierra las sesiones
+   * viejas y entrega cookies nuevas.
+   */
+  async cambiarPassword(
+    usuarioId: number,
+    passwordActual: string,
+    passwordNueva: string,
+    pedido: DatosPeticion,
+  ): Promise<ResultadoSesion> {
+    const usuario = await this.repo.buscarUsuarioPorId(usuarioId);
+    if (!usuario) throw new UnauthorizedError();
+    if (usuario.bloqueado) {
+      throw new ForbiddenError("Cuenta bloqueada. Contacte al administrador del sistema.");
+    }
+
+    if (!(await verificarPassword(passwordActual, usuario.passwordHash))) {
+      throw new UnauthorizedError("La contraseña actual no es correcta");
+    }
+    if (passwordActual.normalize("NFKC") === passwordNueva) {
+      throw new ValidationError("La contraseña nueva debe ser distinta de la actual.");
+    }
+    // La regla vive en shared-validators y se aplica también al crear el
+    // usuario; acá no puede ir en el schema porque el nombre no viaja en el
+    // cuerpo, sale de la sesión.
+    if (passwordContieneNombre(passwordNueva, usuario.nombre)) {
+      throw new ValidationError("La contraseña no puede contener su nombre de usuario.");
+    }
+
+    // `null` como vencimiento: deja de ser temporal y no vuelve a vencer
+    // (no hay expiración periódica obligatoria, decisión #52).
+    await this.usuarios.establecerPassword(usuarioId, await hashPassword(passwordNueva), null);
+
+    // Se cierran todas las sesiones —incluida ésta— y se emite un par nuevo:
+    // si la contraseña se cambió porque alguien más la conocía, esa sesión
+    // ajena tiene que morir acá.
+    await this.repo.revocarTodasLasSesiones(usuarioId);
+
+    const actualizado = await this.repo.buscarUsuarioPorId(usuarioId);
+    if (!actualizado) throw new UnauthorizedError();
+    return { usuario: aDto(actualizado), tokens: await this.emitirTokens(actualizado, pedido) };
   }
 
   private async emitirTokens(usuario: UsuarioAuth, pedido: DatosPeticion): Promise<ParDeTokens> {
@@ -146,4 +214,4 @@ export class AuthService {
   }
 }
 
-export const authService = new AuthService(sesionRepository);
+export const authService = new AuthService(sesionRepository, usuarioRepository);

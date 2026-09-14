@@ -1,5 +1,5 @@
 import type { CookieOptions, Request, Response } from "express";
-import { loginSchema } from "@sicog/shared-validators";
+import { cambiarPasswordSchema, loginSchema } from "@sicog/shared-validators";
 import { usuarioActual } from "../../../shared/auth.middleware.js";
 import { env } from "../../../shared/env.js";
 import { parseOrThrow } from "../../../shared/http.js";
@@ -64,4 +64,18 @@ export const cerrarSesion = async (req: Request, res: Response): Promise<void> =
 
 export const sesionActual = async (req: Request, res: Response): Promise<void> => {
   res.json(await authService.sesionActual(usuarioActual(req).id));
+};
+
+// Cambiar la propia contraseña cierra todas las sesiones y abre una nueva, así
+// que devuelve cookies igual que el login.
+export const cambiarPassword = async (req: Request, res: Response): Promise<void> => {
+  const { passwordActual, passwordNueva } = parseOrThrow(cambiarPasswordSchema, req.body);
+  const { usuario, tokens } = await authService.cambiarPassword(
+    usuarioActual(req).id,
+    passwordActual,
+    passwordNueva,
+    datosPeticion(req),
+  );
+  ponerCookies(res, tokens);
+  res.json(usuario);
 };
