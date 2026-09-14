@@ -1,4 +1,9 @@
-import type { Paginated, UsuarioConPasswordTemporalDto, UsuarioDto } from "@sicog/shared-types";
+import type {
+  CatalogosUsuarioDto,
+  Paginated,
+  UsuarioConPasswordTemporalDto,
+  UsuarioDto,
+} from "@sicog/shared-types";
 import type { ActualizarUsuarioInput, CrearUsuarioInput, ListarUsuariosQuery } from "@sicog/shared-validators";
 import { ConflictError, NotFoundError, ValidationError } from "../../../shared/errors.js";
 import { paginate } from "../../../shared/http.js";
@@ -37,6 +42,19 @@ export class UsuarioService {
     private readonly repo: IUsuarioRepository,
     private readonly sesiones: ISesionRepository,
   ) {}
+
+  /**
+   * Los catálogos del organigrama, para el formulario de alta. Van acá y no en
+   * un módulo de catálogos aparte porque hoy su único consumidor es la gestión
+   * de usuarios, y así heredan su misma puerta: sólo el superadmin.
+   */
+  async obtenerCatalogos(): Promise<CatalogosUsuarioDto> {
+    const [puestos, departamentos] = await Promise.all([
+      this.repo.listarPuestos(),
+      this.repo.listarDepartamentos(),
+    ]);
+    return { puestos, departamentos };
+  }
 
   async crear(input: CrearUsuarioInput): Promise<UsuarioConPasswordTemporalDto> {
     const nombrePuesto = await this.exigirPuesto(input.puestoId);

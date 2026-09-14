@@ -16,6 +16,21 @@ export interface UsuarioDto {
  * sola vez**, acá: no se guarda en claro ni existe forma de volver a
  * consultarla. Si se pierde, el superadmin genera otra.
  */
+export interface OpcionCatalogoDto {
+  id: number;
+  nombre: string;
+}
+
+/**
+ * Catálogos que necesita el formulario de alta: el organigrama real de PDVSA
+ * (decisión #23). Van juntos en una sola respuesta porque se piden juntos y
+ * son dos listas de cinco y cuatro filas.
+ */
+export interface CatalogosUsuarioDto {
+  puestos: OpcionCatalogoDto[];
+  departamentos: OpcionCatalogoDto[];
+}
+
 export interface UsuarioConPasswordTemporalDto {
   usuario: UsuarioDto;
   passwordTemporal: string;

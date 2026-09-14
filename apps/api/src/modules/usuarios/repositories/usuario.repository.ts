@@ -1,4 +1,5 @@
 import { PrismaClientKnownRequestError } from "@sicog/db";
+import type { OpcionCatalogoDto } from "@sicog/shared-types";
 import { ConflictError } from "../../../shared/errors.js";
 import { prisma } from "../../../shared/prisma-client.js";
 
@@ -59,6 +60,8 @@ export interface IUsuarioRepository {
   ): Promise<UsuarioFila>;
   credencialesPorId(id: number): Promise<CredencialesUsuario | null>;
   nombrePuesto(puestoId: number): Promise<string | null>;
+  listarPuestos(): Promise<OpcionCatalogoDto[]>;
+  listarDepartamentos(): Promise<OpcionCatalogoDto[]>;
   existeDepartamento(departamentoId: number): Promise<boolean>;
   cadenaDeSupervision(desdeId: number): Promise<number[]>;
 }
@@ -162,6 +165,20 @@ export class PrismaUsuarioRepository implements IUsuarioRepository {
         debeCambiarPassword: true,
         passwordExpiraEn: true,
       },
+    });
+  }
+
+  // Ordenados por id y no alfabéticamente: el id del catálogo sigue la
+  // jerarquía del organigrama (Gerente primero, Analista último, decisión
+  // #23), que es como la gente espera verlos en un desplegable.
+  async listarPuestos(): Promise<OpcionCatalogoDto[]> {
+    return prisma.puesto.findMany({ select: { id: true, nombre: true }, orderBy: { id: "asc" } });
+  }
+
+  async listarDepartamentos(): Promise<OpcionCatalogoDto[]> {
+    return prisma.departamento.findMany({
+      select: { id: true, nombre: true },
+      orderBy: { id: "asc" },
     });
   }
 

@@ -19,6 +19,10 @@ router.use(
   asyncHandler(requireSuperadmin),
 );
 
+// Antes que `/:id`, que si no se traga la ruta y responde 422 por un id que
+// no es un número.
+router.get("/catalogos", asyncHandler(usuarios.catalogos));
+
 router.post("/", asyncHandler(usuarios.crear));
 router.get("/", asyncHandler(usuarios.listar));
 router.get("/:id", asyncHandler(usuarios.obtener));

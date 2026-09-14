@@ -10,6 +10,10 @@ import { usuarioActual } from "../../../shared/auth.middleware.js";
 import { parseOrThrow } from "../../../shared/http.js";
 import { usuarioService } from "../services/usuario.service.js";
 
+export const catalogos = async (_req: Request, res: Response): Promise<void> => {
+  res.json(await usuarioService.obtenerCatalogos());
+};
+
 export const crear = async (req: Request, res: Response): Promise<void> => {
   const input = parseOrThrow(crearUsuarioSchema, req.body);
   res.status(201).json(await usuarioService.crear(input));
