@@ -8,6 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "contratos": "pnpm --filter @sicog/shared-types --filter @sicog/shared-validators run build",
     "dev:web": "pnpm --filter web dev",
     "dev:api": "pnpm --filter api dev",
     "build": "pnpm -r build",

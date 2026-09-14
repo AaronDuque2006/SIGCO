@@ -3,10 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "dotenv -e ../../.env -- tsx watch src/index.ts",
-    "build": "tsc",
+    "dev": "pnpm -w run contratos && dotenv -e ../../.env -- tsx watch src/index.ts",
+    "build": "pnpm -w run contratos && tsc",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "pnpm -w run contratos && tsc --noEmit",
     "crear-superadmin": "dotenv -e ../../.env -- tsx src/scripts/crear-superadmin.ts"
   },
   "dependencies": {
