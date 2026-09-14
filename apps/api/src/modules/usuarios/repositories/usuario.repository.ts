@@ -141,6 +141,11 @@ export class PrismaUsuarioRepository implements IUsuarioRepository {
         passwordHash,
         debeCambiarPassword: expiraEn !== null,
         passwordExpiraEn: expiraEn,
+        // Toda contraseña nueva invalida los access token ya emitidos. Se
+        // sella acá y no en los dos Services que llaman a este método porque
+        // es el único punto por el que pasan el reinicio del superadmin y el
+        // cambio propio: puesto arriba, un tercer camino podría olvidarlo.
+        sesionesInvalidasAntesDe: new Date(),
       },
       select: seleccion,
     });

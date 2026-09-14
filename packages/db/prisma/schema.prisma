@@ -410,6 +410,14 @@ model Usuario {
   debeCambiarPassword Boolean   @default(false) @map("debe_cambiar_password")
   passwordExpiraEn    DateTime? @map("password_expira_en")
 
+  // Sello de revocacion: todo access token emitido ANTES de esta marca deja
+  // de valer. Existe porque el access token es un JWT sin estado que la API
+  // no puede retirar una vez emitido: revocar el refresh corta la renovacion,
+  // pero el token que ya esta en manos de alguien sigue sirviendo hasta que
+  // expire. Se sella al cambiar o reiniciar la contrasena, que es justo
+  // cuando se sospecha que la sesion quedo en manos ajenas.
+  sesionesInvalidasAntesDe DateTime? @map("sesiones_invalidas_antes_de")
+
   puesto       Puesto        @relation(fields: [puestoId], references: [id])
   departamento Departamento? @relation(fields: [departamentoId], references: [id])
   supervisor   Usuario?      @relation("Supervision", fields: [supervisorId], references: [id], onDelete: SetNull)

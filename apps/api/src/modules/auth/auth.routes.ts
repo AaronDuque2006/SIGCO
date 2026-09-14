@@ -39,11 +39,16 @@ const router: Router = Router();
 router.post("/login", limiteLogin, asyncHandler(auth.login));
 router.post("/refresh", asyncHandler(auth.refrescar));
 router.post("/logout", asyncHandler(auth.cerrarSesion));
-router.get("/sesion", requireAuth, asyncHandler(auth.sesionActual));
+router.get("/sesion", asyncHandler(requireAuth), asyncHandler(auth.sesionActual));
 
 // A propósito NO lleva `requirePasswordVigente`: quien entró con una
 // contraseña temporal tiene que poder cambiarla, y es lo único que puede hacer
 // hasta entonces (decisión #54).
-router.put("/password", requireAuth, limiteCambioPassword, asyncHandler(auth.cambiarPassword));
+router.put(
+  "/password",
+  asyncHandler(requireAuth),
+  limiteCambioPassword,
+  asyncHandler(auth.cambiarPassword),
+);
 
 export default router;

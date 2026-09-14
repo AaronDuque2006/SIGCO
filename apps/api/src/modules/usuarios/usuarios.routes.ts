@@ -13,7 +13,11 @@ const router: Router = Router();
 // Decisión #11: la gestión de usuarios es exclusiva del superadmin y no hay
 // auto-registro. Todo el router va detrás de las tres puertas: autenticado,
 // con la contraseña ya cambiada, y superadmin.
-router.use(requireAuth, asyncHandler(requirePasswordVigente), asyncHandler(requireSuperadmin));
+router.use(
+  asyncHandler(requireAuth),
+  asyncHandler(requirePasswordVigente),
+  asyncHandler(requireSuperadmin),
+);
 
 router.post("/", asyncHandler(usuarios.crear));
 router.get("/", asyncHandler(usuarios.listar));

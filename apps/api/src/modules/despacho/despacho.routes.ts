@@ -14,7 +14,7 @@ const router: Router = Router();
 // Decisión #22: cualquier usuario autenticado consulta; sólo Despacho escribe.
 // `requirePasswordVigente` corta el paso a quien siga con la contraseña
 // temporal: hasta cambiarla no puede ni consultar (decisión #54).
-router.use(requireAuth, asyncHandler(requirePasswordVigente));
+router.use(asyncHandler(requireAuth), asyncHandler(requirePasswordVigente));
 const soloDespacho = asyncHandler(requireDepartamento("Despacho"));
 
 router.get("/lecturas-balance", asyncHandler(lecturaBalance.listarGrilla));

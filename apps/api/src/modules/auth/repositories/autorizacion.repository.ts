@@ -9,6 +9,7 @@ export interface IAutorizacionRepository {
   puedeEditarDepartamento(usuarioId: number, nombreDepartamento: string): Promise<boolean>;
   esSuperadmin(usuarioId: number): Promise<boolean>;
   estadoPassword(usuarioId: number): Promise<EstadoPassword | null>;
+  sesionesInvalidasAntesDe(usuarioId: number): Promise<Date | null>;
 }
 
 // Regla de las decisiones #21-#24: un Gerente cubre los 4 departamentos; un
@@ -43,6 +44,17 @@ export class PrismaAutorizacionRepository implements IAutorizacionRepository {
       select: { bloqueado: true, esSuperadmin: true },
     });
     return u !== null && !u.bloqueado && u.esSuperadmin;
+  }
+
+  // El sello de revocación: todo access token emitido antes de esta marca
+  // dejó de valer. Se consulta en requireAuth porque el JWT no se puede
+  // retirar una vez emitido (§12.2).
+  async sesionesInvalidasAntesDe(usuarioId: number): Promise<Date | null> {
+    const u = await prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { sesionesInvalidasAntesDe: true },
+    });
+    return u?.sesionesInvalidasAntesDe ?? null;
   }
 
   async estadoPassword(usuarioId: number): Promise<EstadoPassword | null> {

@@ -1,4 +1,4 @@
-import type { NextFunction, Request, RequestHandler, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { autorizacionRepository } from "../modules/auth/repositories/autorizacion.repository.js";
 import { sesionRepository } from "../modules/auth/repositories/sesion.repository.js";
@@ -37,26 +37,62 @@ function extraerToken(req: Request): string | null {
   return header?.startsWith("Bearer ") ? header.slice("Bearer ".length) : null;
 }
 
-export const requireAuth: RequestHandler = (req, _res, next) => {
+// Momento de emisión del token, en milisegundos. El `iat` estándar viene en
+// segundos enteros y esa granularidad no alcanza acá: cambiar la contraseña
+// sella la revocación y emite el token nuevo dentro del mismo segundo, así
+// que comparar por segundo mataría la sesión que se acaba de entregar. Por eso
+// se firma además `iatMs`; `iat` queda de respaldo para tokens ya emitidos.
+const emitidoEnMs = (value: unknown): number | null => {
+  if (typeof value !== "object" || value === null) return null;
+  const { iatMs, iat } = value as Record<string, unknown>;
+  if (typeof iatMs === "number") return iatMs;
+  return typeof iat === "number" ? iat * 1000 : null;
+};
+
+export const requireAuth = async (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> => {
   const token = extraerToken(req);
   if (!token) {
     next(new UnauthorizedError());
     return;
   }
 
+  let usuario: UsuarioAutenticado;
+  let emitido: number | null;
   try {
     const payload = jwt.verify(token, env.JWT_SECRET);
-    const usuario = payloadSchema(payload);
-    if (!usuario) {
+    const leido = payloadSchema(payload);
+    if (!leido) {
       next(new UnauthorizedError("Token con contenido inválido"));
       return;
     }
-    req.usuario = usuario;
-    next();
+    usuario = leido;
+    emitido = emitidoEnMs(payload);
   } catch {
     // No distinguir "expirado" de "inválido" hacia afuera, ni loguear el token.
     next(new UnauthorizedError("Token inválido o expirado"));
+    return;
   }
+
+  // Revocar el refresh no alcanza: el access token ya emitido no se puede
+  // retirar. Se compara contra el sello del usuario y se responde igual que
+  // ante un token vencido, para no revelar que la sesión fue revocada.
+  try {
+    const sello = await autorizacionRepository.sesionesInvalidasAntesDe(usuario.id);
+    if (sello !== null && (emitido === null || emitido < sello.getTime())) {
+      next(new UnauthorizedError("Token inválido o expirado"));
+      return;
+    }
+  } catch (err) {
+    next(err);
+    return;
+  }
+
+  req.usuario = usuario;
+  next();
 };
 
 // La autorización se resuelve siempre contra la BD, nunca contra el token

@@ -196,9 +196,14 @@ export class AuthService {
   }
 
   private async emitirTokens(usuario: UsuarioAuth, pedido: DatosPeticion): Promise<ParDeTokens> {
-    const accessToken = jwt.sign({ sub: String(usuario.id), nombre: usuario.nombre }, env.JWT_SECRET, {
-      expiresIn: ACCESS_TTL_SEGUNDOS,
-    });
+    // `iatMs` va además del `iat` estándar, que sólo tiene precisión de
+    // segundos: el sello de revocación se compara contra este valor y cambiar
+    // la contraseña sella y emite el token nuevo dentro del mismo segundo.
+    const accessToken = jwt.sign(
+      { sub: String(usuario.id), nombre: usuario.nombre, iatMs: Date.now() },
+      env.JWT_SECRET,
+      { expiresIn: ACCESS_TTL_SEGUNDOS },
+    );
     const refreshToken = randomBytes(32).toString("base64url");
     const refreshExpiraEn = new Date(Date.now() + REFRESH_TTL_SEGUNDOS * 1000);
 
