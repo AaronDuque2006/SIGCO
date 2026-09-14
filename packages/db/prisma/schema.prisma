@@ -398,6 +398,18 @@ model Usuario {
   supervisorId   Int?    @map("supervisor_id")
   bloqueado      Boolean @default(false)
 
+  // Rol de sistema, ortogonal al cargo (`puesto`): administra cuentas, no
+  // datos operativos. Va aparte de PUESTO porque PUESTO es el organigrama
+  // real de PDVSA (decision #23) y la decision #31 deja al superadmin
+  // explicitamente fuera del negocio ("no conoce el dominio").
+  esSuperadmin   Boolean @default(false) @map("es_superadmin")
+
+  // Contrasena temporal: mientras `debeCambiarPassword` este en true la
+  // sesion solo puede cambiar la contrasena; `passwordExpiraEn` es la
+  // vigencia de la temporal (null = contrasena definitiva, no vence).
+  debeCambiarPassword Boolean   @default(false) @map("debe_cambiar_password")
+  passwordExpiraEn    DateTime? @map("password_expira_en")
+
   puesto       Puesto        @relation(fields: [puestoId], references: [id])
   departamento Departamento? @relation(fields: [departamentoId], references: [id])
   supervisor   Usuario?      @relation("Supervision", fields: [supervisorId], references: [id], onDelete: SetNull)
