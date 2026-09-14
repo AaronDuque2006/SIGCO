@@ -6,7 +6,8 @@
     "dev": "dotenv -e ../../.env -- tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "crear-superadmin": "dotenv -e ../../.env -- tsx src/scripts/crear-superadmin.ts"
   },
   "dependencies": {
     "@sicog/db": "workspace:*",
