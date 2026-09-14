@@ -217,6 +217,12 @@ ctrl-operacional-gas/
     - **Hacia afuera el rechazo es indistinguible de un token vencido** (mismo 401, mismo mensaje), para no revelar que la sesión fue revocada.
     - **El logout no sella**: cierra su propia sesión, no las de los otros dispositivos de la persona.
 
+57. **El frontend consume los contratos compilados, y la identidad visual sale del prototipo pero no su código.** Cuatro decisiones que aparecieron al construir las primeras pantallas.
+    - **Los paquetes `shared-types` y `shared-validators` se compilan a `dist`** y dejan de consumirse como TypeScript suelto. Motivo: sus imports internos llevan la extensión `.js` que exige NodeNext, y `tsc` y `tsx` la resuelven al `.ts` correspondiente pero el bundler de Next no —el build fallaba con *module not found*—. Se descartó quitar las extensiones (rompe el typecheck de la API, que sí usa NodeNext) y bajar el frontend a webpack. Para que nadie trabaje contra un contrato viejo, `dev`, `build` y `typecheck` de las dos apps compilan los contratos primero (`pnpm run contratos`).
+    - **Se adoptan la paleta y la tipografía del prototipo visual, no sus componentes**: fondo `#0a0f1a`, acento azul, Inter para texto y monoespaciada para números, cargados como tokens de shadcn en `globals.css`. Quien ya vio el prototipo reconoce el sistema, pero el código sigue sobre el stack confirmado en vez de arrastrar estilos inline de algo que nació descartable. La aplicación es oscura fija: es un sistema de sala de control y no tiene tema claro.
+    - **La guardia de ruteo del frontend es comodidad, no defensa.** Manda a `/login` a quien no tiene sesión y a `/cambiar-password` a quien usa una temporal, pero quien hace cumplir la decisión #54 es el 403 de `requirePasswordVigente`. Si la guardia tuviera un error, la pantalla se ve rara; nadie entra.
+    - **Se eliminó `apps/web/pnpm-workspace.yaml`**, que había dejado `create-next-app`: convertía a esa carpeta en una raíz de workspace propia, y desde ahí pnpm no veía ninguno de los paquetes del monorepo.
+
 ---
 
 ## 7. ERD consolidado (vigente)
@@ -495,11 +501,11 @@ erDiagram
 
 ⚠️ **La verificación encontró y cerró un hueco de seguridad** (decisión #56): revocar las sesiones no invalidaba los access token ya emitidos, así que cambiar la contraseña por sospecha de robo dejaba viva la sesión ajena hasta 15 minutos. Se agregó el sello `USUARIO.sesiones_invalidas_antes_de` y la migración `20260914160000_sello_revocacion_sesiones`.
 
-**Ya se puede entrar al sistema**: `pnpm --filter api run crear-superadmin <nombre>` crea la primera cuenta (decisión #55) y de ahí en adelante el superadmin crea las demás por la API.
+**Ya se puede entrar al sistema, ahora también por pantalla**: `pnpm --filter api run crear-superadmin <nombre>` crea la primera cuenta (decisión #55) y de ahí en adelante el superadmin crea las demás por la API. El frontend sirve `/login` y `/cambiar-password` (decisión #57).
 
 ### Por acá arranca la próxima sesión
 
-1. **Frontend, empezando por login y cambio de contraseña forzado** (sin la segunda nadie puede pasar del primer ingreso). **Confirmado por el owner el 2026-09-14**: el frontend va **antes** de terminar las rebanadas restantes de Despacho. El motivo es que la pantalla real revela cosas del contrato que desde el backend no se ven —si el filtro por sistema alcanza, si hacen falta subtotales en la grilla, si `OTROS (PUERTO ORDAZ)` se lee bien— y corregirlas ahora es más barato que con seis módulos construidos encima; además, el ciclo de cookies `httpOnly` y de refresh sólo se ejercitó con `curl`, nunca desde un navegador. El tradeoff aceptado: el backend de Despacho queda incompleto un tiempo más. Balance Diario queda para la tanda siguiente.
+1. ~~**Login y cambio de contraseña forzado**~~ **Hechos** (decisión #57). Sigue **Balance Diario**, la primera pantalla operativa: es la que de verdad va a poner a prueba el contrato del §11 antes de construir las seis rebanadas restantes encima. El motivo por el que el frontend va primero, confirmado por el owner el 2026-09-14: la pantalla real revela cosas del contrato que desde el backend no se ven —si el filtro por sistema alcanza, si hacen falta subtotales en la grilla, si `OTROS (PUERTO ORDAZ)` se lee bien— y corregirlas ahora es más barato que con seis módulos construidos encima. El tradeoff aceptado: el backend de Despacho queda incompleto un tiempo más.
 2. **Resto de las rebanadas de Despacho**, con el contrato de §11 ya escrito: `LECTURA_FUENTE`, `QUEMA_NACIONAL`, `NOVEDAD_OPERATIVA`, `CONTACTO`, los catálogos y los dos reportes query-calculados.
 3. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de §11).
 4. **Pantalla de gestión de usuarios** para el superadmin (el backend ya está, §13).
