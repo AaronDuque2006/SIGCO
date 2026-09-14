@@ -625,7 +625,8 @@ Diseñado con la skill `api-and-interface-design` (contract-first). Los tipos **
 
 ### 11.5 Abierto en este contrato
 
-- **`condicion` del Balance Nación**: el Excel real muestra `EMPAQUE` cuando la variación (recibido − transportado) es positiva y `DESEMPAQUE` cuando es negativa. **No está confirmado qué se muestra si la variación es exactamente 0**, ni si hay un umbral de tolerancia en vez de un corte en cero. El tipo hoy sólo declara los dos valores evidenciados.
+- ~~**`condicion` del Balance Nación**~~ **Resuelto leyendo la fórmula del workbook** (`EJECUTIVO PUNTUAL!G14`): `=IF(F14>0,"EMPAQUE","DESEMPAQUE")` sobre `F14 = D14 - E14` (recibido − transportado). O sea: **corte estricto en cero, sin umbral de tolerancia, y la variación exactamente 0 cae en `DESEMPAQUE`** por la rama else del `IF`. Los dos valores del tipo `CondicionBalance` son entonces exhaustivos. Nota: que el cero caiga en DESEMPAQUE es consecuencia de cómo está escrita la fórmula, no necesariamente una decisión deliberada del área — vale confirmarlo, pero el sistema replica el Excel mientras tanto.
+- **Qué entra exactamente en `recibido` y en `transportado`**: en el workbook, `transportado` es `TOTAL ENTREGADO M.I.` (una suma de grupos por región) y `recibido` sale del bloque de fuentes. Falta confirmar contra el área si la quema nacional entra en alguno de los dos o va aparte, antes de escribir el `$queryRaw` del reporte.
 - **Volúmenes no negativos**: los schemas rechazan valores negativos (un volumen entregado no puede serlo, y "Desvío" es una `FUENTE`, decisión #5). Si existiera algún caso real de lectura negativa, hay que revisarlo.
 - **Borrado de novedades**: hoy no hay endpoint. Si los analistas necesitan borrar una novedad mal cargada, hay que decidir entre borrado físico o agregar soft-delete al modelo.
 
