@@ -7,7 +7,7 @@
     "build": "pnpm -w run contratos && next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "pnpm -w run contratos && tsc --noEmit"
+    "typecheck": "pnpm -w run contratos && next typegen && tsc --noEmit"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
