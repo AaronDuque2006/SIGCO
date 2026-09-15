@@ -285,6 +285,12 @@ ctrl-operacional-gas/
 70. **La grilla de Balance Diario se filtra también por sector económico.** Pedido del owner. El dato ya viajaba en `ClienteDto` y la columna ya se pintaba (decisión #64); sólo faltaba el desplegable. No aplica a fuentes: `FUENTE` no tiene sector.
     - **El desplegable se arma con los sectores presentes en las filas**, no con el catálogo completo — se mantiene el criterio de la decisión #60, confirmado por el owner al preguntar por los 7 sistemas del Manual DAO. Los 7 están sembrados; el desplegable de sistemas muestra 4 en clientes y 5 en fuentes porque son los que tienen filas (La Toscana - San Vicente y Transcaribeño no tienen ni clientes ni fuentes; Jusepín - Criogénico tiene 9 fuentes y ningún cliente). Por lo mismo `Empresa Mixta` no aparece entre los sectores: tiene 0 clientes desde la decisión #47.
 
+71. **La celda de volumen nunca descarta lo tecleado en silencio.** Pedido del owner el 2026-09-15: escribir algo que no fuera un número dejaba el texto en la celda y no pasaba nada — ni se guardaba ni se avisaba, que desde el teclado es indistinguible de haber guardado. `confirmar()` tenía tres salidas mudas.
+    - **La regla vive en `evaluarCelda(texto, valor)`**, una función pura y aparte del componente: es la que decide si un día se digita o se pierde, y así se puede ejercitar sin navegador. Verificada con 16 casos.
+    - **Cuatro resultados**: `guardar`, `rechazar` con su motivo (`No es un número`, `No puede ser negativo`, `Máximo 4 decimales`), `nada` si el valor no cambió, y `reponer` si la celda quedó vacía — vaciarla no borra nada, porque la API no tiene DELETE de lecturas, así que se repone lo guardado en vez de dejar la celda en blanco mintiendo.
+    - **El tope de 4 decimales se avisa acá** porque la columna es `Decimal(14,4)` y Postgres redondearía de más sin decir nada: la misma sorpresa silenciosa que todo esto evita. El negativo también se adelanta al `422` del backend (decisión #5).
+    - **El aviso desaparece apenas se empieza a corregir**, y se muestra antes que el error del servidor: es la consecuencia de lo último que hizo la persona.
+
 ---
 
 ## 7. ERD consolidado (vigente)
