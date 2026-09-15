@@ -155,6 +155,36 @@ export const requireSuperadmin = async (
   }
 };
 
+// Editar catálogos exige Supervisor o superior (decisión #31). Se monta
+// **después** de `requireDepartamento`, no en su lugar: las dos condiciones se
+// exigen juntas —"Supervisor+ de Despacho"—, y separarlas deja que un
+// supervisor de otro departamento toque el catálogo ajeno.
+export const requireSupervisor = async (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  if (!req.usuario) {
+    next(new UnauthorizedError());
+    return;
+  }
+  try {
+    if (await autorizacionRepository.esSupervisorOSuperior(req.usuario.id)) {
+      next();
+      return;
+    }
+    await sesionRepository.registrarIntentoNoAutorizado({
+      usuarioId: req.usuario.id,
+      ruta: `${req.method} ${req.originalUrl}`,
+      motivo: "No es Supervisor ni superior",
+      ip: req.ip ?? "desconocida",
+    });
+    next(new ForbiddenError("Requiere ser Supervisor o superior"));
+  } catch (err) {
+    next(err);
+  }
+};
+
 // Mientras la persona siga con la contraseña temporal, su sesión no puede
 // hacer nada salvo cambiarla (decisión #54). Se verifica acá y no sólo en el
 // frontend porque `UsuarioSesionDto.debeCambiarPassword` es una pista para la

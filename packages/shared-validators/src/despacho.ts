@@ -194,6 +194,8 @@ export const reporteQuerySchema = z.object({
   tipoCorte: tipoCorteSchema.default("PUNTUAL"),
 });
 
+export type CreateSectorClienteInput = z.infer<typeof createSectorClienteSchema>;
+export type UpdateSectorClienteInput = z.infer<typeof updateSectorClienteSchema>;
 export type CreateClienteInput = z.infer<typeof createClienteSchema>;
 export type UpdateClienteInput = z.infer<typeof updateClienteSchema>;
 export type CreateFuenteInput = z.infer<typeof createFuenteSchema>;

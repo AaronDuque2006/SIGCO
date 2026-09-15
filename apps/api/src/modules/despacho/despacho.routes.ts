@@ -3,8 +3,12 @@ import {
   requireAuth,
   requireDepartamento,
   requirePasswordVigente,
+  requireSupervisor,
 } from "../../shared/auth.middleware.js";
 import { asyncHandler } from "../../shared/http.js";
+import * as catalogos from "./controllers/catalogos.controller.js";
+import * as cliente from "./controllers/cliente.controller.js";
+import * as fuente from "./controllers/fuente.controller.js";
 import * as lecturaBalance from "./controllers/lectura-balance.controller.js";
 import * as balanceNacion from "./controllers/balance-nacion.controller.js";
 import * as lecturaFuente from "./controllers/lectura-fuente.controller.js";
@@ -18,6 +22,40 @@ const router: Router = Router();
 // temporal: hasta cambiarla no puede ni consultar (decisión #54).
 router.use(asyncHandler(requireAuth), asyncHandler(requirePasswordVigente));
 const soloDespacho = asyncHandler(requireDepartamento("Despacho"));
+
+// "Supervisor+ de Despacho" (decisión #31) son las dos condiciones juntas, no
+// una en lugar de la otra: sin `soloDespacho` delante, un supervisor de
+// Mantenimiento podría editar el catálogo de este dominio.
+const soloSupervisorDespacho = [soloDespacho, asyncHandler(requireSupervisor)];
+
+// ── Catálogos ────────────────────────────────────────────────────────────────
+// `SISTEMA` y `REGION_OPERATIVA` son de sólo lectura por la API: se siembran y
+// se corrigen con el seed, que es aditivo e idempotente. El único catálogo con
+// escritura es `SECTOR_CLIENTE`, y sin DELETE (decisión #31).
+router.get("/sistemas", asyncHandler(catalogos.listarSistemas));
+router.get("/regiones", asyncHandler(catalogos.listarRegiones));
+router.get("/sectores-cliente", asyncHandler(catalogos.listarSectores));
+router.post("/sectores-cliente", soloSupervisorDespacho, asyncHandler(catalogos.crearSector));
+router.patch(
+  "/sectores-cliente/:id",
+  soloSupervisorDespacho,
+  asyncHandler(catalogos.actualizarSector),
+);
+
+// ── Clientes y fuentes ───────────────────────────────────────────────────────
+// Sin DELETE en ninguno de los dos: un cliente tiene lecturas, novedades y
+// contactos colgando, y borrarlo dejaría huérfano el histórico del balance.
+router.get("/clientes", asyncHandler(cliente.listar));
+router.post("/clientes", soloDespacho, asyncHandler(cliente.crear));
+router.get("/clientes/:id", asyncHandler(cliente.obtener));
+router.patch("/clientes/:id", soloDespacho, asyncHandler(cliente.actualizar));
+
+router.get("/fuentes", asyncHandler(fuente.listar));
+router.post("/fuentes", soloDespacho, asyncHandler(fuente.crear));
+router.get("/fuentes/:id", asyncHandler(fuente.obtener));
+router.patch("/fuentes/:id", soloDespacho, asyncHandler(fuente.actualizar));
+
+// ── Lecturas ─────────────────────────────────────────────────────────────────
 
 router.get("/lecturas-balance", asyncHandler(lecturaBalance.listarGrilla));
 router.post("/lecturas-balance", soloDespacho, asyncHandler(lecturaBalance.registrar));
