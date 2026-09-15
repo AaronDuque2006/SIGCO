@@ -99,7 +99,10 @@ model Cliente {
   regionId  Int    @map("region_id")
   sistemaId Int    @map("sistema_id")
   sectorId  Int    @map("sector_id")
-  nombre    String
+  // Unico a nivel nacional: el nombre es como el area identifica al cliente, y
+  // la grilla diaria es una fila por cliente - dos filas iguales no se podrian
+  // distinguir al digitar. Los 111 clientes reales ya cumplen.
+  nombre    String @unique
 
   region             RegionOperativa    @relation(fields: [regionId], references: [id])
   sistema            Sistema            @relation(fields: [sistemaId], references: [id])
@@ -118,7 +121,10 @@ model Cliente {
 // typos que motivó convertir INSUMO/ESTADO_TELEMETRIA en catálogo.
 model SectorCliente {
   id     Int     @id @default(autoincrement())
-  nombre String
+  // El constraint cubre tambien las filas desactivadas: reusar el nombre de un
+  // sector dado de baja haria ambiguos los reportes historicos, que es
+  // justamente lo que el soft-delete existe para evitar.
+  nombre String  @unique
   activo Boolean @default(true)
 
   clientes Cliente[]
@@ -129,7 +135,10 @@ model SectorCliente {
 model Fuente {
   id        Int    @id @default(autoincrement())
   sistemaId Int    @map("sistema_id")
-  nombre    String
+  // Mismo criterio que CLIENTE. Unico a nivel nacional y no por sistema: el
+  // catalogo real ya trae el sistema en el nombre cuando hace falta
+  // distinguir (decision #39). Las 31 fuentes reales ya cumplen.
+  nombre    String @unique
 
   sistema            Sistema            @relation(fields: [sistemaId], references: [id])
   lecturasFuente     LecturaFuente[]
