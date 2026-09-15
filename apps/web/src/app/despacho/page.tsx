@@ -3,6 +3,7 @@
 import type { FilaBalanceDiarioDto, TipoCorte } from "@sicog/shared-types";
 import { useMemo, useState } from "react";
 import { CeldaVolumen } from "@/components/celda-volumen";
+import { TablaDesplazable, TH } from "@/components/tabla-desplazable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -155,43 +156,43 @@ function Tabla({
   }
 
   return (
-    // La tabla es lo único que puede desbordar a lo ancho, y lo hace dentro de
-    // su propio contenedor para que la página no scrollee en horizontal.
-    <div className="mt-6 overflow-x-auto rounded-lg border border-border">
-      <table className="w-full min-w-[40rem] border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-border bg-card text-left text-xs text-muted-foreground">
-            <th scope="col" className="px-3 py-2 font-medium">Cliente</th>
-            <th scope="col" className="px-3 py-2 font-medium">Sistema</th>
-            <th scope="col" className="px-3 py-2 font-medium">Región</th>
-            <th scope="col" className="px-3 py-2 text-right font-medium">MMPCED</th>
+    <TablaDesplazable anchoMinimo="min-w-[48rem]">
+      <thead>
+        <tr className="bg-card text-left text-xs text-muted-foreground">
+          <th scope="col" className={TH}>Cliente</th>
+          <th scope="col" className={TH}>Sistema</th>
+          <th scope="col" className={TH}>Región</th>
+          <th scope="col" className={TH}>Sector</th>
+          <th scope="col" className={`${TH} text-right`}>MMPCED</th>
+        </tr>
+      </thead>
+      <tbody>
+        {filas.map((fila) => (
+          <tr key={fila.cliente.id} className="border-b border-border last:border-0">
+            <th scope="row" className="px-3 py-1.5 text-left font-normal">
+              {fila.cliente.nombre}
+            </th>
+            <td className="px-3 py-1.5 text-muted-foreground">
+              {fila.cliente.sistema.nombre}
+            </td>
+            <td className="px-3 py-1.5 text-muted-foreground">
+              {fila.cliente.region.nombre}
+            </td>
+            <td className="px-3 py-1.5 text-muted-foreground">
+              {fila.cliente.sector.nombre}
+            </td>
+            <td className="px-3 py-1.5 text-right">
+              <CeldaCliente
+                fila={fila}
+                fecha={fecha}
+                tipoCorte={tipoCorte}
+                puedeEditar={puedeEditar}
+              />
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          {filas.map((fila) => (
-            <tr key={fila.cliente.id} className="border-b border-border last:border-0">
-              <th scope="row" className="px-3 py-1.5 text-left font-normal">
-                {fila.cliente.nombre}
-              </th>
-              <td className="px-3 py-1.5 text-muted-foreground">
-                {fila.cliente.sistema.nombre}
-              </td>
-              <td className="px-3 py-1.5 text-muted-foreground">
-                {fila.cliente.region.nombre}
-              </td>
-              <td className="px-3 py-1.5 text-right">
-                <CeldaCliente
-                  fila={fila}
-                  fecha={fecha}
-                  tipoCorte={tipoCorte}
-                  puedeEditar={puedeEditar}
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </TablaDesplazable>
   );
 }
 

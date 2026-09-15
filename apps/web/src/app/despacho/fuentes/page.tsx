@@ -3,6 +3,7 @@
 import type { FilaFuenteDiariaDto } from "@sicog/shared-types";
 import { useMemo, useState } from "react";
 import { CeldaVolumen } from "@/components/celda-volumen";
+import { TablaDesplazable, TH } from "@/components/tabla-desplazable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -107,32 +108,30 @@ export default function LecturasFuentePage() {
             Ninguna fuente coincide con el filtro.
           </p>
         ) : (
-          <div className="mt-6 overflow-x-auto rounded-lg border border-border">
-            <table className="w-full min-w-[34rem] border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-border bg-card text-left text-xs text-muted-foreground">
-                  <th scope="col" className="px-3 py-2 font-medium">Fuente</th>
-                  <th scope="col" className="px-3 py-2 font-medium">Sistema</th>
-                  <th scope="col" className="px-3 py-2 text-right font-medium">MMPCED</th>
+          <TablaDesplazable anchoMinimo="min-w-[34rem]">
+            <thead>
+              <tr className="bg-card text-left text-xs text-muted-foreground">
+                <th scope="col" className={TH}>Fuente</th>
+                <th scope="col" className={TH}>Sistema</th>
+                <th scope="col" className={`${TH} text-right`}>MMPCED</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibles.map((fila) => (
+                <tr key={fila.fuente.id} className="border-b border-border last:border-0">
+                  <th scope="row" className="px-3 py-1.5 text-left font-normal">
+                    {fila.fuente.nombre}
+                  </th>
+                  <td className="px-3 py-1.5 text-muted-foreground">
+                    {fila.fuente.sistema.nombre}
+                  </td>
+                  <td className="px-3 py-1.5 text-right">
+                    <CeldaFuente fila={fila} fecha={fecha} puedeEditar={puedeEditar} />
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {visibles.map((fila) => (
-                  <tr key={fila.fuente.id} className="border-b border-border last:border-0">
-                    <th scope="row" className="px-3 py-1.5 text-left font-normal">
-                      {fila.fuente.nombre}
-                    </th>
-                    <td className="px-3 py-1.5 text-muted-foreground">
-                      {fila.fuente.sistema.nombre}
-                    </td>
-                    <td className="px-3 py-1.5 text-right">
-                      <CeldaFuente fila={fila} fecha={fecha} puedeEditar={puedeEditar} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </TablaDesplazable>
         )}
       </main>
     </>

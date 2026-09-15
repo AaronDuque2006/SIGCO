@@ -253,6 +253,11 @@ ctrl-operacional-gas/
     - **En pantalla angosta el menú deja de ser lateral** y pasa a ser una fila que se desplaza: un panel fijo a la izquierda se comería el ancho que la grilla necesita.
     - **Una vista sin construir se muestra atenuada y fuera del recorrido del teclado**, igual que los dominios sin construir del hub: no es un control, así que no se anuncia como accionable.
 
+64. **Las grillas de digitación scrollean dentro de sí mismas, con el encabezado fijo, y la de clientes muestra el sector económico.** Pedido del owner al ver las pantallas: que las tarjetas de balance y los filtros no se vayan de pantalla al recorrer las filas. El contenedor de la tabla lleva `max-h-[65vh]` y scrollea en los dos ejes; el encabezado es `sticky top-0` para que al bajar no se pierda qué columna es cuál.
+    - **La cáscara está en `components/tabla-desplazable.tsx`** (`TablaDesplazable` + la clase `TH`), compartida por las grillas de clientes y de fuentes, siguiendo el precedente de `CeldaVolumen`. La parte con truco queda explicada una sola vez.
+    - **La línea bajo el encabezado es una sombra interior y no un `border-b`**: con `border-collapse` el borde de una celda `sticky` no se dibuja, se queda en su posición original y desaparece apenas se scrollea.
+    - **El sector económico ya viajaba en `ClienteDto`** y el repositorio ya lo traía; sólo faltaba pintarlo. Va entre Región y MMPCED. La grilla de fuentes no lo lleva porque `FUENTE` no tiene sector: el sector es una propiedad del cliente que consume, no del punto que entrega.
+
 ---
 
 ## 7. ERD consolidado (vigente)
