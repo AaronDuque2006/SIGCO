@@ -42,6 +42,12 @@ const VISTAS: Vista[] = [
     disponible: true,
   },
   {
+    ruta: "/despacho/contactos",
+    nombre: "Contactos",
+    descripcion: "Teléfonos de operadores",
+    disponible: true,
+  },
+  {
     ruta: "/despacho/reportes",
     nombre: "Reportes y gráficas",
     descripcion: "Balance nación y consumo",

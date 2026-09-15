@@ -3,6 +3,7 @@
 import type {
   BalanceNacionDto,
   ClienteDto,
+  ContactoDto,
   FilaBalanceDiarioDto,
   FuenteDto,
   HistorialEntryDto,
@@ -16,7 +17,12 @@ import type {
   TipoCorte,
   UsuarioSesionDto,
 } from "@sicog/shared-types";
-import type { CreateNovedadInput, UpdateNovedadInput } from "@sicog/shared-validators";
+import type {
+  CreateContactoInput,
+  CreateNovedadInput,
+  UpdateContactoInput,
+  UpdateNovedadInput,
+} from "@sicog/shared-validators";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "./api";
 
@@ -366,3 +372,59 @@ export function isoALocal(iso: string): string {
 
 /** `YYYY-MM-DDTHH:mm` local → ISO 8601 en UTC. */
 export const localAIso = (local: string): string => new Date(local).toISOString();
+
+// ---------------------------------------------------------------------------
+// Contactos — directorio telefónico
+// ---------------------------------------------------------------------------
+
+export interface FiltrosContactos {
+  q: string;
+  clienteId: number | null;
+  fuenteId: number | null;
+  page: number;
+}
+
+const queryContactos = (f: FiltrosContactos): string => {
+  const p = new URLSearchParams({ page: String(f.page), pageSize: "20" });
+  if (f.q.trim()) p.set("q", f.q.trim());
+  if (f.clienteId !== null) p.set("clienteId", String(f.clienteId));
+  if (f.fuenteId !== null) p.set("fuenteId", String(f.fuenteId));
+  return p.toString();
+};
+
+export function useContactos(filtros: FiltrosContactos) {
+  return useQuery<Paginated<ContactoDto>, ApiError>({
+    queryKey: ["contactos", filtros],
+    queryFn: () => api<Paginated<ContactoDto>>(`/despacho/contactos?${queryContactos(filtros)}`),
+  });
+}
+
+const invalidarContactos = (cliente: ReturnType<typeof useQueryClient>) => {
+  void cliente.invalidateQueries({ queryKey: ["contactos"] });
+};
+
+export function useCrearContacto() {
+  const cliente = useQueryClient();
+  return useMutation<ContactoDto, ApiError, CreateContactoInput>({
+    mutationFn: (cuerpo) => api<ContactoDto>("/despacho/contactos", { metodo: "POST", cuerpo }),
+    onSuccess: () => invalidarContactos(cliente),
+  });
+}
+
+export function useActualizarContacto(id: number) {
+  const cliente = useQueryClient();
+  return useMutation<ContactoDto, ApiError, UpdateContactoInput>({
+    mutationFn: (cuerpo) =>
+      api<ContactoDto>(`/despacho/contactos/${id}`, { metodo: "PATCH", cuerpo }),
+    onSuccess: () => invalidarContactos(cliente),
+  });
+}
+
+/** Borrado físico, el único del módulo: la fila desaparece y no vuelve. */
+export function useEliminarContacto() {
+  const cliente = useQueryClient();
+  return useMutation<void, ApiError, number>({
+    mutationFn: (id) => api<void>(`/despacho/contactos/${id}`, { metodo: "DELETE" }),
+    onSuccess: () => invalidarContactos(cliente),
+  });
+}
