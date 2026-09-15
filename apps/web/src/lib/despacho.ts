@@ -2,8 +2,11 @@
 
 import type {
   BalanceNacionDto,
+  ClienteDto,
   FilaBalanceDiarioDto,
+  FuenteDto,
   HistorialEntryDto,
+  NovedadOperativaDto,
   FilaFuenteDiariaDto,
   LecturaBalanceDto,
   LecturaFuenteDto,
@@ -13,6 +16,7 @@ import type {
   TipoCorte,
   UsuarioSesionDto,
 } from "@sicog/shared-types";
+import type { CreateNovedadInput, UpdateNovedadInput } from "@sicog/shared-validators";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "./api";
 
@@ -248,3 +252,117 @@ export function useHistorialLectura(
     enabled: abierto && lecturaId !== null,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Novedades operativas
+// ---------------------------------------------------------------------------
+
+export interface FiltrosNovedades {
+  desde: string;
+  hasta: string;
+  clienteId: number | null;
+  fuenteId: number | null;
+  page: number;
+}
+
+const queryNovedades = (f: FiltrosNovedades): string => {
+  const p = new URLSearchParams({ page: String(f.page), pageSize: "20" });
+  if (f.desde) p.set("desde", f.desde);
+  if (f.hasta) p.set("hasta", f.hasta);
+  if (f.clienteId !== null) p.set("clienteId", String(f.clienteId));
+  if (f.fuenteId !== null) p.set("fuenteId", String(f.fuenteId));
+  return p.toString();
+};
+
+/**
+ * Primera lista del frontend con paginación de verdad.
+ *
+ * Las grillas diarias traen el día entero a propósito (decisión #60) porque se
+ * digitan de corrido; las novedades crecen sin techo y se consultan, así que
+ * van paginadas como manda §11.1.
+ */
+export function useNovedades(filtros: FiltrosNovedades) {
+  return useQuery<Paginated<NovedadOperativaDto>, ApiError>({
+    queryKey: ["novedades", filtros],
+    queryFn: () => api<Paginated<NovedadOperativaDto>>(`/despacho/novedades?${queryNovedades(filtros)}`),
+  });
+}
+
+/** Los `tipo` ya usados, para sugerirlos. La lista cerrada sigue abierta (§9.2 #4). */
+export function useTiposNovedad() {
+  return useQuery<Paginated<string>, ApiError>({
+    queryKey: ["novedades-tipos"],
+    queryFn: () => api<Paginated<string>>("/despacho/novedades/tipos"),
+  });
+}
+
+const invalidarNovedades = (cliente: ReturnType<typeof useQueryClient>) => {
+  void cliente.invalidateQueries({ queryKey: ["novedades"] });
+  // Un tipo nuevo tecleado a mano pasa a estar disponible como sugerencia.
+  void cliente.invalidateQueries({ queryKey: ["novedades-tipos"] });
+};
+
+export function useCrearNovedad() {
+  const cliente = useQueryClient();
+  return useMutation<NovedadOperativaDto, ApiError, CreateNovedadInput>({
+    mutationFn: (cuerpo) =>
+      api<NovedadOperativaDto>("/despacho/novedades", { metodo: "POST", cuerpo }),
+    onSuccess: () => invalidarNovedades(cliente),
+  });
+}
+
+export function useActualizarNovedad(id: string) {
+  const cliente = useQueryClient();
+  return useMutation<NovedadOperativaDto, ApiError, UpdateNovedadInput>({
+    mutationFn: (cuerpo) =>
+      api<NovedadOperativaDto>(`/despacho/novedades/${id}`, { metodo: "PATCH", cuerpo }),
+    onSuccess: () => invalidarNovedades(cliente),
+  });
+}
+
+/**
+ * El catálogo completo, para el desplegable de origen.
+ *
+ * `/clientes` pagina a 100 como máximo (§11.1) y hay 111, así que se recorren
+ * las páginas hasta completar. Son dos peticiones, una sola vez, y react-query
+ * las cachea: preferible a subir el tope del contrato para una pantalla.
+ */
+async function todasLasPaginas<T>(ruta: string): Promise<T[]> {
+  const acumulado: T[] = [];
+  for (let page = 1; ; page++) {
+    const r = await api<Paginated<T>>(`${ruta}${ruta.includes("?") ? "&" : "?"}page=${page}&pageSize=100`);
+    acumulado.push(...r.data);
+    if (page >= r.pagination.totalPages || r.data.length === 0) return acumulado;
+  }
+}
+
+export function useTodosLosClientes() {
+  return useQuery<ClienteDto[], ApiError>({
+    queryKey: ["clientes-todos"],
+    queryFn: () => todasLasPaginas<ClienteDto>("/despacho/clientes"),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useTodasLasFuentes() {
+  return useQuery<FuenteDto[], ApiError>({
+    queryKey: ["fuentes-todas"],
+    queryFn: () => todasLasPaginas<FuenteDto>("/despacho/fuentes"),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// --- Fechas con hora, sólo para las novedades -------------------------------
+// `inicio` y `fin` son timestamps, no el día operativo de las lecturas, así
+// que viajan en ISO 8601 y se editan con <input type="datetime-local">, que
+// habla en hora local sin zona. Estas dos hacen la traducción.
+
+/** ISO 8601 → el `YYYY-MM-DDTHH:mm` local que espera `datetime-local`. */
+export function isoALocal(iso: string): string {
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/** `YYYY-MM-DDTHH:mm` local → ISO 8601 en UTC. */
+export const localAIso = (local: string): string => new Date(local).toISOString();

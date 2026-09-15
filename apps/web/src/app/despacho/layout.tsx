@@ -36,6 +36,12 @@ const VISTAS: Vista[] = [
     disponible: true,
   },
   {
+    ruta: "/despacho/novedades",
+    nombre: "Novedades",
+    descripcion: "Eventos operativos",
+    disponible: true,
+  },
+  {
     ruta: "/despacho/reportes",
     nombre: "Reportes y gráficas",
     descripcion: "Balance nación y consumo",
