@@ -221,3 +221,30 @@ export function useHistorialQuema(quemaId: string | null) {
     enabled: quemaId !== null,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Historial de correcciones de una lectura
+// ---------------------------------------------------------------------------
+
+/** Las dos grillas comparten endpoint salvo por el segmento de la ruta. */
+export type RecursoLectura = "lecturas-balance" | "lecturas-fuente";
+
+/**
+ * El historial de una lectura concreta.
+ *
+ * `enabled` sólo cuando hay id y la fila está desplegada: son 111 filas y
+ * pedir el historial de todas al cargar la grilla sería una tormenta de
+ * peticiones para algo que casi nunca se mira.
+ */
+export function useHistorialLectura(
+  recurso: RecursoLectura,
+  lecturaId: string | null,
+  abierto: boolean,
+) {
+  return useQuery<Paginated<HistorialEntryDto>, ApiError>({
+    queryKey: ["historial", recurso, lecturaId],
+    queryFn: () =>
+      api<Paginated<HistorialEntryDto>>(`/despacho/${recurso}/${lecturaId}/historial`),
+    enabled: abierto && lecturaId !== null,
+  });
+}

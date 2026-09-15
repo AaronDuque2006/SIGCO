@@ -1,9 +1,14 @@
 "use client";
 
 import type { FilaBalanceDiarioDto, TipoCorte } from "@sicog/shared-types";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { AvisoSoloConsulta } from "@/components/aviso-solo-consulta";
 import { CeldaVolumen } from "@/components/celda-volumen";
+import {
+  BotonCorrecciones,
+  FilaHistorial,
+  useDesplegable,
+} from "@/components/historial-correcciones";
 import { TablaDesplazable, TH } from "@/components/tabla-desplazable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -24,6 +29,7 @@ export default function BalanceDiarioPage() {
   const [fecha, setFecha] = useState(hoy);
   const [tipoCorte, setTipoCorte] = useState<TipoCorte>("PUNTUAL");
   const [sistema, setSistema] = useState("");
+  const [sector, setSector] = useState("");
   const [busqueda, setBusqueda] = useState("");
 
   const grilla = useGrillaBalance(fecha, tipoCorte);
@@ -37,14 +43,26 @@ export default function BalanceDiarioPage() {
     [filas],
   );
 
+  // Mismo criterio que con los sistemas (decisión #60): el desplegable se arma
+  // con los sectores presentes en las filas. `Empresa Mixta` existe en el
+  // catálogo pero hoy no tiene clientes, así que no se ofrece.
+  const sectores = useMemo(
+    () =>
+      [...new Set(filas.map((f) => f.cliente.sector.nombre))].sort((a, b) =>
+        a.localeCompare(b, "es"),
+      ),
+    [filas],
+  );
+
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return filas.filter(
       (f) =>
         (sistema === "" || f.cliente.sistema.nombre === sistema) &&
+        (sector === "" || f.cliente.sector.nombre === sector) &&
         (q === "" || f.cliente.nombre.toLowerCase().includes(q)),
     );
-  }, [filas, sistema, busqueda]);
+  }, [filas, sistema, sector, busqueda]);
 
   const total = visibles.reduce((suma, f) => suma + (f.lectura?.volumenMmpced ?? 0), 0);
   const cargadas = visibles.filter((f) => f.lectura !== null).length;
@@ -69,7 +87,7 @@ export default function BalanceDiarioPage() {
 
         <TarjetasBalance fecha={fecha} tipoCorte={tipoCorte} />
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="space-y-1.5">
             <Label htmlFor="fecha">Fecha</Label>
             <Input
@@ -103,6 +121,22 @@ export default function BalanceDiarioPage() {
               {sistemas.map((s) => (
                 <option key={s} value={s}>
                   {s}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="sector">Sector</Label>
+            <select
+              id="sector"
+              value={sector}
+              onChange={(e) => setSector(e.target.value)}
+              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <option value="">Todos</option>
+              {sectores.map((x) => (
+                <option key={x} value={x}>
+                  {x}
                 </option>
               ))}
             </select>
@@ -158,6 +192,8 @@ function Tabla({
   tipoCorte: TipoCorte;
   puedeEditar: boolean;
 }) {
+  const { abierta, alternar } = useDesplegable();
+
   if (filas.length === 0) {
     return (
       <p className="mt-6 text-sm text-muted-foreground">
@@ -178,30 +214,55 @@ function Tabla({
         </tr>
       </thead>
       <tbody>
-        {filas.map((fila) => (
-          <tr key={fila.cliente.id} className="border-b border-border last:border-0">
-            <th scope="row" className="px-3 py-1.5 text-left font-normal">
-              {fila.cliente.nombre}
-            </th>
-            <td className="px-3 py-1.5 text-muted-foreground">
-              {fila.cliente.sistema.nombre}
-            </td>
-            <td className="px-3 py-1.5 text-muted-foreground">
-              {fila.cliente.region.nombre}
-            </td>
-            <td className="px-3 py-1.5 text-muted-foreground">
-              {fila.cliente.sector.nombre}
-            </td>
-            <td className="px-3 py-1.5 text-right">
-              <CeldaCliente
-                fila={fila}
-                fecha={fecha}
-                tipoCorte={tipoCorte}
-                puedeEditar={puedeEditar}
-              />
-            </td>
-          </tr>
-        ))}
+        {filas.map((fila) => {
+          const clave = String(fila.cliente.id);
+          const idPanel = `historial-cliente-${clave}`;
+          const abierto = abierta === clave;
+          return (
+            <Fragment key={fila.cliente.id}>
+              <tr className="border-b border-border last:border-0">
+                <th scope="row" className="px-3 py-1.5 text-left font-normal">
+                  {fila.cliente.nombre}
+                </th>
+                <td className="px-3 py-1.5 text-muted-foreground">
+                  {fila.cliente.sistema.nombre}
+                </td>
+                <td className="px-3 py-1.5 text-muted-foreground">
+                  {fila.cliente.region.nombre}
+                </td>
+                <td className="px-3 py-1.5 text-muted-foreground">
+                  {fila.cliente.sector.nombre}
+                </td>
+                <td className="px-3 py-1.5 text-right">
+                  <span className="inline-flex items-center justify-end gap-2">
+                    <BotonCorrecciones
+                      correcciones={fila.correcciones}
+                      abierto={abierto}
+                      onClick={() => alternar(clave)}
+                      etiqueta={fila.cliente.nombre}
+                      idPanel={idPanel}
+                    />
+                    <CeldaCliente
+                      fila={fila}
+                      fecha={fecha}
+                      tipoCorte={tipoCorte}
+                      puedeEditar={puedeEditar}
+                    />
+                  </span>
+                </td>
+              </tr>
+              {abierto && fila.lectura ? (
+                <FilaHistorial
+                  recurso="lecturas-balance"
+                  lecturaId={fila.lectura.id}
+                  columnas={5}
+                  idPanel={idPanel}
+                  valorActual={fila.lectura.volumenMmpced}
+                />
+              ) : null}
+            </Fragment>
+          );
+        })}
       </tbody>
     </TablaDesplazable>
   );

@@ -1,9 +1,14 @@
 "use client";
 
 import type { FilaFuenteDiariaDto } from "@sicog/shared-types";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { AvisoSoloConsulta } from "@/components/aviso-solo-consulta";
 import { CeldaVolumen } from "@/components/celda-volumen";
+import {
+  BotonCorrecciones,
+  FilaHistorial,
+  useDesplegable,
+} from "@/components/historial-correcciones";
 import { TablaDesplazable, TH } from "@/components/tabla-desplazable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -118,33 +123,74 @@ export default function LecturasFuentePage() {
             Ninguna fuente coincide con el filtro.
           </p>
         ) : (
-          <TablaDesplazable anchoMinimo="min-w-[34rem]">
-            <thead>
-              <tr className="bg-card text-left text-xs text-muted-foreground">
-                <th scope="col" className={TH}>Fuente</th>
-                <th scope="col" className={TH}>Sistema</th>
-                <th scope="col" className={`${TH} text-right`}>MMPCED</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibles.map((fila) => (
-                <tr key={fila.fuente.id} className="border-b border-border last:border-0">
-                  <th scope="row" className="px-3 py-1.5 text-left font-normal">
-                    {fila.fuente.nombre}
-                  </th>
-                  <td className="px-3 py-1.5 text-muted-foreground">
-                    {fila.fuente.sistema.nombre}
-                  </td>
-                  <td className="px-3 py-1.5 text-right">
-                    <CeldaFuente fila={fila} fecha={fecha} puedeEditar={puedeEditar} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </TablaDesplazable>
+          <Tabla filas={visibles} fecha={fecha} puedeEditar={puedeEditar} />
         )}
       </main>
     </>
+  );
+}
+
+function Tabla({
+  filas,
+  fecha,
+  puedeEditar,
+}: {
+  filas: FilaFuenteDiariaDto[];
+  fecha: string;
+  puedeEditar: boolean;
+}) {
+  const { abierta, alternar } = useDesplegable();
+
+  return (
+    <TablaDesplazable anchoMinimo="min-w-[34rem]">
+      <thead>
+        <tr className="bg-card text-left text-xs text-muted-foreground">
+          <th scope="col" className={TH}>Fuente</th>
+          <th scope="col" className={TH}>Sistema</th>
+          <th scope="col" className={`${TH} text-right`}>MMPCED</th>
+        </tr>
+      </thead>
+      <tbody>
+        {filas.map((fila) => {
+          const clave = String(fila.fuente.id);
+          const idPanel = `historial-fuente-${clave}`;
+          const abierto = abierta === clave;
+          return (
+            <Fragment key={fila.fuente.id}>
+              <tr className="border-b border-border last:border-0">
+                <th scope="row" className="px-3 py-1.5 text-left font-normal">
+                  {fila.fuente.nombre}
+                </th>
+                <td className="px-3 py-1.5 text-muted-foreground">
+                  {fila.fuente.sistema.nombre}
+                </td>
+                <td className="px-3 py-1.5 text-right">
+                  <span className="inline-flex items-center justify-end gap-2">
+                    <BotonCorrecciones
+                      correcciones={fila.correcciones}
+                      abierto={abierto}
+                      onClick={() => alternar(clave)}
+                      etiqueta={fila.fuente.nombre}
+                      idPanel={idPanel}
+                    />
+                    <CeldaFuente fila={fila} fecha={fecha} puedeEditar={puedeEditar} />
+                  </span>
+                </td>
+              </tr>
+              {abierto && fila.lectura ? (
+                <FilaHistorial
+                  recurso="lecturas-fuente"
+                  lecturaId={fila.lectura.id}
+                  columnas={3}
+                  idPanel={idPanel}
+                  valorActual={fila.lectura.volumenMmpced}
+                />
+              ) : null}
+            </Fragment>
+          );
+        })}
+      </tbody>
+    </TablaDesplazable>
   );
 }
 
