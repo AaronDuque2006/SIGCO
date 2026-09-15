@@ -125,6 +125,8 @@ export interface QuemaNacionalDiaDto {
 
 export interface NovedadOperativaDto {
   id: string;
+  // Exactamente uno de los dos viene lleno: lo exige el schema zod en el borde
+  // y el CHECK de la base (migración 20260910150000).
   cliente: ClienteDto | null;
   fuente: FuenteDto | null;
   tipo: string;
@@ -134,6 +136,8 @@ export interface NovedadOperativaDto {
   causa: string;
   mmpcedAfectados: number;
   usuarioId: number;
+  /** Quién la registró. Mismo criterio que `HistorialEntryDto` (decisión #69). */
+  usuarioNombre: string;
 }
 
 export interface ContactoDto {

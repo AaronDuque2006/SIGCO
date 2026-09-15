@@ -12,6 +12,7 @@ import * as fuente from "./controllers/fuente.controller.js";
 import * as lecturaBalance from "./controllers/lectura-balance.controller.js";
 import * as balanceNacion from "./controllers/balance-nacion.controller.js";
 import * as lecturaFuente from "./controllers/lectura-fuente.controller.js";
+import * as novedad from "./controllers/novedad.controller.js";
 import * as quemaNacional from "./controllers/quema-nacional.controller.js";
 
 // Anotación explícita por TS2742: los symlinks de pnpm impiden que TS nombre
@@ -74,6 +75,16 @@ router.get("/quema-nacional", asyncHandler(quemaNacional.obtenerDelDia));
 router.post("/quema-nacional", soloDespacho, asyncHandler(quemaNacional.registrar));
 router.patch("/quema-nacional/:id", soloDespacho, asyncHandler(quemaNacional.corregir));
 router.get("/quema-nacional/:id/historial", asyncHandler(quemaNacional.listarHistorial));
+
+// ── Novedades operativas ─────────────────────────────────────────────────────
+// `/tipos` va **antes** que `/:id`, que si no se la traga — el mismo tropiezo
+// que documenta §13.1 con `/usuarios/catalogos`.
+// Sin DELETE: el modelo no tiene `activo` y el dominio es auditable (§11.5).
+router.get("/novedades", asyncHandler(novedad.listar));
+router.get("/novedades/tipos", asyncHandler(novedad.listarTipos));
+router.post("/novedades", soloDespacho, asyncHandler(novedad.crear));
+router.get("/novedades/:id", asyncHandler(novedad.obtener));
+router.patch("/novedades/:id", soloDespacho, asyncHandler(novedad.actualizar));
 
 // Query-calculado, no una tabla (decisión #15). Va sin `soloDespacho`: es de
 // consulta, y la decisión #22 deja consultar a cualquiera.
