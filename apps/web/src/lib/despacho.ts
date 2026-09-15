@@ -3,6 +3,7 @@
 import type {
   BalanceNacionDto,
   ClienteDto,
+  ConsumoPorSectoresDto,
   ContactoDto,
   FilaBalanceDiarioDto,
   FuenteDto,
@@ -14,6 +15,7 @@ import type {
   Paginated,
   QuemaNacionalDiaDto,
   QuemaNacionalDto,
+  SerieBalanceDto,
   TipoCorte,
   UsuarioSesionDto,
 } from "@sicog/shared-types";
@@ -428,3 +430,34 @@ export function useEliminarContacto() {
     onSuccess: () => invalidarContactos(cliente),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Reportes y gráficas
+// ---------------------------------------------------------------------------
+
+export function useConsumoPorSectores(fecha: string, tipoCorte: TipoCorte) {
+  return useQuery<ConsumoPorSectoresDto, ApiError>({
+    queryKey: ["consumo-sectores", fecha, tipoCorte],
+    queryFn: () =>
+      api<ConsumoPorSectoresDto>(
+        `/despacho/reportes/consumo-por-sectores?fecha=${fecha}&tipoCorte=${tipoCorte}`,
+      ),
+  });
+}
+
+/** La serie del gráfico de línea. `dias` por defecto 7, la ventana del workbook. */
+export function useSerieBalance(hasta: string, dias: number, tipoCorte: TipoCorte) {
+  return useQuery<SerieBalanceDto, ApiError>({
+    queryKey: ["serie-balance", hasta, dias, tipoCorte],
+    queryFn: () =>
+      api<SerieBalanceDto>(
+        `/despacho/reportes/serie-balance?hasta=${hasta}&dias=${dias}&tipoCorte=${tipoCorte}`,
+      ),
+  });
+}
+
+/** `2026-09-15` → `15/09`. El eje de siete días no necesita el año repetido. */
+export const diaMes = (fecha: string): string => {
+  const [, mes, dia] = fecha.split("-");
+  return `${dia}/${mes}`;
+};

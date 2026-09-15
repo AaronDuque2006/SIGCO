@@ -51,7 +51,7 @@ const VISTAS: Vista[] = [
     ruta: "/despacho/reportes",
     nombre: "Reportes y gráficas",
     descripcion: "Balance nación y consumo",
-    disponible: false,
+    disponible: true,
   },
 ];
 
