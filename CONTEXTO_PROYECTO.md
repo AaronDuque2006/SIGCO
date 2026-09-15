@@ -258,6 +258,19 @@ ctrl-operacional-gas/
     - **La línea bajo el encabezado es una sombra interior y no un `border-b`**: con `border-collapse` el borde de una celda `sticky` no se dibuja, se queda en su posición original y desaparece apenas se scrollea.
     - **El sector económico ya viajaba en `ClienteDto`** y el repositorio ya lo traía; sólo faltaba pintarlo. Va entre Región y MMPCED. La grilla de fuentes no lo lleva porque `FUENTE` no tiene sector: el sector es una propiedad del cliente que consume, no del punto que entrega.
 
+65. **Dos decimales en los volúmenes, redondeando sólo al mostrar.** Confirmado por el owner el 2026-09-15; cierra el punto que la decisión #60 dejó abierto. `formatearVolumen` pasa a `min 2 / max 2`, pero la columna sigue siendo `Decimal(14,4)`: el job de cierre promedia con cuatro posiciones —`(480+500+512,25)/3 → 497,4167`— y truncar la columna acumularía error en cada cierre. Es lo que hace el Excel: muestra dos y guarda la división completa.
+    - **La celda editable no usa el formateo.** Si el input arrancara con el valor redondeado, pasar por una fila de `CIERRE_PROMEDIO` y salir guardaría `497,42` sobre `497,4167` sin que nadie teclee nada. Al corregir un promedio se ve el número real.
+    - **Cuando una grilla queda de sólo lectura, la pantalla lo dice** (`components/aviso-solo-consulta.tsx`). Antes las celdas se apagaban en silencio, y cien filas con "—" sin explicación son indistinguibles de una pantalla rota — fue exactamente lo que pasó con la cuenta de arranque, que por la decisión #21 no pertenece a ningún departamento. El aviso es cortesía: el 403 lo sigue resolviendo el backend contra la base.
+
+66. **Los nombres de cliente, fuente y sector son únicos en toda la base.** Confirmado por el owner el 2026-09-15 al aparecer que el schema no lo garantizaba. Migración `20260915140000_nombres_unicos_catalogos`, un `@unique` en `CLIENTE.nombre`, `FUENTE.nombre` y `SECTOR_CLIENTE.nombre`. Los datos reales ya cumplían (111, 31 y 7 nombres distintos), así que entró sin conflicto.
+    - **El constraint va en la base y no como chequeo en el Service**: entre un `SELECT` y un `INSERT` hay una carrera, y dos peticiones simultáneas con el mismo nombre pasarían las dos. El índice único **es** el mecanismo; el Repository traduce el `P2002` a `CONFLICT`, igual que ya hacía con las lecturas.
+    - **Único a nivel nacional y no por sistema**: el nombre es como el área identifica al cliente, y la grilla diaria es una fila por cliente — dos filas iguales no se podrían distinguir al digitar. El catálogo de fuentes ya trae el sistema dentro del nombre cuando hace falta desambiguar (decisión #39).
+    - **En sectores el constraint cubre también las filas desactivadas**: reusar el nombre de un sector dado de baja haría ambiguos los reportes históricos, que es justo lo que el soft-delete existe para evitar.
+
+67. **`requireSupervisor` resuelve el rango por el `id` del puesto, no por su nombre.** La decisión #31 pide "Supervisor+ de Despacho" para editar el catálogo de sectores, y hasta ahora sólo existían `requireDepartamento` y `requireSuperadmin`. El rango sale del id porque la decisión #23 fija que el id sigue el organigrama (Gerente 1 … Analista 5) — el mismo invariante del que ya dependía el listado de §13 para ordenarlos. El id de "Supervisor" se consulta contra la base en vez de cablear un 3, y si esa fila no existe no pasa nadie.
+    - **Las dos condiciones se exigen juntas, encadenadas**: `soloDespacho` y después `requireSupervisor`. Sin la primera, un supervisor de Mantenimiento podría editar el catálogo de este dominio.
+    - Los dos motivos de 403 quedan distinguidos en `LOG_INTENTO_NO_AUTORIZADO`: "No pertenece a Despacho ni lo cubre" y "No es Supervisor ni superior".
+
 ---
 
 ## 7. ERD consolidado (vigente)
@@ -530,19 +543,20 @@ erDiagram
 
 ## 10. Próximo paso inmediato
 
-**Estado al 2026-09-14** (cinco tandas de trabajo ese día; detalle narrativo en `bitacora/`).
+**Estado al 2026-09-15** (detalle narrativo en `bitacora/`).
 
-**Base de datos**: las **cuatro** migraciones aplicadas sobre el Postgres local, sembrada con los catálogos reales — 7 sistemas, 31 fuentes, 111 clientes, 4 regiones, 7 sectores, 4 departamentos, 5 puestos, estados de telemetría y el catálogo de actividades de Mantenimiento. El seed es aditivo e idempotente.
+**Base de datos**: las **cinco** migraciones aplicadas sobre el Postgres local, sembrada con los catálogos reales — 7 sistemas, 31 fuentes, 111 clientes, 4 regiones, 7 sectores, 4 departamentos, 5 puestos, estados de telemetría y el catálogo de actividades de Mantenimiento. El seed es aditivo e idempotente.
 
 **Backend (`apps/api`)** — todo verificado end to end contra la BD real:
 - Módulo `auth` completo (§12): login, refresh con rotación y detección de reuso, logout, sesión actual, rate limiting y auditoría.
 - Gestión de usuarios (§13): alta, listado, detalle, edición, bloqueo y reinicio de contraseña, más el comando de arranque del primer superadmin.
-- Rebanada `LECTURA_BALANCE` de Despacho (§11) y el job de cierre diario.
-- RBAC resuelto contra la BD en cada petición, nunca contra el token.
+- Rebanadas `LECTURA_BALANCE` y `LECTURA_FUENTE` de Despacho (§11), el reporte Balance Nación y el job de cierre diario.
+- Catálogos (`/sistemas`, `/regiones`, `/sectores-cliente`) y ABM de `/clientes` y `/fuentes`, con nombres únicos (decisión #66).
+- RBAC resuelto contra la BD en cada petición, nunca contra el token: `requireDepartamento`, `requireSuperadmin` y `requireSupervisor` (decisión #67).
 
 **Frontend (`apps/web`)** — stack confirmado, paleta del prototipo cargada como tokens de shadcn, oscuro fijo:
-- `/login` y `/cambiar-password` (decisión #57). **Probadas en el navegador por el owner.**
-- `/` — hub de los cuatro dominios (decisión #59) y `/despacho` — Balance Diario (decisión #60). Sus endpoints están verificados contra la BD real, pero **las pantallas todavía no se abrieron en un navegador**.
+- `/login` y `/cambiar-password` (decisión #57), `/usuarios` (decisión #61), el hub de los cuatro dominios (#59), `/despacho` — Balance Diario (#60) y `/despacho/fuentes` (#62), con menú lateral propio del dominio (#63).
+- Las grillas scrollean solas con encabezado fijo (#64), muestran dos decimales y avisan cuando quedan de sólo lectura (#65).
 
 **Contratos**: escritos y en uso para Despacho (§11), `auth` (§12) y gestión de usuarios (§13). `shared-types` y `shared-validators` se compilan a `dist` y los consumen la API y el frontend por igual (decisión #57).
 
@@ -556,10 +570,10 @@ erDiagram
 
 ### Por acá arranca la próxima sesión
 
-1. ~~**Login, cambio de contraseña forzado, hub de dominios y Balance Diario**~~ **Hechos** (decisiones #57, #59 y #60). El recorrido de ingreso fue probado en el navegador por el owner; **el hub y Balance Diario todavía no** — se verificaron sus endpoints contra la base real y que las rutas sirven, pero nadie las abrió. **Abrirlas es lo primero.** Con Balance Diario en uso hay que cerrar además dos cosas que sólo se ven usándola: cuántos decimales lleva la columna de volumen (hoy entre 2 y 4) y si hacen falta subtotales por sistema o región en la grilla.
-2. **Resto de las rebanadas de Despacho**, con el contrato de §11 ya escrito: `LECTURA_FUENTE`, `QUEMA_NACIONAL`, `NOVEDAD_OPERATIVA`, `CONTACTO`, los catálogos y los dos reportes query-calculados.
-3. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de §11).
-4. **Pantalla de gestión de usuarios** para el superadmin (el backend ya está, §13).
+1. ~~**Login, hub, Balance Diario, fuentes, usuarios, catálogos y ABM**~~ **Hechos** (decisiones #57 a #67). Todas las pantallas fueron abiertas en el navegador por el owner. De los dos puntos que la decisión #60 dejó abiertos, los decimales quedaron cerrados en 2 (#65); **sigue abierto si hacen falta subtotales por sistema o región en la grilla**, que sólo se ve usándola.
+2. **Rebanadas de Despacho que faltan**, con el contrato de §11 ya escrito y los schemas zod y DTOs ya en `shared-validators`/`shared-types`: `QUEMA_NACIONAL`, `NOVEDAD_OPERATIVA`, `CONTACTO` y el reporte `consumo-por-sectores`. Cada una como rebanada vertical: Repository → Service → Controller → ruta → pantalla.
+3. **Edición de usuarios en la pantalla del superadmin**: el backend ya la expone (`PATCH /api/usuarios/:id`, §13), la UI no.
+4. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de §11).
 
 ### Pendientes menores, no bloqueantes
 
@@ -595,15 +609,15 @@ Diseñado con la skill `api-and-interface-design` (contract-first). Los tipos **
 
 | Método | Ruta | Notas |
 |---|---|---|
-| GET | `/sistemas` | Catálogo (7, decisión #16). Sin paginar. |
-| GET | `/regiones` | Catálogo (4, decisión #17). Sin paginar. |
-| GET | `/sectores-cliente` | Catálogo (7, decisión #36). Sin paginar. |
-| POST | `/sectores-cliente` | Supervisor+ de Despacho. |
+| GET | `/sistemas` | Catálogo (7, decisión #16). Sin paginar, pero envuelto igual en `Paginated<T>`. Sólo lectura por la API: se siembra. |
+| GET | `/regiones` | Catálogo (4, decisión #17). Igual que el anterior. |
+| GET | `/sectores-cliente` | Catálogo (7, decisión #36). Sin paginar. Devuelve **también los desactivados**, con su bandera `activo`: los reportes históricos los nombran, y para eso existe el soft-delete. Quien arma un desplegable filtra; quien pinta un reporte no. |
+| POST | `/sectores-cliente` | Supervisor+ de Despacho — las dos condiciones encadenadas (decisión #67). |
 | PATCH | `/sectores-cliente/:id` | Supervisor+. Soft-delete con `{ activo: false }` — **no hay DELETE** (decisión #31). |
-| GET | `/clientes` | Filtros: `sistemaId`, `regionId`, `sectorId`, `q`. Paginado. |
-| POST · GET · PATCH | `/clientes` · `/clientes/:id` | |
-| GET | `/fuentes` | Filtros: `sistemaId`, `q`. Paginado. |
-| POST · GET · PATCH | `/fuentes` · `/fuentes/:id` | |
+| GET | `/clientes` | Filtros: `sistemaId`, `regionId`, `sectorId`, `q` (por nombre, sin distinguir mayúsculas). Paginado **obligatorio**, orden alfabético. |
+| POST · GET · PATCH | `/clientes` · `/clientes/:id` | Nombre único (decisión #66): repetido da `409`. Una FK inexistente da `404`. **Sin DELETE**: un cliente tiene lecturas, novedades y contactos colgando. |
+| GET | `/fuentes` | Filtros: `sistemaId`, `q`. Paginado obligatorio, orden alfabético. |
+| POST · GET · PATCH | `/fuentes` · `/fuentes/:id` | Mismo trato que clientes. |
 | GET | `/lecturas-balance?fecha&tipoCorte` | Grilla del día: una fila por cliente, con su lectura o `null`. Filtros `sistemaId`/`regionId`; paginación opcional. |
 | POST | `/lecturas-balance` | **Sólo crea `PUNTUAL`** — no acepta `tipoCorte` (decisiones #34/#42). `409` si ya existe. |
 | PATCH | `/lecturas-balance/:id` | Sólo cambia `volumenMmpced`; genera fila de historial. Mover de cliente/fecha no es una corrección. |

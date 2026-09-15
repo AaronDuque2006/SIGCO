@@ -29,15 +29,17 @@ la base real antes de marcarse, y las filas de prueba se limpian al terminar.
 
 ## Fase 1 — Catálogos, clientes y fuentes (API)
 
-- [ ] `GET /sistemas`, `/regiones`, `/sectores-cliente` (sin paginar)
-      *Verifica*: 7 sistemas, 4 regiones, 7 sectores
-- [ ] `requireSupervisor` para `sectores-cliente` (decisión #31)
-      *Verifica*: `PATCH` como Analista → `403` + fila en `LOG_INTENTO_NO_AUTORIZADO`
-- [ ] `POST /sectores-cliente`, `PATCH /sectores-cliente/:id` (soft-delete, sin DELETE)
-- [ ] `GET/POST/PATCH /clientes`, `/clientes/:id` — paginado, 4 filtros
-      *Verifica*: 111 clientes; filtro por sistema y por `q`; duplicado → `409`
-- [ ] `GET/POST/PATCH /fuentes`, `/fuentes/:id` — paginado, 2 filtros
-      *Verifica*: 31 fuentes
+- [x] Migración `20260915140000_nombres_unicos_catalogos` (decisión #66) — el
+      schema no garantizaba nombres únicos y el plan prometía un 409 que no existía
+- [x] `GET /sistemas` (7), `/regiones` (4), `/sectores-cliente` (7), sin paginar
+- [x] `requireSupervisor` por id de puesto (decisión #67)
+      *Verificado*: Analista → `403` "No es Supervisor ni superior"; Supervisor → `201`
+- [x] `POST`/`PATCH /sectores-cliente` — duplicado `409`, soft-delete `activo:false`
+- [x] `GET/POST/PATCH /clientes` — 111 en 6 páginas, `q=pequiven` insensible a
+      mayúsculas, duplicado `409`, FK inexistente `404`, `PATCH` vacío `422`
+- [x] `GET/POST/PATCH /fuentes` — 31 fuentes, mismos casos de error
+- [x] Cuenta sin Despacho: `GET` `200`, los tres `POST` `403` + auditoría
+- [x] Filas y usuarios de prueba borrados; base intacta (111/31/7/7/4)
 - [ ] **CHECKPOINT**
 
 ## Fase 2 — Quema nacional (API + pantalla)
