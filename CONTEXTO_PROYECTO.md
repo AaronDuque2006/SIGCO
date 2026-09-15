@@ -241,10 +241,10 @@ ctrl-operacional-gas/
 
 62. **Composición del Balance Nación, y las tarjetas de resumen de Balance Diario.** Confirmado por el owner el 2026-09-14, a partir de su pedido de ver arriba de la grilla el volumen manejado, el recibido, el entregado y si el sistema está empacado.
     - **`recibido`** = suma de las lecturas de `LECTURA_FUENTE` del día. Las fuentes no tienen tipo de corte (una lectura por día), así que no se filtran por él.
-    - **`transportado`** (lo "entregado") = suma de `LECTURA_BALANCE` en ese corte. **La quema nacional queda afuera de los dos términos**: sale del sistema, pero no se le entrega a nadie. Si alguna vez hace falta verla, va como dato propio, no sumada.
+    - ~~**`transportado`** (lo "entregado") = suma de `LECTURA_BALANCE` en ese corte. **La quema nacional queda afuera de los dos términos**~~ — **Corregido, ver decisión #74**: el workbook sí suma la quema al transportado (`EJECUTIVO PUNTUAL!C45`), y así quedó. El `recibido` no cambia.
     - **La tarjeta de "volumen total manejado" se descartó**: el owner confirmó que sería la misma cifra que `recibido`, así que duplicarla sólo agregaría ruido. Las tarjetas quedaron en cuatro: recibido, entregado, variación y condición.
     - **La condición se muestra como "Empacado"/"Desempacado"** y replica la fórmula del workbook (§11.5): corte estricto en cero, sin umbral, y la variación exactamente 0 cae en desempacado.
-    - **Implementación**: el reporte usa `aggregate` de Prisma y no `$queryRaw`, apartándose de la nota del §11.3. Son dos sumas simples sobre una tabla cada una; el `$queryRaw` parametrizado se reserva para los reportes que sí agrupan y cruzan, como Consumo por Sectores.
+    - **Implementación**: el reporte usa `aggregate` de Prisma y no `$queryRaw`, apartándose de la nota del §11.3. Son tres sumas simples sobre una tabla cada una (fuentes, clientes y quema, tras la decisión #74); el `$queryRaw` parametrizado se reserva para los reportes que sí agrupan y cruzan, como Consumo por Sectores.
     - **Las lecturas de fuentes no tienen carry-forward.** El job de cierre (decisión #42) sólo toca `LECTURA_BALANCE` y `QUEMA_NACIONAL`, así que corregir una lectura de fuente no se propaga a los días siguientes como sí pasa en balance (decisión #45). Una lectura de fuente es un dato aislado de su día.
 
 63. **Cada dominio tiene su propio menú lateral de vistas; elegir dominio lo sigue haciendo el hub.** Pedido del owner: como es un tablero, las vistas de Despacho —balance diario, lecturas de fuentes, reportes— viven en un menú lateral en vez de enlaces sueltos en el encabezado de cada pantalla. Lo importante de la separación: el hub decide **en qué dominio estoy** (decisión #59) y el menú lateral **qué miro dentro de él**; mezclarlos en un solo menú borraría la distinción que la decisión #22 hace entre consultar cualquier departamento y editar el propio.
@@ -610,8 +610,11 @@ erDiagram
 - RBAC resuelto contra la BD en cada petición, nunca contra el token: `requireDepartamento`, `requireSuperadmin` y `requireSupervisor` (decisión #67).
 
 **Frontend (`apps/web`)** — stack confirmado, paleta del prototipo cargada como tokens de shadcn, oscuro fijo:
-- `/login` y `/cambiar-password` (decisión #57), `/usuarios` (decisión #61), el hub de los cuatro dominios (#59), `/despacho` — Balance Diario (#60) y `/despacho/fuentes` (#62), con menú lateral propio del dominio (#63).
-- Las grillas scrollean solas con encabezado fijo (#64), muestran dos decimales y avisan cuando quedan de sólo lectura (#65).
+- `/login` y `/cambiar-password` (decisión #57), `/usuarios` (#61), el hub de los cuatro dominios (#59), y las cinco vistas de Despacho tras su menú lateral (#63): Balance Diario (#60), Lecturas de fuentes (#62), Quema nacional (#68), Novedades (#72), Contactos (#73) y Reportes y gráficas (#75).
+- Las grillas scrollean solas con encabezado fijo (#64), muestran dos decimales (#65), filtran por sector económico (#70) y despliegan el historial de correcciones en la fila corregida (#69).
+- La celda de volumen **avisa cuando rechaza lo tecleado** (#71) y las grillas explican por qué quedan de sólo lectura (#65).
+
+⚠️ **De todo lo anterior, el owner sólo abrió en un navegador `/login`, `/cambiar-password`, el hub, Balance Diario y Fuentes.** Las pantallas de quema, novedades, contactos y reportes, el historial por fila y la validación de la celda **compilan y sirven `200`, pero nadie las miró**. Sus endpoints sí están verificados contra la base real.
 
 **Contratos**: escritos y en uso para Despacho (§11), `auth` (§12) y gestión de usuarios (§13). `shared-types` y `shared-validators` se compilan a `dist` y los consumen la API y el frontend por igual (decisión #57).
 
@@ -625,7 +628,8 @@ erDiagram
 
 ### Por acá arranca la próxima sesión
 
-1. ~~**Login, hub, Balance Diario, fuentes, usuarios, catálogos y ABM**~~ **Hechos** (decisiones #57 a #67). Todas las pantallas fueron abiertas en el navegador por el owner. De los dos puntos que la decisión #60 dejó abiertos, los decimales quedaron cerrados en 2 (#65); **sigue abierto si hacen falta subtotales por sistema o región en la grilla**, que sólo se ve usándola.
+1. **Abrir en el navegador lo que nadie miró todavía**: quema nacional, novedades, contactos, reportes, el historial desplegable de las grillas y el aviso de la celda inválida. Es lo primero, y de ahí suelen salir los pedidos que más valen (las decisiones #63, #64, #69, #70 y #71 nacieron todas de abrir una pantalla).
+    - Sigue abierto de la decisión #60 si hacen falta **subtotales por sistema o región** en la grilla de Balance Diario; sólo se ve usándola.
 2. **La cuarta gráfica del workbook** (entregado por "SISTEMAS"), bloqueada hasta que el área explique qué son esas 9 categorías (§11.5).
 3. **Edición de usuarios en la pantalla del superadmin**: el backend ya la expone (`PATCH /api/usuarios/:id`, §13), la UI no.
 4. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de §11).
@@ -641,6 +645,7 @@ erDiagram
 - Tener **al menos dos superadmins** desde el arranque: no hay recuperación técnica si el único pierde el acceso, y no se construyó una a propósito (§12.3).
 - Migrar la configuración del seed de `package.json#prisma` a `prisma.config.ts` antes de Prisma 7 (hoy sólo emite un warning).
 - Dominios C (Calidad de Gas) y D (Análisis Operacional) siguen sin diseñar: falta el Excel/especificación de cada uno (§9.1).
+- **La máquina de desarrollo se queda sin memoria.** Medido el 2026-09-15: 3,6 GiB de RAM y 512 MiB de swap, los dos agotados con la API y el web levantados (`next-server` solo son ~470 MB). Con el swap lleno, compilar una página pasó de 8 segundos a más de 4 minutos. El aviso de Next sobre "slow filesystem" apunta al lugar equivocado: el disco es un ext4 local con 192 GB libres. Mientras tanto conviene no dejar los dos servidores levantados entre sesiones. El owner espera una laptop con más capacidad.
 - El prototipo visual del repo hermano sigue sin reflejar los cambios de diseño (§8).
 
 ---
