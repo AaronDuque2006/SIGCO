@@ -14,7 +14,8 @@ interface Vista {
 }
 
 // El orden es el del trabajo diario: primero se digita lo entregado a clientes,
-// después lo recibido de las fuentes, y al final se mira el resultado.
+// después lo recibido de las fuentes, luego la quema —que no entra en ninguno
+// de los dos (decisión #62)— y al final se mira el resultado.
 const VISTAS: Vista[] = [
   {
     ruta: "/despacho",
@@ -26,6 +27,12 @@ const VISTAS: Vista[] = [
     ruta: "/despacho/fuentes",
     nombre: "Lecturas de fuentes",
     descripcion: "Gas recibido",
+    disponible: true,
+  },
+  {
+    ruta: "/despacho/quema",
+    nombre: "Quema nacional",
+    descripcion: "Total quemado del día",
     disponible: true,
   },
   {

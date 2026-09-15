@@ -3,10 +3,13 @@
 import type {
   BalanceNacionDto,
   FilaBalanceDiarioDto,
+  HistorialEntryDto,
   FilaFuenteDiariaDto,
   LecturaBalanceDto,
   LecturaFuenteDto,
   Paginated,
+  QuemaNacionalDiaDto,
+  QuemaNacionalDto,
   TipoCorte,
   UsuarioSesionDto,
 } from "@sicog/shared-types";
@@ -153,5 +156,68 @@ export function useBalanceNacion(fecha: string, tipoCorte: TipoCorte) {
       api<BalanceNacionDto>(
         `/despacho/reportes/balance-nacion?fecha=${fecha}&tipoCorte=${tipoCorte}`,
       ),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Quema nacional
+// ---------------------------------------------------------------------------
+
+export const claveQuema = (fecha: string, tipoCorte: TipoCorte) =>
+  ["quema", fecha, tipoCorte] as const;
+
+/**
+ * Una sola cifra por día y por corte, no una grilla.
+ *
+ * El endpoint devuelve siempre la misma forma, con `quema: null` cuando el día
+ * todavía no se digitó: un 404 obligaría a esta pantalla a tratar un error
+ * como el estado normal de la mañana.
+ */
+export function useQuemaDelDia(fecha: string, tipoCorte: TipoCorte) {
+  return useQuery<QuemaNacionalDiaDto, ApiError>({
+    queryKey: claveQuema(fecha, tipoCorte),
+    queryFn: () =>
+      api<QuemaNacionalDiaDto>(
+        `/despacho/quema-nacional?fecha=${fecha}&tipoCorte=${tipoCorte}`,
+      ),
+  });
+}
+
+/**
+ * Un solo hook para crear y corregir, igual que en las dos grillas: desde la
+ * pantalla es la misma acción —escribir la quema del día— y lo que decide es
+ * si la fila ya existía.
+ *
+ * No invalida `balance-nacion`: la quema nacional no entra ni en el recibido
+ * ni en el transportado (decisión #62), así que las tarjetas no cambian.
+ */
+export function useGuardarQuema(fecha: string, tipoCorte: TipoCorte) {
+  const cliente = useQueryClient();
+  return useMutation<QuemaNacionalDto, ApiError, { quemaId: string | null; mmpced: number }>({
+    mutationFn: ({ quemaId, mmpced }) =>
+      quemaId === null
+        ? api<QuemaNacionalDto>("/despacho/quema-nacional", {
+            metodo: "POST",
+            cuerpo: { fecha, mmpced },
+          })
+        : api<QuemaNacionalDto>(`/despacho/quema-nacional/${quemaId}`, {
+            metodo: "PATCH",
+            cuerpo: { mmpced },
+          }),
+    onSuccess: () => {
+      void cliente.invalidateQueries({ queryKey: claveQuema(fecha, tipoCorte) });
+      void cliente.invalidateQueries({ queryKey: ["quema-historial"] });
+    },
+  });
+}
+
+/** El historial de correcciones del día. A diferencia de las grillas, acá se
+ *  muestra en pantalla: es una sola cifra y su recorrido cabe al lado. */
+export function useHistorialQuema(quemaId: string | null) {
+  return useQuery<Paginated<HistorialEntryDto>, ApiError>({
+    queryKey: ["quema-historial", quemaId],
+    queryFn: () =>
+      api<Paginated<HistorialEntryDto>>(`/despacho/quema-nacional/${quemaId}/historial`),
+    enabled: quemaId !== null,
   });
 }
