@@ -276,6 +276,15 @@ ctrl-operacional-gas/
     - **La pantalla muestra el historial de correcciones del día**, a diferencia de las grillas. Ahí quedaría escondido porque serían cien historiales; acá es una sola cifra y su recorrido cabe al lado, que es justo lo que se quiere ver cuando el número cambió tres veces en la mañana.
     - **En el menú lateral va después de fuentes y antes de los reportes**: el orden es el del trabajo diario, y la quema no entra ni en el recibido ni en el transportado (decisión #62).
 
+69. **El historial de correcciones se despliega desde la propia fila, y sólo en las filas corregidas.** Pedido del owner el 2026-09-15 ("en qué parte se vería los cambios hechos en los valores"). La decisión #3 hace obligatorio el historial porque cualquier analista puede corregir cualquier registro, pero hasta acá se guardaba y no había forma de mirarlo: los endpoints existían y ninguna pantalla los usaba.
+    - **Por fila y no en una pantalla de auditoría del día.** Contesta la pregunta en el momento en que aparece —estás viendo un número que no cuadra y querés saber quién lo tocó— y usa los endpoints que ya existen. Una vista del día completo necesita un endpoint nuevo y, sobre todo, saber quién la usaría y con qué filtros; queda para cuando esto esté en uso.
+    - **`FilaBalanceDiarioDto` y `FilaFuenteDiariaDto` ganan `correcciones: number`**, el largo del historial de esa lectura. Existe para marcar **sólo** las filas corregidas: un indicador en las 111 sería ruido. Va en la fila de la grilla y no en `LecturaBalanceDto` porque ese DTO también lo devuelven el `POST` y el `PATCH`, que tendrían que contar en cada escritura para llenarlo; la grilla en cambio ya hace una consulta por día y el conteo viaja con ella.
+    - **`HistorialEntryDto` gana `usuarioNombre`.** El `usuarioId` solo no le dice nada a quien mira, y "quién tocó esto" es justamente lo que el historial contesta. Aplica también a la pantalla de quema nacional.
+    - **El historial se pide sólo al desplegar la fila** (`enabled`): pedirlo para las 111 al cargar la grilla sería una tormenta de peticiones para algo que casi nunca se mira.
+
+70. **La grilla de Balance Diario se filtra también por sector económico.** Pedido del owner. El dato ya viajaba en `ClienteDto` y la columna ya se pintaba (decisión #64); sólo faltaba el desplegable. No aplica a fuentes: `FUENTE` no tiene sector.
+    - **El desplegable se arma con los sectores presentes en las filas**, no con el catálogo completo — se mantiene el criterio de la decisión #60, confirmado por el owner al preguntar por los 7 sistemas del Manual DAO. Los 7 están sembrados; el desplegable de sistemas muestra 4 en clientes y 5 en fuentes porque son los que tienen filas (La Toscana - San Vicente y Transcaribeño no tienen ni clientes ni fuentes; Jusepín - Criogénico tiene 9 fuentes y ningún cliente). Por lo mismo `Empresa Mixta` no aparece entre los sectores: tiene 0 clientes desde la decisión #47.
+
 ---
 
 ## 7. ERD consolidado (vigente)
