@@ -271,6 +271,11 @@ ctrl-operacional-gas/
     - **Las dos condiciones se exigen juntas, encadenadas**: `soloDespacho` y después `requireSupervisor`. Sin la primera, un supervisor de Mantenimiento podría editar el catálogo de este dominio.
     - Los dos motivos de 403 quedan distinguidos en `LOG_INTENTO_NO_AUTORIZADO`: "No pertenece a Despacho ni lo cubre" y "No es Supervisor ni superior".
 
+68. **La quema nacional del día se pide envuelta y devuelve `quema: null` cuando no se digitó.** `GET /quema-nacional` no responde `404` para un día vacío: devuelve `QuemaNacionalDiaDto` con `fecha`, `tipoCorte` y `quema: QuemaNacionalDto | null`, el mismo envoltorio que ya usa `FilaBalanceDiarioDto` con su `lectura`. Un `404` obligaría a la pantalla a tratar un error como el estado normal de la mañana.
+    - **Se admite corregir un `CIERRE_PROMEDIO`**, igual que en `LECTURA_BALANCE` (decisión #60). Lo que no hay es propagación a los días siguientes: el carry-forward de las decisiones #43 y #45 es de las lecturas por cliente, y la quema nacional es un dato aislado de su día.
+    - **La pantalla muestra el historial de correcciones del día**, a diferencia de las grillas. Ahí quedaría escondido porque serían cien historiales; acá es una sola cifra y su recorrido cabe al lado, que es justo lo que se quiere ver cuando el número cambió tres veces en la mañana.
+    - **En el menú lateral va después de fuentes y antes de los reportes**: el orden es el del trabajo diario, y la quema no entra ni en el recibido ni en el transportado (decisión #62).
+
 ---
 
 ## 7. ERD consolidado (vigente)
@@ -552,6 +557,7 @@ erDiagram
 - Gestión de usuarios (§13): alta, listado, detalle, edición, bloqueo y reinicio de contraseña, más el comando de arranque del primer superadmin.
 - Rebanadas `LECTURA_BALANCE` y `LECTURA_FUENTE` de Despacho (§11), el reporte Balance Nación y el job de cierre diario.
 - Catálogos (`/sistemas`, `/regiones`, `/sectores-cliente`) y ABM de `/clientes` y `/fuentes`, con nombres únicos (decisión #66).
+- Rebanada `QUEMA_NACIONAL` con su pantalla (decisión #68), integrada con el job de cierre.
 - RBAC resuelto contra la BD en cada petición, nunca contra el token: `requireDepartamento`, `requireSuperadmin` y `requireSupervisor` (decisión #67).
 
 **Frontend (`apps/web`)** — stack confirmado, paleta del prototipo cargada como tokens de shadcn, oscuro fijo:
@@ -571,7 +577,7 @@ erDiagram
 ### Por acá arranca la próxima sesión
 
 1. ~~**Login, hub, Balance Diario, fuentes, usuarios, catálogos y ABM**~~ **Hechos** (decisiones #57 a #67). Todas las pantallas fueron abiertas en el navegador por el owner. De los dos puntos que la decisión #60 dejó abiertos, los decimales quedaron cerrados en 2 (#65); **sigue abierto si hacen falta subtotales por sistema o región en la grilla**, que sólo se ve usándola.
-2. **Rebanadas de Despacho que faltan**, con el contrato de §11 ya escrito y los schemas zod y DTOs ya en `shared-validators`/`shared-types`: `QUEMA_NACIONAL`, `NOVEDAD_OPERATIVA`, `CONTACTO` y el reporte `consumo-por-sectores`. Cada una como rebanada vertical: Repository → Service → Controller → ruta → pantalla.
+2. **Rebanadas de Despacho que faltan**, con el contrato de §11 ya escrito y los schemas zod y DTOs ya en `shared-validators`/`shared-types`: `NOVEDAD_OPERATIVA`, `CONTACTO` y el reporte `consumo-por-sectores`. Cada una como rebanada vertical: Repository → Service → Controller → ruta → pantalla.
 3. **Edición de usuarios en la pantalla del superadmin**: el backend ya la expone (`PATCH /api/usuarios/:id`, §13), la UI no.
 4. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de §11).
 
@@ -625,8 +631,8 @@ Diseñado con la skill `api-and-interface-design` (contract-first). Los tipos **
 | GET | `/lecturas-fuente?fecha` | Grilla del día, filtro `sistemaId`, paginación opcional. **Sin `tipoCorte`**: el schema tiene `@@unique(fuenteId, fecha)`, una lectura por día; la mecánica de la decisión #34 no aplica a fuentes. |
 | POST · PATCH | `/lecturas-fuente` · `/lecturas-fuente/:id` | |
 | GET | `/lecturas-fuente/:id/historial` | Paginado. |
-| GET | `/quema-nacional?fecha&tipoCorte` | Una fila por fecha+corte. |
-| POST · PATCH | `/quema-nacional` · `/quema-nacional/:id` | Mismo trato que `LECTURA_BALANCE` (decisión #14). |
+| GET | `/quema-nacional?fecha&tipoCorte` | Una cifra por fecha+corte, envuelta en `QuemaNacionalDiaDto`; `quema: null` si no se digitó (decisión #68). Sin paginar. |
+| POST · PATCH | `/quema-nacional` · `/quema-nacional/:id` | Mismo trato que `LECTURA_BALANCE` (decisión #14): el `POST` **sólo crea `PUNTUAL`** y da `409` si ya existe; el `PATCH` escribe historial en la misma transacción. |
 | GET | `/quema-nacional/:id/historial` | Paginado. |
 | GET | `/novedades` | Filtros: `desde`, `hasta`, `clienteId`, `fuenteId`. Paginado. |
 | POST · GET · PATCH | `/novedades` · `/novedades/:id` | `PATCH` no permite cambiar el origen (cliente↔fuente). **Sin DELETE**: no hay campo `activo` y el dominio es auditable; si hace falta borrar, se decide aparte. |
@@ -661,6 +667,7 @@ Diseñado con la skill `api-and-interface-design` (contract-first). Los tipos **
 - ~~**`condicion` del Balance Nación**~~ **Resuelto leyendo la fórmula del workbook** (`EJECUTIVO PUNTUAL!G14`): `=IF(F14>0,"EMPAQUE","DESEMPAQUE")` sobre `F14 = D14 - E14` (recibido − transportado). O sea: **corte estricto en cero, sin umbral de tolerancia, y la variación exactamente 0 cae en `DESEMPAQUE`** por la rama else del `IF`. Los dos valores del tipo `CondicionBalance` son entonces exhaustivos. Nota: que el cero caiga en DESEMPAQUE es consecuencia de cómo está escrita la fórmula, no necesariamente una decisión deliberada del área — vale confirmarlo, pero el sistema replica el Excel mientras tanto.
 - ~~**Qué entra exactamente en `recibido` y en `transportado`**~~ **Confirmado por el owner** (decisión #62): `recibido` = suma de las lecturas de FUENTES del día; `transportado` = suma de las lecturas de CLIENTES en ese corte; **la quema nacional no entra en ninguno de los dos**.
 - **Volúmenes no negativos**: los schemas rechazan valores negativos (un volumen entregado no puede serlo, y "Desvío" es una `FUENTE`, decisión #5). Si existiera algún caso real de lectura negativa, hay que revisarlo.
+- **El job sólo cierra la quema de los días que tienen lecturas de clientes.** `cerrarQuema(fecha)` se llama desde `cerrarDia(fecha)`, y las fechas pendientes salen de `LECTURA_BALANCE` (`fechasConPuntualHasta`). Un día con quema digitada pero sin ninguna lectura de cliente nunca recibe su `CIERRE_PROMEDIO`. Verificado en la práctica: con la quema cargada y sin lecturas, el job devolvió `diasCerrados: []`; al agregar una lectura de cliente, cerró y calculó. En operación normal no se da —todo día operativo tiene lecturas—, pero conviene decidir si las fechas pendientes deberían salir de la unión de ambas tablas.
 - **Borrado de novedades**: hoy no hay endpoint. Si los analistas necesitan borrar una novedad mal cargada, hay que decidir entre borrado físico o agregar soft-delete al modelo.
 
 ---

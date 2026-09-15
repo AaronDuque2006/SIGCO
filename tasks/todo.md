@@ -44,13 +44,17 @@ la base real antes de marcarse, y las filas de prueba se limpian al terminar.
 
 ## Fase 2 — Quema nacional (API + pantalla)
 
-- [ ] Repository + Service + Controller + rutas (`GET`, `POST`, `PATCH`, historial)
-      *Verifica*: `POST` sólo crea `PUNTUAL`; repetido → `409`
-- [ ] `PATCH` con historial en una sola transacción
-      *Verifica*: dos correcciones → dos filas de historial
-- [ ] Pantalla `/despacho/quema` + entrada en `VISTAS`
-      *Verifica*: cargar, corregir, ver el historial del día
-- [ ] Correr el job de cierre y ver el `CIERRE_PROMEDIO`
+- [x] Repository + Service + Controller + rutas
+      *Verificado*: día vacío → `quema: null` con `200` (no `404`); `POST` `201`;
+      repetido `409`; negativo `422`; fecha inválida `422`; historial de id
+      inexistente `404`
+- [x] `PATCH` con historial en una sola transacción
+      *Verificado*: 12 → 18 → 24 deja historial `[18, 12]`
+- [x] Pantalla `/despacho/quema` + entrada en `VISTAS`
+      *Pendiente de mirada humana: compila y sirve 200, nadie la abrió*
+- [x] Job de cierre: `(12+18)/2 → CIERRE_PROMEDIO 15`, igual que §11.4
+- [x] **Hallazgo**: el job sólo cierra la quema de días con lecturas de clientes
+      (anotado en §11.5)
 - [ ] **CHECKPOINT**
 
 ## Fase 3 — Novedades operativas (API + pantalla)
