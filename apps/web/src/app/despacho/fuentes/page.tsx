@@ -2,12 +2,20 @@
 
 import type { FilaFuenteDiariaDto } from "@sicog/shared-types";
 import { useMemo, useState } from "react";
+import { AvisoSoloConsulta } from "@/components/aviso-solo-consulta";
 import { CeldaVolumen } from "@/components/celda-volumen";
 import { TablaDesplazable, TH } from "@/components/tabla-desplazable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatearVolumen, hoy, useGrillaFuentes, useGuardarLecturaFuente } from "@/lib/despacho";
+import {
+  DEPARTAMENTO_DESPACHO,
+  formatearVolumen,
+  hoy,
+  puedeEditarDespacho,
+  useGrillaFuentes,
+  useGuardarLecturaFuente,
+} from "@/lib/despacho";
 import { useSesion } from "@/lib/sesion";
 
 export default function LecturasFuentePage() {
@@ -41,7 +49,7 @@ export default function LecturasFuentePage() {
 
   const total = visibles.reduce((s, f) => s + (f.lectura?.volumenMmpced ?? 0), 0);
   const cargadas = visibles.filter((f) => f.lectura !== null).length;
-  const puedeEditar = sesion?.departamentosQueEdita.includes("Despacho") === true;
+  const puedeEditar = puedeEditarDespacho(sesion);
 
   return (
     <>
@@ -57,6 +65,8 @@ export default function LecturasFuentePage() {
         <p className="mt-2 text-sm text-muted-foreground">
           Esto es el <strong>recibido</strong> del balance: el gas que entra al sistema.
         </p>
+
+        <AvisoSoloConsulta sesion={sesion} departamento={DEPARTAMENTO_DESPACHO} />
 
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <div className="space-y-1.5">

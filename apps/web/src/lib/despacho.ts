@@ -8,6 +8,7 @@ import type {
   LecturaFuenteDto,
   Paginated,
   TipoCorte,
+  UsuarioSesionDto,
 } from "@sicog/shared-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "./api";
@@ -77,8 +78,31 @@ export function hoy(): string {
   return `${d.getFullYear()}-${mes}-${dia}`;
 }
 
+/**
+ * Dos decimales fijos, confirmado por el owner (cierra el punto abierto de la
+ * decisión #60).
+ *
+ * Se redondea **sólo al mostrar**: la columna sigue siendo `Decimal(14,4)`
+ * porque el job de cierre promedia con cuatro posiciones —`(480+500+512,25)/3`
+ * es `497,4167`— y truncarla a dos acumularía error en cada cierre. Es lo que
+ * hace el Excel: muestra dos y guarda la división completa.
+ *
+ * Por el mismo motivo la celda editable **no** usa esto: ver `CeldaVolumen`.
+ */
 export const formatearVolumen = (v: number): string =>
-  v.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  v.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/**
+ * El nombre del departamento es la clave que se compara contra
+ * `departamentosQueEdita`, así que tiene que coincidir carácter por carácter
+ * con la fila sembrada de `DEPARTAMENTO` (decisiones #22 y #59).
+ */
+export const DEPARTAMENTO_DESPACHO = "Despacho";
+
+/** Sólo decide qué habilitar en pantalla. La autorización real la resuelve el
+ *  backend contra la base en cada petición, nunca el navegador. */
+export const puedeEditarDespacho = (sesion: UsuarioSesionDto | null): boolean =>
+  sesion?.departamentosQueEdita.includes(DEPARTAMENTO_DESPACHO) === true;
 
 // ---------------------------------------------------------------------------
 // Fuentes y balance nación

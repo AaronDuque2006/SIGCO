@@ -1,7 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { formatearVolumen } from "@/lib/despacho";
+
+/**
+ * Lo que se edita es el número crudo, no el formateado.
+ *
+ * `formatearVolumen` muestra dos decimales (decisión #60), pero la columna es
+ * `Decimal(14,4)` y las filas de `CIERRE_PROMEDIO` —que también se corrigen—
+ * traen las cuatro que calculó el job. Si el input arrancara con el valor
+ * redondeado, pasar por la celda y salir guardaría `497,42` sobre un
+ * `497,4167`: una pérdida de precisión silenciosa, sin que nadie tecleara
+ * nada. Al corregir un promedio se ve el número real.
+ */
+const comoTexto = (v: number | null): string => (v === null ? "" : String(v));
 
 /**
  * Celda editable de volumen, común a las grillas de clientes y de fuentes.
@@ -26,13 +38,20 @@ export function CeldaVolumen({
   error: string | null;
   onGuardar: (volumen: number) => void;
 }) {
-  const [texto, setTexto] = useState(valor === null ? "" : String(valor));
+  const [texto, setTexto] = useState(() => comoTexto(valor));
 
   // Si la grilla se recarga —otro día, otro corte, o el refresco tras
   // guardar— la celda tiene que volver a reflejar lo que hay en la base.
-  useEffect(() => {
-    setTexto(valor === null ? "" : String(valor));
-  }, [valor]);
+  //
+  // Se ajusta durante el render comparando contra el valor anterior, y no
+  // desde un `useEffect`: el efecto pintaba primero el valor viejo y recién
+  // en un segundo render el nuevo, un render de más por cada celda y cada
+  // refresco (regla `react-hooks/set-state-in-effect`).
+  const [valorAnterior, setValorAnterior] = useState(valor);
+  if (valor !== valorAnterior) {
+    setValorAnterior(valor);
+    setTexto(comoTexto(valor));
+  }
 
   if (!editable) {
     return (
@@ -70,7 +89,7 @@ export function CeldaVolumen({
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
           if (e.key === "Escape") {
-            setTexto(valor === null ? "" : String(valor));
+            setTexto(comoTexto(valor));
             e.currentTarget.blur();
           }
         }}

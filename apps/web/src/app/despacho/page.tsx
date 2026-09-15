@@ -2,12 +2,20 @@
 
 import type { FilaBalanceDiarioDto, TipoCorte } from "@sicog/shared-types";
 import { useMemo, useState } from "react";
+import { AvisoSoloConsulta } from "@/components/aviso-solo-consulta";
 import { CeldaVolumen } from "@/components/celda-volumen";
 import { TablaDesplazable, TH } from "@/components/tabla-desplazable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatearVolumen, hoy, useGrillaBalance, useGuardarLectura } from "@/lib/despacho";
+import {
+  DEPARTAMENTO_DESPACHO,
+  formatearVolumen,
+  hoy,
+  puedeEditarDespacho,
+  useGrillaBalance,
+  useGuardarLectura,
+} from "@/lib/despacho";
 import { useSesion } from "@/lib/sesion";
 import { TarjetasBalance } from "./tarjetas-balance";
 
@@ -42,8 +50,9 @@ export default function BalanceDiarioPage() {
   const cargadas = visibles.filter((f) => f.lectura !== null).length;
 
   // Decisión #22: se puede consultar cualquier departamento, editar sólo el
-  // propio. Quien no edita Despacho ve la grilla completa, en modo lectura.
-  const puedeEditar = sesion?.departamentosQueEdita.includes("Despacho") === true;
+  // propio. Quien no edita Despacho ve la grilla completa, en modo lectura, y
+  // `AvisoSoloConsulta` le dice por qué.
+  const puedeEditar = puedeEditarDespacho(sesion);
 
   return (
     <>
@@ -55,6 +64,8 @@ export default function BalanceDiarioPage() {
             <span className="font-mono text-foreground">{formatearVolumen(total)}</span> MMPCED
           </p>
         </div>
+
+        <AvisoSoloConsulta sesion={sesion} departamento={DEPARTAMENTO_DESPACHO} />
 
         <TarjetasBalance fecha={fecha} tipoCorte={tipoCorte} />
 
