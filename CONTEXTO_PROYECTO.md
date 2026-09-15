@@ -307,6 +307,21 @@ ctrl-operacional-gas/
     - **El origen no se edita**, igual que en novedades: `updateContactoSchema` omite los dos campos. Un teléfono que pasa de un cliente a otro es otro contacto. La columna se muestra igual, en gris, para no perder de vista de quién es la fila.
     - **`CONTACTO` no tiene `usuarioId` ni historial**: el modelo son cuatro columnas. No hay "quién lo cargó" que mostrar.
 
+74. **La quema nacional SÍ entra en el `transportado` del Balance Nación.** Revisa la decisión #62, que había dicho lo contrario. Salió de leer la fórmula del workbook el 2026-09-15: `EJECUTIVO PUNTUAL!E14 = C45`, y `C45 = SUM(C36,C38,C39,C40,C41,C42,C43,C44) + G49`, donde `G49 = FUENTES!I29`, rotulado **"QUEMA PUNTUAL"**. Confirmado por el owner: manda el Excel. `BalanceNacionDto` gana `quemaMmpced` para poder mostrar cuánto del transportado es quema sin una segunda consulta.
+    - La quema se consulta con el **mismo `tipoCorte`** que los clientes: el modelo tiene `@@unique(fecha, tipoCorte)` y la mecánica puntual/cierre le aplica igual (decisión #14).
+    - **No entra en el consumo por sectores**: en el workbook `QUEMA TYD` vive en `G48/G49`, pegada al bloque de sectores pero **fuera del rango de la gráfica**. No es consumo de ningún sector.
+    - Nota del workbook, sin resolver: `C45` **excluye** `C37` (ENTREGA ICO MORÓN) aunque esté en la misma lista. No sé por qué y no lo repliqué — el modelo de SICOG no tiene esa categoría (ver el pendiente de §11.5).
+
+75. **Los reportes y sus gráficas.** Las hojas `EJECUTIVO PUNTUAL` y `PROMEDIO` tienen **ocho gráficas, pero son las mismas cuatro repetidas**, cambiando sólo el corte. En SICOG van una sola vez, con el selector de corte arriba, igual que Balance Diario.
+    - **`GET /reportes/consumo-por-sectores`** (decisión #37) cubre dos de ellas: la dona de sectores y las barras por región. El total nacional por sector se calcula **sumando el desglose regional**, que es lo que hace el Excel (`A49 = L52+L63+L70`), para que los dos números no puedan discrepar.
+    - **El desglose región × sector es disperso**, no una matriz: sólo aparecen los pares con consumo. En el workbook CENTRO lista 3 sectores y CEN-OCC lista 6; rellenar con ceros inventaría filas que el área no ve.
+    - **`GET /reportes/serie-balance?hasta&dias&tipoCorte`** es nuevo en el contrato, para el gráfico de línea. En el workbook esas siete filas (`B89:D95`) **se teclean a mano** cada día; acá se calculan de lo guardado. `dias` por defecto 7 —la ventana del workbook—, mínimo 2 y tope 90. Los días sin datos vienen en cero y no se omiten: saltarlos haría que dos puntos separados por una semana se vieran contiguos.
+    - **Las gráficas son SVG a mano, sin librería.** Son tres formas simples y un paquete de gráficos costaría más memoria que escribirlas, en una máquina que ya viene justa. Además el SVG hereda los tokens del tema sin puente de configuración.
+    - **La paleta está validada, no elegida a ojo** (skill `dataviz`): azul `#3b82f6` y ámbar `#d97706` separan ΔE 30,2 en protanopía y 28,7 en tritanopía sobre la superficie `#101828`, y las dos caen en la banda de luminosidad del modo oscuro. El ámbar del tema (`--chart-3`, `#f2b84b`) **quedaba fuera de esa banda** —demasiado claro sobre fondo oscuro— igual que el verde `--chart-2`.
+    - **Barras horizontales en vez de la dona y del 3D del workbook.** En una dona hay que comparar ángulos, y el 3D distorsiona la altura con la perspectiva. Las barras van ordenadas por magnitud, con el porcentaje de participación como rótulo. **Si el área prefiere la dona porque es lo que reconoce, se cambia** — el dato es el mismo.
+    - **Un solo tono para las barras**: el largo ya codifica la magnitud, y pintarlas de colores distintos sugeriría una identidad que no existe. Las dos series de la línea sí son categóricas y llevan leyenda siempre.
+    - **Balance Nación va como cifras y no como gráfica**: son cuatro números sueltos, y una barra de un solo valor no dice más que el número.
+
 ---
 
 ## 7. ERD consolidado (vigente)
@@ -591,6 +606,7 @@ erDiagram
 - Rebanada `QUEMA_NACIONAL` con su pantalla (decisión #68), integrada con el job de cierre.
 - Rebanada `NOVEDAD_OPERATIVA` con su pantalla (decisión #72): lista paginada, alta y edición.
 - Rebanada `CONTACTO` con su pantalla (decisión #73): directorio buscable, alta, edición y borrado físico.
+- Reportes `consumo-por-sectores` y `serie-balance` con su pantalla y tres de las cuatro gráficas del workbook (decisiones #74 y #75).
 - RBAC resuelto contra la BD en cada petición, nunca contra el token: `requireDepartamento`, `requireSuperadmin` y `requireSupervisor` (decisión #67).
 
 **Frontend (`apps/web`)** — stack confirmado, paleta del prototipo cargada como tokens de shadcn, oscuro fijo:
@@ -610,7 +626,7 @@ erDiagram
 ### Por acá arranca la próxima sesión
 
 1. ~~**Login, hub, Balance Diario, fuentes, usuarios, catálogos y ABM**~~ **Hechos** (decisiones #57 a #67). Todas las pantallas fueron abiertas en el navegador por el owner. De los dos puntos que la decisión #60 dejó abiertos, los decimales quedaron cerrados en 2 (#65); **sigue abierto si hacen falta subtotales por sistema o región en la grilla**, que sólo se ve usándola.
-2. **Rebanadas de Despacho que faltan**, con el contrato de §11 ya escrito y los schemas zod y DTOs ya en `shared-validators`/`shared-types`: el reporte `consumo-por-sectores`. Cada una como rebanada vertical: Repository → Service → Controller → ruta → pantalla.
+2. **La cuarta gráfica del workbook** (entregado por "SISTEMAS"), bloqueada hasta que el área explique qué son esas 9 categorías (§11.5).
 3. **Edición de usuarios en la pantalla del superadmin**: el backend ya la expone (`PATCH /api/usuarios/:id`, §13), la UI no.
 4. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de §11).
 
@@ -672,7 +688,8 @@ Diseñado con la skill `api-and-interface-design` (contract-first). Los tipos **
 | POST · GET · PATCH | `/novedades` · `/novedades/:id` | `PATCH` no permite cambiar el origen (cliente↔fuente). **Sin DELETE**: no hay campo `activo` y el dominio es auditable; si hace falta borrar, se decide aparte. |
 | GET · POST · PATCH · DELETE | `/contactos` · `/contactos/:id` | Único recurso con borrado físico: es un directorio telefónico, no un dato operativo histórico. `DELETE` responde `204`. Filtros del `GET`: `clienteId`, `fuenteId` y `q` (operador, teléfono, o nombre del cliente/fuente — decisión #73). El `id` es `Int`, no `BigInt`. |
 | GET | `/reportes/balance-nacion?fecha&tipoCorte` | Query-calculado (decisión #15), vía `$queryRaw` parametrizado en el Repository. |
-| GET | `/reportes/consumo-por-sectores?fecha&tipoCorte` | Query-calculado (decisión #37): totales por sector y por región. |
+| GET | `/reportes/consumo-por-sectores?fecha&tipoCorte` | Query-calculado (decisión #37): totales por sector y por región. El desglose es **disperso** — sólo los pares con consumo. No incluye la quema. |
+| GET | `/reportes/serie-balance?hasta&dias&tipoCorte` | Query-calculado. Recibido vs transportado por día en una ventana de `dias` (default 7, mín. 2, máx. 90), con sus promedios. Los días sin datos vienen en cero (decisión #75). |
 
 ### 11.3 Notas de implementación (rebanada `LECTURA_BALANCE`)
 
@@ -702,6 +719,8 @@ Diseñado con la skill `api-and-interface-design` (contract-first). Los tipos **
 - ~~**Qué entra exactamente en `recibido` y en `transportado`**~~ **Confirmado por el owner** (decisión #62): `recibido` = suma de las lecturas de FUENTES del día; `transportado` = suma de las lecturas de CLIENTES en ese corte; **la quema nacional no entra en ninguno de los dos**.
 - **Volúmenes no negativos**: los schemas rechazan valores negativos (un volumen entregado no puede serlo, y "Desvío" es una `FUENTE`, decisión #5). Si existiera algún caso real de lectura negativa, hay que revisarlo.
 - **El job sólo cierra la quema de los días que tienen lecturas de clientes.** `cerrarQuema(fecha)` se llama desde `cerrarDia(fecha)`, y las fechas pendientes salen de `LECTURA_BALANCE` (`fechasConPuntualHasta`). Un día con quema digitada pero sin ninguna lectura de cliente nunca recibe su `CIERRE_PROMEDIO`. Verificado en la práctica: con la quema cargada y sin lecturas, el job devolvió `diasCerrados: []`; al agregar una lectura de cliente, cerró y calculó. En operación normal no se da —todo día operativo tiene lecturas—, pero conviene decidir si las fechas pendientes deberían salir de la unión de ambas tablas.
+- **La gráfica de "SISTEMAS" del workbook no usa el catálogo `SISTEMA`.** Sus 9 categorías (`EJECUTIVO PUNTUAL!A36:A44`) son ANACO- CCS/BQTO, ENTREGA ICO(MORÓN), ANACO- JOSE/PTO. CRUZ, ANACO- PTO. ORDAZ, ENTREGAS DIRECTAS ORI., NOR ORIENTAL, COSTA OESTE, COSTA ESTE y ULE AMUAY. Sólo cuatro coinciden con un sistema sembrado; las otras salen de sumar bloques de filas de `CEN-ORI`. **Falta que el área explique qué agrupación es ésa** antes de modelarla; la cuarta gráfica queda sin construir hasta entonces.
+- **`C45` del workbook excluye `C37` (ENTREGA ICO MORÓN)** del total entregado aunque la fila esté en la lista. Sin explicación conocida; relacionado con el punto anterior.
 - **Borrado de novedades**: hoy no hay endpoint. Si los analistas necesitan borrar una novedad mal cargada, hay que decidir entre borrado físico o agregar soft-delete al modelo.
 
 ---

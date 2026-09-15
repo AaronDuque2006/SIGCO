@@ -88,10 +88,18 @@ la base real antes de marcarse, y las filas de prueba se limpian al terminar.
 
 ## Fase 5 — Consumo por sectores (API + pantalla)
 
-- [ ] `GET /reportes/consumo-por-sectores` con `$queryRaw` parametrizado
-      *Verifica*: los totales cuadran con la grilla de Balance Diario del mismo
-      día y corte
-- [ ] Pantalla `/despacho/reportes/consumo` + entrada en `VISTAS`
+- [x] `GET /reportes/consumo-por-sectores` con `$queryRaw` parametrizado
+      *Verificado*: 100,5 total = las 6 lecturas del owner; + 12 de quema = 112,5
+      de transportado en Balance Nación
+- [x] `GET /reportes/serie-balance` (nuevo en el contrato) para el gráfico de línea
+      *Verificado*: 7 días con los vacíos en cero; `dias=1` y `dias=91` → `422`
+- [x] Balance Nación: la quema entra en el transportado (decisión #74)
+- [x] Paleta validada con el script del skill `dataviz` — el ámbar y el verde del
+      tema quedaban fuera de la banda de luminosidad en oscuro
+- [x] Pantalla `/despacho/reportes` con 3 de las 4 gráficas + entrada en `VISTAS`
+      *Pendiente de mirada humana: compila y sirve 200*
+- [ ] **Cuarta gráfica** (por "SISTEMAS") — bloqueada: falta saber qué son esas
+      9 categorías del workbook
 - [ ] **CHECKPOINT final**
 
 ## Cierre
