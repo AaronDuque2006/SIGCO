@@ -2,10 +2,7 @@
 
 import type { FilaBalanceDiarioDto, TipoCorte } from "@sicog/shared-types";
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { CeldaVolumen } from "@/components/celda-volumen";
-import { Encabezado } from "@/components/encabezado";
-import { GuardiaSesion } from "@/components/guardia-sesion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,14 +11,6 @@ import { useSesion } from "@/lib/sesion";
 import { TarjetasBalance } from "./tarjetas-balance";
 
 export default function BalanceDiarioPage() {
-  return (
-    <GuardiaSesion>
-      <BalanceDiario />
-    </GuardiaSesion>
-  );
-}
-
-function BalanceDiario() {
   const { sesion } = useSesion();
   const [fecha, setFecha] = useState(hoy);
   const [tipoCorte, setTipoCorte] = useState<TipoCorte>("PUNTUAL");
@@ -57,15 +46,9 @@ function BalanceDiario() {
 
   return (
     <>
-      <Encabezado />
-      <main className="mx-auto w-full max-w-5xl p-4">
-        <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
-          <div className="flex items-baseline gap-3">
-            <h1 className="text-lg font-semibold tracking-tight">Balance diario</h1>
-            <Link href="/despacho/fuentes" className="text-sm text-primary hover:underline">
-              Ir a lecturas de fuentes
-            </Link>
-          </div>
+      <main>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h1 className="text-lg font-semibold tracking-tight">Balance diario</h1>
           <p className="text-sm text-muted-foreground">
             {cargadas} de {visibles.length} clientes con lectura · total{" "}
             <span className="font-mono text-foreground">{formatearVolumen(total)}</span> MMPCED

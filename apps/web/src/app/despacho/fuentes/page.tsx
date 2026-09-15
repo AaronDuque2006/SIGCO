@@ -1,11 +1,8 @@
 "use client";
 
 import type { FilaFuenteDiariaDto } from "@sicog/shared-types";
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { CeldaVolumen } from "@/components/celda-volumen";
-import { Encabezado } from "@/components/encabezado";
-import { GuardiaSesion } from "@/components/guardia-sesion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,14 +10,6 @@ import { formatearVolumen, hoy, useGrillaFuentes, useGuardarLecturaFuente } from
 import { useSesion } from "@/lib/sesion";
 
 export default function LecturasFuentePage() {
-  return (
-    <GuardiaSesion>
-      <LecturasFuente />
-    </GuardiaSesion>
-  );
-}
-
-function LecturasFuente() {
   const { sesion } = useSesion();
   const [fecha, setFecha] = useState(hoy);
   const [sistema, setSistema] = useState("");
@@ -55,15 +44,9 @@ function LecturasFuente() {
 
   return (
     <>
-      <Encabezado />
-      <main className="mx-auto w-full max-w-5xl p-4">
-        <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
-          <div className="flex items-baseline gap-3">
-            <h1 className="text-lg font-semibold tracking-tight">Lecturas de fuentes</h1>
-            <Link href="/despacho" className="text-sm text-primary hover:underline">
-              Ir a balance diario
-            </Link>
-          </div>
+      <main>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h1 className="text-lg font-semibold tracking-tight">Lecturas de fuentes</h1>
           <p className="text-sm text-muted-foreground">
             {cargadas} de {visibles.length} fuentes con lectura · total{" "}
             <span className="font-mono text-foreground">{formatearVolumen(total)}</span> MMPCED

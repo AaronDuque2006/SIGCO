@@ -247,6 +247,12 @@ ctrl-operacional-gas/
     - **Implementación**: el reporte usa `aggregate` de Prisma y no `$queryRaw`, apartándose de la nota del §11.3. Son dos sumas simples sobre una tabla cada una; el `$queryRaw` parametrizado se reserva para los reportes que sí agrupan y cruzan, como Consumo por Sectores.
     - **Las lecturas de fuentes no tienen carry-forward.** El job de cierre (decisión #42) sólo toca `LECTURA_BALANCE` y `QUEMA_NACIONAL`, así que corregir una lectura de fuente no se propaga a los días siguientes como sí pasa en balance (decisión #45). Una lectura de fuente es un dato aislado de su día.
 
+63. **Cada dominio tiene su propio menú lateral de vistas; elegir dominio lo sigue haciendo el hub.** Pedido del owner: como es un tablero, las vistas de Despacho —balance diario, lecturas de fuentes, reportes— viven en un menú lateral en vez de enlaces sueltos en el encabezado de cada pantalla. Lo importante de la separación: el hub decide **en qué dominio estoy** (decisión #59) y el menú lateral **qué miro dentro de él**; mezclarlos en un solo menú borraría la distinción que la decisión #22 hace entre consultar cualquier departamento y editar el propio.
+    - **La cáscara vive en `app/despacho/layout.tsx`**, no repetida en cada pantalla: la guardia de sesión, el encabezado y el menú se declaran una vez, y agregar una vista es agregar una fila a `VISTAS` más su `page.tsx`. Las dos pantallas existentes se limpiaron de su cáscara duplicada al hacerlo.
+    - **El orden del menú es el del trabajo diario**, no alfabético: primero lo entregado a clientes, después lo recibido de las fuentes, y al final el resultado.
+    - **En pantalla angosta el menú deja de ser lateral** y pasa a ser una fila que se desplaza: un panel fijo a la izquierda se comería el ancho que la grilla necesita.
+    - **Una vista sin construir se muestra atenuada y fuera del recorrido del teclado**, igual que los dominios sin construir del hub: no es un control, así que no se anuncia como accionable.
+
 ---
 
 ## 7. ERD consolidado (vigente)
