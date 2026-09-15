@@ -15,6 +15,7 @@ import * as balanceNacion from "./controllers/balance-nacion.controller.js";
 import * as lecturaFuente from "./controllers/lectura-fuente.controller.js";
 import * as novedad from "./controllers/novedad.controller.js";
 import * as quemaNacional from "./controllers/quema-nacional.controller.js";
+import * as reportes from "./controllers/reportes.controller.js";
 
 // Anotación explícita por TS2742: los symlinks de pnpm impiden que TS nombre
 // el tipo inferido (mismo caso que shared/prisma-client.ts).
@@ -100,5 +101,7 @@ router.delete("/contactos/:id", soloDespacho, asyncHandler(contacto.eliminar));
 // Query-calculado, no una tabla (decisión #15). Va sin `soloDespacho`: es de
 // consulta, y la decisión #22 deja consultar a cualquiera.
 router.get("/reportes/balance-nacion", asyncHandler(balanceNacion.balanceNacion));
+router.get("/reportes/consumo-por-sectores", asyncHandler(reportes.consumoPorSectores));
+router.get("/reportes/serie-balance", asyncHandler(reportes.serieBalance));
 
 export default router;

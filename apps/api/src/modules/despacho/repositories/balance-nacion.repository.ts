@@ -5,6 +5,9 @@ import type { TipoCorte } from "@sicog/shared-types";
 export interface TotalesBalance {
   recibidoMmpced: number;
   transportadoMmpced: number;
+  /** Cuánto de `transportadoMmpced` es quema. Se devuelve aparte para poder
+   *  mostrarlo desglosado sin volver a consultar. */
+  quemaMmpced: number;
 }
 
 export interface IBalanceNacionRepository {
@@ -16,13 +19,18 @@ export interface IBalanceNacionRepository {
  * la base y no se guarda, porque no alimenta ningún informe formal — el que sí
  * lo hace es el `CIERRE_PROMEDIO`, que el job persiste como fila propia.
  *
- * Composición de cada término, confirmada con el owner el 2026-09-14:
+ * Composición de cada término:
  * - `recibido` = todo lo leído en las FUENTES ese día. Las fuentes no tienen
  *   tipo de corte (una lectura por día), así que no se filtran por él.
- * - `transportado` = lo entregado a CLIENTES en ese corte. **La quema nacional
- *   NO entra acá**: sale del sistema, pero no se le entrega a nadie.
- *   La quema tampoco se suma al recibido: no entra en ninguno de los dos
- *   términos, y si alguna vez hace falta verla va como su propio dato.
+ * - `transportado` = lo entregado a CLIENTES en ese corte **más la quema
+ *   nacional**. Corregido el 2026-09-15 al leer la fórmula del workbook
+ *   (`EJECUTIVO PUNTUAL!C45 = SUM(C36,C38:C44) + G49`, donde `G49` es
+ *   `FUENTES!I29`, rotulado "QUEMA PUNTUAL"): el Excel sí la suma. La
+ *   decisión #62 había dicho lo contrario y se revisó (decisión #74).
+ *
+ * La quema se consulta con el mismo `tipoCorte` que los clientes: el modelo
+ * tiene `@@unique(fecha, tipoCorte)` y la mecánica puntual/cierre de la
+ * decisión #34 le aplica igual (decisión #14).
  */
 export class PrismaBalanceNacionRepository implements IBalanceNacionRepository {
   async totales(fecha: string, tipoCorte: TipoCorte): Promise<TotalesBalance> {
@@ -31,7 +39,7 @@ export class PrismaBalanceNacionRepository implements IBalanceNacionRepository {
     // `aggregate` de Prisma y no `$queryRaw`: son tres sumas simples sobre una
     // sola tabla cada una. El `$queryRaw` parametrizado del §11 queda para los
     // reportes que sí necesitan agrupar y cruzar (Consumo por Sectores).
-    const [fuentes, clientes] = await Promise.all([
+    const [fuentes, clientes, quema] = await Promise.all([
       prisma.lecturaFuente.aggregate({
         _sum: { volumenMmpced: true },
         where: { fecha: dia },
@@ -40,13 +48,19 @@ export class PrismaBalanceNacionRepository implements IBalanceNacionRepository {
         _sum: { volumenMmpced: true },
         where: { fecha: dia, tipoCorte },
       }),
+      prisma.quemaNacional.findUnique({
+        where: { fecha_tipoCorte: { fecha: dia, tipoCorte } },
+        select: { mmpced: true },
+      }),
     ]);
 
     // Un día sin ninguna lectura da `null`, no 0: se normaliza acá para que el
-    // Service no tenga que saberlo.
+    // Service no tenga que saberlo. Lo mismo con un día sin quema cargada.
+    const quemaMmpced = quema?.mmpced.toNumber() ?? 0;
     return {
       recibidoMmpced: fuentes._sum.volumenMmpced?.toNumber() ?? 0,
-      transportadoMmpced: clientes._sum.volumenMmpced?.toNumber() ?? 0,
+      transportadoMmpced: (clientes._sum.volumenMmpced?.toNumber() ?? 0) + quemaMmpced,
+      quemaMmpced,
     };
   }
 }

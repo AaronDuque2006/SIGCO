@@ -199,6 +199,14 @@ export const reporteQuerySchema = z.object({
   tipoCorte: tipoCorteSchema.default("PUNTUAL"),
 });
 
+// La serie del gráfico de línea. `dias` por defecto 7, que es la ventana del
+// workbook; el tope de 90 evita que una petición barra el histórico entero.
+export const serieBalanceQuerySchema = z.object({
+  hasta: fechaSchema,
+  dias: z.coerce.number().int().min(2).max(90).default(7),
+  tipoCorte: tipoCorteSchema.default("PUNTUAL"),
+});
+
 export type CreateSectorClienteInput = z.infer<typeof createSectorClienteSchema>;
 export type UpdateSectorClienteInput = z.infer<typeof updateSectorClienteSchema>;
 export type CreateClienteInput = z.infer<typeof createClienteSchema>;
@@ -222,3 +230,4 @@ export type ListFuentesQuery = z.infer<typeof listFuentesQuerySchema>;
 export type ListNovedadesQuery = z.infer<typeof listNovedadesQuerySchema>;
 export type ListContactosQuery = z.infer<typeof listContactosQuerySchema>;
 export type ReporteQuery = z.infer<typeof reporteQuerySchema>;
+export type SerieBalanceQuery = z.infer<typeof serieBalanceQuerySchema>;

@@ -20,13 +20,17 @@ export class BalanceNacionService {
   constructor(private readonly repo: IBalanceNacionRepository) {}
 
   async obtener(fecha: string, tipoCorte: TipoCorte): Promise<BalanceNacionDto> {
-    const { recibidoMmpced, transportadoMmpced } = await this.repo.totales(fecha, tipoCorte);
+    const { recibidoMmpced, transportadoMmpced, quemaMmpced } = await this.repo.totales(
+      fecha,
+      tipoCorte,
+    );
     const variacionMmpced = recibidoMmpced - transportadoMmpced;
     return {
       fecha,
       tipoCorte,
       recibidoMmpced,
       transportadoMmpced,
+      quemaMmpced,
       variacionMmpced,
       condicion: condicionDe(variacionMmpced),
     };

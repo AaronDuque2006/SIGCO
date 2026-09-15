@@ -155,7 +155,10 @@ export interface BalanceNacionDto {
   fecha: string;
   tipoCorte: TipoCorte;
   recibidoMmpced: number;
+  /** Incluye la quema nacional del corte (decisión #74). */
   transportadoMmpced: number;
+  /** Cuánto del transportado es quema, para poder desglosarlo en pantalla. */
+  quemaMmpced: number;
   variacionMmpced: number;
   condicion: CondicionBalance;
 }
@@ -174,7 +177,44 @@ export interface ConsumoPorRegionDto {
 export interface ConsumoPorSectoresDto {
   fecha: string;
   tipoCorte: TipoCorte;
+  /**
+   * Total por sector en todo el país — la dona del workbook.
+   *
+   * Es la suma de `porRegion[].sectores`, igual que en el Excel
+   * (`A49 = L52+L63+L70`). **No incluye la quema nacional**: en el workbook
+   * `QUEMA TYD` vive en `G48/G49`, pegada al bloque pero fuera del rango de la
+   * gráfica, porque no es consumo de ningún sector.
+   */
   nacional: ConsumoPorSectorDto[];
+  /**
+   * El desglose región × sector. Es **disperso**: cada región trae sólo los
+   * sectores que tuvieron consumo (en el workbook CENTRO tiene 3 y CEN-OCC
+   * tiene 6), no una matriz rellena de ceros.
+   */
   porRegion: ConsumoPorRegionDto[];
   totalMmpced: number;
+}
+
+/** Un día de la serie: lo mismo que muestra el gráfico de línea del workbook. */
+export interface PuntoSerieBalanceDto {
+  fecha: string;
+  recibidoMmpced: number;
+  transportadoMmpced: number;
+}
+
+/**
+ * La serie de recibido vs transportado de los últimos N días, con sus
+ * promedios — el gráfico de línea de `EJECUTIVO PUNTUAL!B89:D96`.
+ *
+ * En el workbook esos siete valores se teclean a mano cada día; acá se
+ * calculan de lo que ya está guardado.
+ */
+export interface SerieBalanceDto {
+  desde: string;
+  hasta: string;
+  tipoCorte: TipoCorte;
+  /** Un punto por día del rango, incluidos los días sin datos, en ceros. */
+  dias: PuntoSerieBalanceDto[];
+  promedioRecibidoMmpced: number;
+  promedioTransportadoMmpced: number;
 }
