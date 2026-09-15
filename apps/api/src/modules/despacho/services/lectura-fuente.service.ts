@@ -27,12 +27,14 @@ const toLecturaDto = (row: LecturaFuenteRow): LecturaFuenteDto => ({
 const toFilaDto = (fila: FilaGridFuente): FilaFuenteDiariaDto => ({
   fuente: fila.fuente,
   lectura: fila.lectura ? toLecturaDto(fila.lectura) : null,
+  correcciones: fila.correcciones,
 });
 
 const toHistorialDto = (row: HistorialFuenteRow): HistorialEntryDto => ({
   id: row.id.toString(),
   valorAnterior: row.volumenMmpcedAnt.toNumber(),
   usuarioId: row.usuarioId,
+  usuarioNombre: row.usuario.nombre,
   modificadoEn: row.modificadoEn.toISOString(),
 });
 

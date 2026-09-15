@@ -10,6 +10,8 @@ export interface FilaGridFuente {
     sistema: { id: number; nombre: string };
   };
   lectura: LecturaFuenteRow | null;
+  /** Ver `FilaGrid.correcciones` en `lectura-balance.repository.ts`. */
+  correcciones: number;
 }
 
 export interface LecturaFuenteRow {
@@ -24,6 +26,7 @@ export interface HistorialFuenteRow {
   id: bigint;
   volumenMmpcedAnt: Prisma.Decimal;
   usuarioId: number;
+  usuario: { nombre: string };
   modificadoEn: Date;
 }
 
@@ -69,6 +72,7 @@ export class PrismaLecturaFuenteRepository implements ILecturaFuenteRepository {
             fecha: true,
             volumenMmpced: true,
             usuarioId: true,
+            _count: { select: { historial: true } },
           },
         },
       },
@@ -77,10 +81,12 @@ export class PrismaLecturaFuenteRepository implements ILecturaFuenteRepository {
       take,
     });
 
-    return fuentes.map(({ lecturasFuente, ...fuente }) => ({
-      fuente,
-      lectura: lecturasFuente[0] ?? null,
-    }));
+    return fuentes.map(({ lecturasFuente, ...fuente }) => {
+      const fila = lecturasFuente[0];
+      if (!fila) return { fuente, lectura: null, correcciones: 0 };
+      const { _count, ...lectura } = fila;
+      return { fuente, lectura, correcciones: _count.historial };
+    });
   }
 
   countFuentes({ sistemaId }: Pick<GridFuenteParams, "sistemaId">): Promise<number> {
@@ -130,7 +136,13 @@ export class PrismaLecturaFuenteRepository implements ILecturaFuenteRepository {
   listHistorial(lecturaId: bigint, skip: number, take: number): Promise<HistorialFuenteRow[]> {
     return prisma.lecturaFuenteHistorial.findMany({
       where: { lecturaFuenteId: lecturaId },
-      select: { id: true, volumenMmpcedAnt: true, usuarioId: true, modificadoEn: true },
+      select: {
+        id: true,
+        volumenMmpcedAnt: true,
+        usuarioId: true,
+        usuario: { select: { nombre: true } },
+        modificadoEn: true,
+      },
       orderBy: { modificadoEn: "desc" },
       skip,
       take,

@@ -28,6 +28,7 @@ const toHistorialDto = (row: HistorialQuemaRow): HistorialEntryDto => ({
   id: row.id.toString(),
   valorAnterior: row.mmpcedAnt.toNumber(),
   usuarioId: row.usuarioId,
+  usuarioNombre: row.usuario.nombre,
   modificadoEn: row.modificadoEn.toISOString(),
 });
 

@@ -15,6 +15,7 @@ export interface HistorialQuemaRow {
   id: bigint;
   mmpcedAnt: Prisma.Decimal;
   usuarioId: number;
+  usuario: { nombre: string };
   modificadoEn: Date;
 }
 
@@ -90,7 +91,13 @@ export class PrismaQuemaNacionalRepository implements IQuemaNacionalRepository {
   listHistorial(quemaId: bigint, skip: number, take: number): Promise<HistorialQuemaRow[]> {
     return prisma.quemaNacionalHistorial.findMany({
       where: { quemaNacionalId: quemaId },
-      select: { id: true, mmpcedAnt: true, usuarioId: true, modificadoEn: true },
+      select: {
+        id: true,
+        mmpcedAnt: true,
+        usuarioId: true,
+        usuario: { select: { nombre: true } },
+        modificadoEn: true,
+      },
       orderBy: { modificadoEn: "desc" },
       skip,
       take,

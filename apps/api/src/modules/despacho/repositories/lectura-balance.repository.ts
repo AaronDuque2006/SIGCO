@@ -17,6 +17,8 @@ export interface FilaGrid {
     sector: { id: number; nombre: string; activo: boolean };
   };
   lectura: LecturaBalanceRow | null;
+  /** Largo del historial de esa lectura; 0 si no hay lectura. */
+  correcciones: number;
 }
 
 export interface LecturaBalanceRow {
@@ -32,6 +34,7 @@ export interface HistorialRow {
   id: bigint;
   volumenMmpcedAnt: Prisma.Decimal;
   usuarioId: number;
+  usuario: { nombre: string };
   modificadoEn: Date;
 }
 
@@ -81,6 +84,9 @@ export class PrismaLecturaBalanceRepository implements ILecturaBalanceRepository
             tipoCorte: true,
             volumenMmpced: true,
             usuarioId: true,
+            // El conteo del historial viaja con la grilla, en el mismo viaje.
+            // Sirve para que la pantalla marque sólo las filas corregidas.
+            _count: { select: { historial: true } },
           },
         },
       },
@@ -89,10 +95,12 @@ export class PrismaLecturaBalanceRepository implements ILecturaBalanceRepository
       take,
     });
 
-    return clientes.map(({ lecturasBalance, ...cliente }) => ({
-      cliente,
-      lectura: lecturasBalance[0] ?? null,
-    }));
+    return clientes.map(({ lecturasBalance, ...cliente }) => {
+      const fila = lecturasBalance[0];
+      if (!fila) return { cliente, lectura: null, correcciones: 0 };
+      const { _count, ...lectura } = fila;
+      return { cliente, lectura, correcciones: _count.historial };
+    });
   }
 
   countClientes({ sistemaId, regionId }: Pick<GridParams, "sistemaId" | "regionId">): Promise<number> {
@@ -157,7 +165,13 @@ export class PrismaLecturaBalanceRepository implements ILecturaBalanceRepository
   listHistorial(lecturaId: bigint, skip: number, take: number): Promise<HistorialRow[]> {
     return prisma.lecturaBalanceHistorial.findMany({
       where: { lecturaId },
-      select: { id: true, volumenMmpcedAnt: true, usuarioId: true, modificadoEn: true },
+      select: {
+        id: true,
+        volumenMmpcedAnt: true,
+        usuarioId: true,
+        usuario: { select: { nombre: true } },
+        modificadoEn: true,
+      },
       orderBy: { modificadoEn: "desc" },
       skip,
       take,

@@ -69,6 +69,11 @@ export interface HistorialEntryDto {
   id: string;
   valorAnterior: number;
   usuarioId: number;
+  /**
+   * Nombre de quien hizo el cambio. El `usuarioId` solo no le dice nada a
+   * quien mira: la pregunta que el historial contesta es "quién tocó esto".
+   */
+  usuarioNombre: string;
   modificadoEn: string;
 }
 
@@ -83,11 +88,25 @@ export interface HistorialEntryDto {
 export interface FilaBalanceDiarioDto {
   cliente: ClienteDto;
   lectura: LecturaBalanceDto | null;
+  /**
+   * Cuántas veces se corrigió el valor de ese día — el largo del historial.
+   *
+   * Va en la fila de la grilla y no en `LecturaBalanceDto` a propósito: el DTO
+   * de la lectura también lo devuelven el `POST` y el `PATCH`, que tendrían que
+   * contar en cada escritura para llenarlo. Acá la grilla ya hace una consulta
+   * por día, y el conteo viaja con ella.
+   *
+   * Existe para que la pantalla marque **sólo** las filas corregidas: un
+   * indicador en las 111 sería ruido. `0` en una fila sin lectura.
+   */
+  correcciones: number;
 }
 
 export interface FilaFuenteDiariaDto {
   fuente: FuenteDto;
   lectura: LecturaFuenteDto | null;
+  /** Ver `FilaBalanceDiarioDto.correcciones`. */
+  correcciones: number;
 }
 
 /**

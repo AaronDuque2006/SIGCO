@@ -33,12 +33,14 @@ const toLecturaDto = (row: LecturaBalanceRow): LecturaBalanceDto => ({
 const toFilaDto = (fila: FilaGrid): FilaBalanceDiarioDto => ({
   cliente: fila.cliente,
   lectura: fila.lectura ? toLecturaDto(fila.lectura) : null,
+  correcciones: fila.correcciones,
 });
 
 const toHistorialDto = (row: HistorialRow): HistorialEntryDto => ({
   id: row.id.toString(),
   valorAnterior: row.volumenMmpcedAnt.toNumber(),
   usuarioId: row.usuarioId,
+  usuarioNombre: row.usuario.nombre,
   modificadoEn: row.modificadoEn.toISOString(),
 });
 
