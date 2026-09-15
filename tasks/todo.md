@@ -59,13 +59,18 @@ la base real antes de marcarse, y las filas de prueba se limpian al terminar.
 
 ## Fase 3 — Novedades operativas (API + pantalla)
 
-- [ ] Repository + Service + Controller + rutas (sin DELETE)
-      *Verifica*: cliente **y** fuente juntos → `422`; ninguno → `422`;
-      `fin` < `inicio` → `422`
-- [ ] `PATCH` que no deja mover el origen cliente ↔ fuente
-- [ ] Pantalla `/despacho/novedades`: lista paginada, filtro de fechas, alta
-      *Verifica*: alta con cliente y alta con fuente
-- [ ] Entrada en `VISTAS`
+- [x] Repository + Service + Controller + rutas (sin DELETE)
+      *Verificado*: los dos orígenes → `422`; ninguno → `422`; `fin` < `inicio`
+      → `422`; id inexistente → `404`; sin Despacho `GET` `200` y `POST`/`PATCH`
+      `403`
+- [x] `PATCH` que no deja mover el origen, y que valida el rango contra el
+      estado resultante (zod no puede: el schema es parcial)
+- [x] Filtro de fechas por día de Venezuela
+      *Verificado*: `2026-09-16T02:00Z` cae bajo el 2026-09-15
+- [x] `GET /novedades/tipos` para el `<datalist>`, antes de `/:id` en el router
+- [x] Pantalla `/despacho/novedades` + entrada en `VISTAS`
+      *Pendiente de mirada humana: compila y sirve 200*
+- [x] Filas y usuarios de prueba borrados
 - [ ] **CHECKPOINT**
 
 ## Fase 4 — Contactos (API + pantalla)

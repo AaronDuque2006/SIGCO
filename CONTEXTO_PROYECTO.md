@@ -291,6 +291,16 @@ ctrl-operacional-gas/
     - **El tope de 4 decimales se avisa acá** porque la columna es `Decimal(14,4)` y Postgres redondearía de más sin decir nada: la misma sorpresa silenciosa que todo esto evita. El negativo también se adelanta al `422` del backend (decisión #5).
     - **El aviso desaparece apenas se empieza a corregir**, y se muestra antes que el error del servidor: es la consecuencia de lo último que hizo la persona.
 
+72. **Rebanada `NOVEDAD_OPERATIVA`, con su pantalla.** Lista paginada con filtro de rango de fechas y de origen, alta y edición. Sin borrado (§11.5): el modelo no tiene `activo` y el dominio es auditable, así que una novedad mal cargada se corrige.
+    - **El filtro de fechas usa el día operativo de Venezuela, no el de UTC.** `inicio` es un timestamp y no un `@db.Date` como las lecturas, así que cortar por medianoche UTC correría el límite cuatro horas: una novedad de las 22:00 en Venezuela es 02:00 UTC del día siguiente y aparecería en el día equivocado — y la guardia nocturna es justo cuando pasan las cosas. La zona sale de `CIERRE_DIARIO_TZ`, la misma del job de cierre, y el desfase se calcula con `Intl` en vez de cablear `-04:00`. Verificado: una novedad a las `2026-09-16T02:00Z` aparece bajo el 2026-09-15 y no bajo el 16.
+    - **El `PATCH` verifica el rango contra el estado resultante**, no contra lo que llega. `updateNovedadSchema` es parcial, así que mandar sólo `fin` deja a zod sin el `inicio` con el que compararlo y su `refine` no corre: editar el fin para ponerlo antes del propio inicio pasaría el borde. Mismo criterio que §13.2 usa para el departamento de un usuario.
+    - **`GET /novedades/tipos` devuelve los valores ya usados**, para sugerirlos en el alta. La lista cerrada del catálogo sigue abierta (§9.2 #4) y no se inventa una: la pantalla ofrece lo que el área ya escribió, en un `<datalist>` sobre un campo libre. Cuando la lista se cierre, se reemplaza por catálogo editable como se hizo con Actividades y Telemetría. **La ruta va antes que `/novedades/:id`**, que si no se la traga (mismo tropiezo que §13.1 con `/usuarios/catalogos`).
+    - **`NovedadOperativaDto` lleva `usuarioNombre`**, mismo criterio que la decisión #69.
+    - **Un solo desplegable de origen, no dos.** Filtrar por cliente *y* fuente a la vez no devolvería nada nunca, porque exactamente uno está lleno. El mismo selector se usa en el filtro y en el alta.
+    - **Al editar, el origen se muestra deshabilitado en vez de desaparecer**: `updateNovedadSchema` ya omite los dos campos —cambiar de origen sería otra novedad, no una corrección— pero quien edita tiene que seguir viendo de qué es la novedad.
+    - **Primera lista del frontend con paginación real** (20 por página). Las grillas diarias traen el día entero a propósito (decisión #60) porque se digitan de corrido; las novedades se consultan y crecen sin techo. Cambiar un filtro vuelve a la página 1.
+    - **El desplegable de origen recorre las páginas de `/clientes` hasta completar**: el listado pagina a 100 como máximo (§11.1) y hay 111. Son dos peticiones, una sola vez y cacheadas, preferible a subir el tope del contrato por una pantalla.
+
 ---
 
 ## 7. ERD consolidado (vigente)
@@ -573,6 +583,7 @@ erDiagram
 - Rebanadas `LECTURA_BALANCE` y `LECTURA_FUENTE` de Despacho (§11), el reporte Balance Nación y el job de cierre diario.
 - Catálogos (`/sistemas`, `/regiones`, `/sectores-cliente`) y ABM de `/clientes` y `/fuentes`, con nombres únicos (decisión #66).
 - Rebanada `QUEMA_NACIONAL` con su pantalla (decisión #68), integrada con el job de cierre.
+- Rebanada `NOVEDAD_OPERATIVA` con su pantalla (decisión #72): lista paginada, alta y edición.
 - RBAC resuelto contra la BD en cada petición, nunca contra el token: `requireDepartamento`, `requireSuperadmin` y `requireSupervisor` (decisión #67).
 
 **Frontend (`apps/web`)** — stack confirmado, paleta del prototipo cargada como tokens de shadcn, oscuro fijo:
@@ -592,7 +603,7 @@ erDiagram
 ### Por acá arranca la próxima sesión
 
 1. ~~**Login, hub, Balance Diario, fuentes, usuarios, catálogos y ABM**~~ **Hechos** (decisiones #57 a #67). Todas las pantallas fueron abiertas en el navegador por el owner. De los dos puntos que la decisión #60 dejó abiertos, los decimales quedaron cerrados en 2 (#65); **sigue abierto si hacen falta subtotales por sistema o región en la grilla**, que sólo se ve usándola.
-2. **Rebanadas de Despacho que faltan**, con el contrato de §11 ya escrito y los schemas zod y DTOs ya en `shared-validators`/`shared-types`: `NOVEDAD_OPERATIVA`, `CONTACTO` y el reporte `consumo-por-sectores`. Cada una como rebanada vertical: Repository → Service → Controller → ruta → pantalla.
+2. **Rebanadas de Despacho que faltan**, con el contrato de §11 ya escrito y los schemas zod y DTOs ya en `shared-validators`/`shared-types`: `CONTACTO` y el reporte `consumo-por-sectores`. Cada una como rebanada vertical: Repository → Service → Controller → ruta → pantalla.
 3. **Edición de usuarios en la pantalla del superadmin**: el backend ya la expone (`PATCH /api/usuarios/:id`, §13), la UI no.
 4. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de §11).
 
@@ -649,7 +660,8 @@ Diseñado con la skill `api-and-interface-design` (contract-first). Los tipos **
 | GET | `/quema-nacional?fecha&tipoCorte` | Una cifra por fecha+corte, envuelta en `QuemaNacionalDiaDto`; `quema: null` si no se digitó (decisión #68). Sin paginar. |
 | POST · PATCH | `/quema-nacional` · `/quema-nacional/:id` | Mismo trato que `LECTURA_BALANCE` (decisión #14): el `POST` **sólo crea `PUNTUAL`** y da `409` si ya existe; el `PATCH` escribe historial en la misma transacción. |
 | GET | `/quema-nacional/:id/historial` | Paginado. |
-| GET | `/novedades` | Filtros: `desde`, `hasta`, `clienteId`, `fuenteId`. Paginado. |
+| GET | `/novedades` | Filtros: `desde`, `hasta` (día operativo de Venezuela, no UTC — decisión #72), `clienteId`, `fuenteId`. Paginado, más recientes primero. |
+| GET | `/novedades/tipos` | Valores de `tipo` ya usados, para sugerir en el alta. Sin paginar. **Va antes que `/:id`** en el router. |
 | POST · GET · PATCH | `/novedades` · `/novedades/:id` | `PATCH` no permite cambiar el origen (cliente↔fuente). **Sin DELETE**: no hay campo `activo` y el dominio es auditable; si hace falta borrar, se decide aparte. |
 | GET · POST · PATCH · DELETE | `/contactos` · `/contactos/:id` | Único recurso con borrado físico: es un directorio telefónico, no un dato operativo histórico. |
 | GET | `/reportes/balance-nacion?fecha&tipoCorte` | Query-calculado (decisión #15), vía `$queryRaw` parametrizado en el Repository. |
