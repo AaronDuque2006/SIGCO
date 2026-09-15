@@ -75,11 +75,15 @@ la base real antes de marcarse, y las filas de prueba se limpian al terminar.
 
 ## Fase 4 — Contactos (API + pantalla)
 
-- [ ] Repository + Service + Controller + rutas (con DELETE físico)
-      *Verifica*: la fila desaparece de la base
-- [ ] Pantalla `/despacho/contactos`: directorio buscable, alta, edición, borrado
-      con confirmación
-- [ ] Entrada en `VISTAS`
+- [x] Repository + Service + Controller + rutas (con DELETE físico)
+      *Verificado*: `DELETE` `204`, volver a pedirlo `404`, borrarlo otra vez
+      `404`; sin Despacho `403`
+- [x] `q` agregado al contrato: busca operador, teléfono y nombre del origen
+      *Verificado*: `q=pequiven`, `q=jose` y `q=9998877` encuentran cada uno el suyo
+- [x] Pantalla `/despacho/contactos` + entrada en `VISTAS`, con confirmación
+      en la fila antes de borrar
+      *Pendiente de mirada humana: compila y sirve 200*
+- [x] Filas y usuarios de prueba borrados
 - [ ] **CHECKPOINT**
 
 ## Fase 5 — Consumo por sectores (API + pantalla)

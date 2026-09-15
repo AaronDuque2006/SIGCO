@@ -301,6 +301,12 @@ ctrl-operacional-gas/
     - **Primera lista del frontend con paginación real** (20 por página). Las grillas diarias traen el día entero a propósito (decisión #60) porque se digitan de corrido; las novedades se consultan y crecen sin techo. Cambiar un filtro vuelve a la página 1.
     - **El desplegable de origen recorre las páginas de `/clientes` hasta completar**: el listado pagina a 100 como máximo (§11.1) y hay 111. Son dos peticiones, una sola vez y cacheadas, preferible a subir el tope del contrato por una pantalla.
 
+73. **Rebanada `CONTACTO`, con su pantalla.** Directorio telefónico de los operadores de cada cliente y cada fuente. Es el **único recurso del módulo con borrado físico** (§11.2): un teléfono viejo no es un dato operativo histórico que haya que conservar, es ruido en una lista que se consulta con apuro.
+    - **El borrado se confirma en el lugar**, con un paso intermedio en la propia fila, porque es la única acción de Despacho que no se puede deshacer. No es un `confirm()` del navegador: el aviso vive en la fila que se va a borrar y dice cuál es.
+    - **`listContactosQuerySchema` gana `q`**, que el contrato no tenía. Un directorio se busca, no se recorre. Mira el nombre del operador, el teléfono —para la búsqueda inversa, "¿de quién es este número?"— y el nombre del cliente o la fuente, que es como se lo piensa: se busca "el teléfono de PEQUIVEN", no el de un operador por su apellido.
+    - **El origen no se edita**, igual que en novedades: `updateContactoSchema` omite los dos campos. Un teléfono que pasa de un cliente a otro es otro contacto. La columna se muestra igual, en gris, para no perder de vista de quién es la fila.
+    - **`CONTACTO` no tiene `usuarioId` ni historial**: el modelo son cuatro columnas. No hay "quién lo cargó" que mostrar.
+
 ---
 
 ## 7. ERD consolidado (vigente)
@@ -584,6 +590,7 @@ erDiagram
 - Catálogos (`/sistemas`, `/regiones`, `/sectores-cliente`) y ABM de `/clientes` y `/fuentes`, con nombres únicos (decisión #66).
 - Rebanada `QUEMA_NACIONAL` con su pantalla (decisión #68), integrada con el job de cierre.
 - Rebanada `NOVEDAD_OPERATIVA` con su pantalla (decisión #72): lista paginada, alta y edición.
+- Rebanada `CONTACTO` con su pantalla (decisión #73): directorio buscable, alta, edición y borrado físico.
 - RBAC resuelto contra la BD en cada petición, nunca contra el token: `requireDepartamento`, `requireSuperadmin` y `requireSupervisor` (decisión #67).
 
 **Frontend (`apps/web`)** — stack confirmado, paleta del prototipo cargada como tokens de shadcn, oscuro fijo:
@@ -603,7 +610,7 @@ erDiagram
 ### Por acá arranca la próxima sesión
 
 1. ~~**Login, hub, Balance Diario, fuentes, usuarios, catálogos y ABM**~~ **Hechos** (decisiones #57 a #67). Todas las pantallas fueron abiertas en el navegador por el owner. De los dos puntos que la decisión #60 dejó abiertos, los decimales quedaron cerrados en 2 (#65); **sigue abierto si hacen falta subtotales por sistema o región en la grilla**, que sólo se ve usándola.
-2. **Rebanadas de Despacho que faltan**, con el contrato de §11 ya escrito y los schemas zod y DTOs ya en `shared-validators`/`shared-types`: `CONTACTO` y el reporte `consumo-por-sectores`. Cada una como rebanada vertical: Repository → Service → Controller → ruta → pantalla.
+2. **Rebanadas de Despacho que faltan**, con el contrato de §11 ya escrito y los schemas zod y DTOs ya en `shared-validators`/`shared-types`: el reporte `consumo-por-sectores`. Cada una como rebanada vertical: Repository → Service → Controller → ruta → pantalla.
 3. **Edición de usuarios en la pantalla del superadmin**: el backend ya la expone (`PATCH /api/usuarios/:id`, §13), la UI no.
 4. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de §11).
 
@@ -663,7 +670,7 @@ Diseñado con la skill `api-and-interface-design` (contract-first). Los tipos **
 | GET | `/novedades` | Filtros: `desde`, `hasta` (día operativo de Venezuela, no UTC — decisión #72), `clienteId`, `fuenteId`. Paginado, más recientes primero. |
 | GET | `/novedades/tipos` | Valores de `tipo` ya usados, para sugerir en el alta. Sin paginar. **Va antes que `/:id`** en el router. |
 | POST · GET · PATCH | `/novedades` · `/novedades/:id` | `PATCH` no permite cambiar el origen (cliente↔fuente). **Sin DELETE**: no hay campo `activo` y el dominio es auditable; si hace falta borrar, se decide aparte. |
-| GET · POST · PATCH · DELETE | `/contactos` · `/contactos/:id` | Único recurso con borrado físico: es un directorio telefónico, no un dato operativo histórico. |
+| GET · POST · PATCH · DELETE | `/contactos` · `/contactos/:id` | Único recurso con borrado físico: es un directorio telefónico, no un dato operativo histórico. `DELETE` responde `204`. Filtros del `GET`: `clienteId`, `fuenteId` y `q` (operador, teléfono, o nombre del cliente/fuente — decisión #73). El `id` es `Int`, no `BigInt`. |
 | GET | `/reportes/balance-nacion?fecha&tipoCorte` | Query-calculado (decisión #15), vía `$queryRaw` parametrizado en el Repository. |
 | GET | `/reportes/consumo-por-sectores?fecha&tipoCorte` | Query-calculado (decisión #37): totales por sector y por región. |
 
