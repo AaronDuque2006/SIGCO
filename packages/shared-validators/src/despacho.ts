@@ -185,6 +185,11 @@ export const updateContactoSchema = alMenosUnCampo(
 export const listContactosQuerySchema = paginationQuerySchema.extend({
   clienteId: z.coerce.number().int().positive().optional(),
   fuenteId: z.coerce.number().int().positive().optional(),
+  // Un directorio telefónico se busca, no se recorre. `q` mira el nombre del
+  // operador, el teléfono —para la búsqueda inversa: "¿de quién es este
+  // número?"— y el nombre del cliente o la fuente, que es como se lo piensa:
+  // se busca "el teléfono de PEQUIVEN", no el de un operador por su nombre.
+  q: busquedaSchema.optional(),
 });
 
 // ===== Reportes (decisiones #15 y #37) =====

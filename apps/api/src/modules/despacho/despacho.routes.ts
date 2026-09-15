@@ -8,6 +8,7 @@ import {
 import { asyncHandler } from "../../shared/http.js";
 import * as catalogos from "./controllers/catalogos.controller.js";
 import * as cliente from "./controllers/cliente.controller.js";
+import * as contacto from "./controllers/contacto.controller.js";
 import * as fuente from "./controllers/fuente.controller.js";
 import * as lecturaBalance from "./controllers/lectura-balance.controller.js";
 import * as balanceNacion from "./controllers/balance-nacion.controller.js";
@@ -85,6 +86,16 @@ router.get("/novedades/tipos", asyncHandler(novedad.listarTipos));
 router.post("/novedades", soloDespacho, asyncHandler(novedad.crear));
 router.get("/novedades/:id", asyncHandler(novedad.obtener));
 router.patch("/novedades/:id", soloDespacho, asyncHandler(novedad.actualizar));
+
+// ── Contactos ────────────────────────────────────────────────────────────────
+// El único recurso del módulo **con DELETE**, y es borrado físico: un teléfono
+// viejo no es un dato operativo histórico, es ruido en una lista que se
+// consulta con apuro. El `id` es `Int`, no `BigInt`, así que va `idParamSchema`.
+router.get("/contactos", asyncHandler(contacto.listar));
+router.post("/contactos", soloDespacho, asyncHandler(contacto.crear));
+router.get("/contactos/:id", asyncHandler(contacto.obtener));
+router.patch("/contactos/:id", soloDespacho, asyncHandler(contacto.actualizar));
+router.delete("/contactos/:id", soloDespacho, asyncHandler(contacto.eliminar));
 
 // Query-calculado, no una tabla (decisión #15). Va sin `soloDespacho`: es de
 // consulta, y la decisión #22 deja consultar a cualquiera.
