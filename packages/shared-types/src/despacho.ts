@@ -90,6 +90,20 @@ export interface FilaFuenteDiariaDto {
   lectura: LecturaFuenteDto | null;
 }
 
+/**
+ * La quema del día, exista o no la fila.
+ *
+ * Mismo envoltorio que `FilaBalanceDiarioDto`: el consumidor pide un día y un
+ * corte y siempre recibe la misma forma, con `quema: null` cuando todavía no
+ * se digitó. Un `404` para un día sin quema obligaría a la pantalla a tratar
+ * un error como si fuera el estado normal de la mañana.
+ */
+export interface QuemaNacionalDiaDto {
+  fecha: string;
+  tipoCorte: TipoCorte;
+  quema: QuemaNacionalDto | null;
+}
+
 export interface NovedadOperativaDto {
   id: string;
   cliente: ClienteDto | null;

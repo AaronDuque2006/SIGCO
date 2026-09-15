@@ -12,6 +12,7 @@ import * as fuente from "./controllers/fuente.controller.js";
 import * as lecturaBalance from "./controllers/lectura-balance.controller.js";
 import * as balanceNacion from "./controllers/balance-nacion.controller.js";
 import * as lecturaFuente from "./controllers/lectura-fuente.controller.js";
+import * as quemaNacional from "./controllers/quema-nacional.controller.js";
 
 // Anotación explícita por TS2742: los symlinks de pnpm impiden que TS nombre
 // el tipo inferido (mismo caso que shared/prisma-client.ts).
@@ -66,6 +67,13 @@ router.get("/lecturas-fuente", asyncHandler(lecturaFuente.listarGrilla));
 router.post("/lecturas-fuente", soloDespacho, asyncHandler(lecturaFuente.registrar));
 router.patch("/lecturas-fuente/:id", soloDespacho, asyncHandler(lecturaFuente.corregir));
 router.get("/lecturas-fuente/:id/historial", asyncHandler(lecturaFuente.listarHistorial));
+
+// Una sola cifra por fecha y corte, no una grilla: por eso el GET va sin
+// paginar y devuelve `quema: null` cuando el día todavía no se digitó.
+router.get("/quema-nacional", asyncHandler(quemaNacional.obtenerDelDia));
+router.post("/quema-nacional", soloDespacho, asyncHandler(quemaNacional.registrar));
+router.patch("/quema-nacional/:id", soloDespacho, asyncHandler(quemaNacional.corregir));
+router.get("/quema-nacional/:id/historial", asyncHandler(quemaNacional.listarHistorial));
 
 // Query-calculado, no una tabla (decisión #15). Va sin `soloDespacho`: es de
 // consulta, y la decisión #22 deja consultar a cualquiera.
