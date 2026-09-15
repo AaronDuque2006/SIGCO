@@ -16,6 +16,47 @@ import { formatearVolumen } from "@/lib/despacho";
 const comoTexto = (v: number | null): string => (v === null ? "" : String(v));
 
 /**
+ * Qué hacer con lo que hay tecleado en la celda.
+ *
+ * Es una función pura y aparte del componente para poder ejercitarla sin
+ * navegador: es la regla que decide si un día se digita o se pierde.
+ *
+ * - `guardar`: es un número válido y distinto del que hay.
+ * - `reponer`: la celda quedó vacía. No se borra nada —la API no tiene DELETE
+ *   de lecturas, el dato es auditable—, se repone lo guardado para que la
+ *   celda no quede en blanco mintiendo.
+ * - `rechazar`: hay algo escrito que no sirve, y se dice por qué.
+ * - `nada`: el valor no cambió.
+ */
+export type ResultadoCelda =
+  | { tipo: "guardar"; numero: number }
+  | { tipo: "reponer" }
+  | { tipo: "rechazar"; mensaje: string }
+  | { tipo: "nada" };
+
+export function evaluarCelda(texto: string, valor: number | null): ResultadoCelda {
+  // Se acepta la coma decimal: es lo que teclea la gente acá.
+  const limpio = texto.trim().replace(",", ".");
+  if (limpio === "") return { tipo: "reponer" };
+
+  const numero = Number(limpio);
+  if (!Number.isFinite(numero)) return { tipo: "rechazar", mensaje: "No es un número" };
+
+  // Lo rechaza también el schema del backend: un volumen entregado no puede
+  // ser negativo, y "Desvío" se modela como una FUENTE aparte (decisión #5).
+  // Avisar acá ahorra el viaje y el 422.
+  if (numero < 0) return { tipo: "rechazar", mensaje: "No puede ser negativo" };
+
+  // La columna es Decimal(14,4): más posiciones las redondea Postgres sin
+  // avisar, que es la misma sorpresa silenciosa que todo esto evita.
+  if ((limpio.split(".")[1] ?? "").length > 4) {
+    return { tipo: "rechazar", mensaje: "Máximo 4 decimales" };
+  }
+
+  return numero === valor ? { tipo: "nada" } : { tipo: "guardar", numero };
+}
+
+/**
  * Celda editable de volumen, común a las grillas de clientes y de fuentes.
  *
  * Guarda al salir del campo o con Enter, no con un botón por fila: digitar el
@@ -53,6 +94,12 @@ export function CeldaVolumen({
     setTexto(comoTexto(valor));
   }
 
+  // Error de la propia celda, distinto del que devuelve el servidor: este se
+  // resuelve sin salir a la red. Se muestra el local primero porque es la
+  // consecuencia de lo último que hizo la persona.
+  const [errorLocal, setErrorLocal] = useState<string | null>(null);
+  const mensaje = errorLocal ?? error;
+
   if (!editable) {
     return (
       <span className="font-mono tabular-nums">
@@ -62,34 +109,41 @@ export function CeldaVolumen({
   }
 
   const confirmar = () => {
-    // Se acepta la coma decimal: es lo que teclea la gente acá.
-    const limpio = texto.trim().replace(",", ".");
-    if (limpio === "") return;
-    const numero = Number(limpio);
-    if (!Number.isFinite(numero) || numero < 0) return;
-    if (numero === valor) return;
-    onGuardar(numero);
+    const resultado = evaluarCelda(texto, valor);
+    if (resultado.tipo === "rechazar") {
+      setErrorLocal(resultado.mensaje);
+      return;
+    }
+    setErrorLocal(null);
+    if (resultado.tipo === "reponer") setTexto(comoTexto(valor));
+    if (resultado.tipo === "guardar") onGuardar(resultado.numero);
   };
 
   return (
     <span className="inline-flex items-center justify-end gap-2">
-      {error ? (
+      {mensaje ? (
         <span className="text-xs text-destructive" role="alert">
-          {error}
+          {mensaje}
         </span>
       ) : null}
       <input
         inputMode="decimal"
         aria-label={etiqueta}
-        aria-invalid={error !== null}
+        aria-invalid={mensaje !== null}
         value={texto}
         disabled={guardando}
-        onChange={(e) => setTexto(e.target.value)}
+        onChange={(e) => {
+          setTexto(e.target.value);
+          // El aviso desaparece apenas se empieza a corregir: dejarlo puesto
+          // mientras se teclea la enmienda es regañar por algo ya atendido.
+          setErrorLocal(null);
+        }}
         onBlur={confirmar}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
           if (e.key === "Escape") {
             setTexto(comoTexto(valor));
+            setErrorLocal(null);
             e.currentTarget.blur();
           }
         }}
