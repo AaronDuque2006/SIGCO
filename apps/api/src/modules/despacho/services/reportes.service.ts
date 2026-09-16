@@ -2,6 +2,7 @@ import type {
   ConsumoPorRegionDto,
   ConsumoPorSectorDto,
   ConsumoPorSectoresDto,
+  EntregaPorAgrupacionDto,
   PuntoSerieBalanceDto,
   SerieBalanceDto,
   TipoCorte,
@@ -28,7 +29,10 @@ export class ReportesService {
    * (`A49 = L52+L63+L70`), y así los dos números no pueden discrepar.
    */
   async consumoPorSectores(fecha: string, tipoCorte: TipoCorte): Promise<ConsumoPorSectoresDto> {
-    const filas = await this.repo.consumoPorRegionYSector(fecha, tipoCorte);
+    const [filas, agrupadas] = await Promise.all([
+      this.repo.consumoPorRegionYSector(fecha, tipoCorte),
+      this.repo.entregaPorAgrupacion(fecha, tipoCorte),
+    ]);
 
     const porRegion: ConsumoPorRegionDto[] = [];
     const nacional = new Map<number, ConsumoPorSectorDto>();
@@ -58,11 +62,25 @@ export class ReportesService {
     // alfabético del catálogo.
     const ordenado = [...nacional.values()].sort((a, b) => b.totalMmpced - a.totalMmpced);
 
+    // El nombre del eje sale de la propia regla: la rama si la hay, el sistema
+    // si no. Se resuelve acá y no en el frontend para que el gráfico no tenga
+    // que conocer la decisión #78.
+    const porAgrupacion: EntregaPorAgrupacionDto[] = agrupadas.map((a) => ({
+      nombre: a.subSistemaNombre ?? a.sistemaNombre,
+      sistema: { id: a.sistemaId, nombre: a.sistemaNombre },
+      subSistema:
+        a.subSistemaId === null || a.subSistemaNombre === null
+          ? null
+          : { id: a.subSistemaId, nombre: a.subSistemaNombre },
+      totalMmpced: dos(Number(a.totalMmpced)),
+    }));
+
     return {
       fecha,
       tipoCorte,
       nacional: ordenado,
       porRegion,
+      porAgrupacion,
       totalMmpced: dos(ordenado.reduce((s, x) => s + x.totalMmpced, 0)),
     };
   }

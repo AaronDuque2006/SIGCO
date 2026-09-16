@@ -303,6 +303,94 @@ async function seedClientes() {
   );
 }
 
+/**
+ * Sub-sistemas: las ramas de un sistema que el área reporta por separado.
+ *
+ * Son las tres que el gráfico "SISTEMAS" del balance abre como barra propia
+ * (`EJECUTIVO PUNTUAL!A36:A44`); el resto de los bloques de `CEN-ORI` el propio
+ * gráfico los suma de vuelta a su sistema, así que no necesitan existir acá.
+ * Ver decisión #78.
+ *
+ * Los clientes salen de los bloques de `CEN-ORI`. Las filas `APORTE A EYP …`
+ * del bloque COSTA ESTE no están: la decisión #46 las sacó del catálogo
+ * `CLIENTE` por ser transferencias entre sistemas, no consumo.
+ */
+const SUBSISTEMAS: { sistema: string; nombre: string; clientes: string[] }[] = [
+  {
+    sistema: "Anaco - José - Puerto La Cruz - Sinorgas",
+    nombre: "Nor Oriente / Sinorgas",
+    clientes: [
+      "P.E. JUAN BAUTISTA ARISMENDI",
+      "P.E. ANTONIO JOSÉ DE SUCRE",
+      "P.E. LUISA CACERES DE ARISMENDI",
+      "P.E. JUAN MANUEL VALDEZ",
+      "P.E. ALBERTO LOVERA",
+    ],
+  },
+  {
+    sistema: "Ulé - Amuay",
+    nombre: "Costa Oeste",
+    clientes: [
+      "P.E. ENELVEN R.L. VIEJA",
+      "P.E. ENELVEN R.L. NUEVA",
+      "P.E. TERMOZULIA",
+      "CONSUMO RAMAL SUR",
+      "CONSUMO RAMAL NORTE (PTO. CABALLO / LA PAZ)",
+      "CONSUMO RAMAL CENTRO",
+      "P.E. ENELVEN RAFAEL URDANETA",
+    ],
+  },
+  {
+    sistema: "Ulé - Amuay",
+    nombre: "Costa Este",
+    clientes: [
+      "CAMC COMBUSTIBLE INTERNO",
+      "CAMC FERTILIZANTES",
+      "CLIENTES INDUSTRIALES K00 (CABIGAS Y OTROS)",
+      "PETROZAMORA K04+600",
+      "P.E. PUNTA GORDA K00",
+      "COSTA ESTE OTROS (LAGUNIGAS) K04+600",
+      "SIZUCA (SIDERURGICA)",
+    ],
+  },
+];
+
+async function seedSubSistemas() {
+  const sistemas = new Map(
+    (await prisma.sistema.findMany({ select: { id: true, nombre: true } })).map((s) => [s.nombre, s.id]),
+  );
+
+  for (const sub of SUBSISTEMAS) {
+    const sistemaId = sistemas.get(sub.sistema);
+    if (sistemaId === undefined) {
+      console.warn(`[seed] No existe el sistema "${sub.sistema}"; se omite el sub-sistema "${sub.nombre}".`);
+      continue;
+    }
+
+    // Aditivo e idempotente, como el resto del seed: si ya está, se reusa.
+    const fila =
+      (await prisma.subSistema.findUnique({
+        where: { sistemaId_nombre: { sistemaId, nombre: sub.nombre } },
+        select: { id: true },
+      })) ?? (await prisma.subSistema.create({ data: { sistemaId, nombre: sub.nombre }, select: { id: true } }));
+
+    // Sólo se asignan los clientes que todavía no apuntan a ningún sub-sistema:
+    // así volver a correr el seed no pisa una reasignación hecha a mano.
+    const { count } = await prisma.cliente.updateMany({
+      where: { nombre: { in: sub.clientes }, sistemaId, subSistemaId: null },
+      data: { subSistemaId: fila.id },
+    });
+
+    const encontrados = await prisma.cliente.count({ where: { nombre: { in: sub.clientes }, sistemaId } });
+    if (encontrados !== sub.clientes.length) {
+      console.warn(
+        `[seed] "${sub.nombre}": ${encontrados} de ${sub.clientes.length} clientes encontrados en el catálogo.`,
+      );
+    }
+    console.log(`[seed] Sub-sistema "${sub.nombre}": ${count} cliente(s) asignado(s).`);
+  }
+}
+
 async function main() {
   await seedSistemaYFuente();
   await seedRegionOperativa();
@@ -312,6 +400,8 @@ async function main() {
   await seedEstadoTelemetria();
   await seedInsumoProductoServicio();
   await seedClientes();
+  // Después de los clientes: les asigna su rama.
+  await seedSubSistemas();
 }
 
 main()

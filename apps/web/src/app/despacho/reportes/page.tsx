@@ -157,6 +157,27 @@ export default function ReportesPage() {
             </section>
           </div>
 
+          {/* La cuarta gráfica del workbook. Agrupa por sub-sistema cuando el
+              cliente tiene uno y por sistema cuando no (decisión #78): así
+              Costa Oeste y Costa Este salen como barras propias aunque
+              compartan sistema y región, que es lo que el Excel muestra y lo
+              que agrupar por `SISTEMA` no podía producir. */}
+          <section className="mt-4 rounded-lg border border-border bg-card p-4">
+            <GraficaBarras
+              titulo="Entregado por sistema"
+              datos={consumo.data.porAgrupacion.map((a) => ({
+                etiqueta: a.nombre,
+                valor: a.totalMmpced,
+                detalle: a.subSistema ? a.sistema.nombre : undefined,
+              }))}
+              total={consumo.data.totalMmpced}
+            />
+            <p className="mt-3 text-xs text-muted-foreground">
+              Las ramas con nombre propio van separadas; el resto de cada sistema se
+              suma en una barra del sistema.
+            </p>
+          </section>
+
           {/* La vista de tabla: el mismo dato en números, que además es el
               desglose región × sector del workbook. */}
           <section className="mt-4">

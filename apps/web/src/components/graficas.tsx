@@ -227,6 +227,9 @@ export function GraficaLinea({
 export interface BarraDato {
   etiqueta: string;
   valor: number;
+  /** Texto secundario bajo la etiqueta — por ejemplo, de qué sistema es una
+   *  rama. Opcional: las barras que no lo necesitan no lo muestran. */
+  detalle?: string;
 }
 
 /**
@@ -269,9 +272,14 @@ export function GraficaBarras({
             const proporcion = (d.valor / maximo) * 100;
             const parte = total > 0 ? (d.valor / total) * 100 : null;
             return (
-              <li key={d.etiqueta} className="grid grid-cols-[9rem_1fr_auto] items-center gap-3">
-                <span className="truncate text-xs text-muted-foreground" title={d.etiqueta}>
-                  {d.etiqueta}
+              <li key={d.etiqueta} className="grid grid-cols-[11rem_1fr_auto] items-center gap-3">
+                <span className="min-w-0" title={d.detalle ? `${d.etiqueta} — ${d.detalle}` : d.etiqueta}>
+                  <span className="block truncate text-xs text-foreground">{d.etiqueta}</span>
+                  {d.detalle ? (
+                    <span className="block truncate text-[0.65rem] leading-tight text-muted-foreground">
+                      {d.detalle}
+                    </span>
+                  ) : null}
                 </span>
                 <span className="h-4 w-full overflow-hidden rounded-sm bg-muted">
                   {/* Extremo redondeado de 4px, anclado a la línea base. */}

@@ -174,6 +174,24 @@ export interface ConsumoPorRegionDto {
   totalMmpced: number;
 }
 
+/**
+ * Lo entregado por agrupación de entrega — la cuarta gráfica del workbook.
+ *
+ * La agrupación es **el sub-sistema del cliente cuando tiene uno, y su sistema
+ * cuando no** (decisión #78). Así Costa Oeste y Costa Este salen como barras
+ * propias aunque compartan sistema y región, y el resto de los clientes de
+ * Ulé-Amuay se suman en una barra del sistema.
+ */
+export interface EntregaPorAgrupacionDto {
+  /** Lo que va en el eje: el nombre del sub-sistema, o el del sistema. */
+  nombre: string;
+  sistema: SistemaDto;
+  /** `null` cuando el sistema no está subdividido, o cuando estos clientes
+   *  cuelgan directo de él. */
+  subSistema: { id: number; nombre: string } | null;
+  totalMmpced: number;
+}
+
 export interface ConsumoPorSectoresDto {
   fecha: string;
   tipoCorte: TipoCorte;
@@ -192,6 +210,9 @@ export interface ConsumoPorSectoresDto {
    * tiene 6), no una matriz rellena de ceros.
    */
   porRegion: ConsumoPorRegionDto[];
+  /** Lo entregado por sub-sistema o sistema (decisión #78). Mismo total que
+   *  `nacional` y `porRegion`: son tres cortes del mismo día. */
+  porAgrupacion: EntregaPorAgrupacionDto[];
   totalMmpced: number;
 }
 

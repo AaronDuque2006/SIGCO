@@ -18,8 +18,17 @@ export interface FilaSerie {
   transportado: Prisma.Decimal;
 }
 
+export interface FilaAgrupacion {
+  sistemaId: number;
+  sistemaNombre: string;
+  subSistemaId: number | null;
+  subSistemaNombre: string | null;
+  totalMmpced: Prisma.Decimal;
+}
+
 export interface IConsumoSectoresRepository {
   consumoPorRegionYSector(fecha: string, tipoCorte: TipoCorte): Promise<FilaConsumo[]>;
+  entregaPorAgrupacion(fecha: string, tipoCorte: TipoCorte): Promise<FilaAgrupacion[]>;
   serieBalance(desde: string, hasta: string, tipoCorte: TipoCorte): Promise<FilaSerie[]>;
 }
 
@@ -59,6 +68,33 @@ export class PrismaConsumoSectoresRepository implements IConsumoSectoresReposito
         AND lb.tipo_corte = ${tipoCorte}::tipo_corte
       GROUP BY r.id, r.nombre, s.id, s.nombre, s.activo
       ORDER BY r.nombre, s.nombre
+    `;
+  }
+
+  /**
+   * Lo entregado agrupado por sub-sistema cuando el cliente tiene uno, y por
+   * sistema cuando no (decisión #78).
+   *
+   * El `GROUP BY` lleva las dos columnas y el `LEFT JOIN` deja `NULL` en la
+   * del sub-sistema: cada sistema produce una fila por cada rama suya con
+   * consumo, más una fila con `NULL` que junta a los que cuelgan directo. Eso
+   * **es** la regla, sin ramificar en JavaScript.
+   */
+  entregaPorAgrupacion(fecha: string, tipoCorte: TipoCorte): Promise<FilaAgrupacion[]> {
+    return prisma.$queryRaw<FilaAgrupacion[]>`
+      SELECT s.id      AS "sistemaId",
+             s.nombre  AS "sistemaNombre",
+             ss.id     AS "subSistemaId",
+             ss.nombre AS "subSistemaNombre",
+             SUM(lb.volumen_mmpced) AS "totalMmpced"
+      FROM lecturas_balance lb
+      JOIN clientes c          ON c.id = lb.cliente_id
+      JOIN sistemas s          ON s.id = c.sistema_id
+      LEFT JOIN sub_sistemas ss ON ss.id = c.sub_sistema_id
+      WHERE lb.fecha = ${fechaToDate(fecha)}
+        AND lb.tipo_corte = ${tipoCorte}::tipo_corte
+      GROUP BY s.id, s.nombre, ss.id, ss.nombre
+      ORDER BY 5 DESC
     `;
   }
 
