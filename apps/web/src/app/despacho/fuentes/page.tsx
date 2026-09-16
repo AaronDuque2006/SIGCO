@@ -22,6 +22,7 @@ import {
   useGuardarLecturaFuente,
 } from "@/lib/despacho";
 import { useSesion } from "@/lib/sesion";
+import { EncabezadoVista } from "@/components/encabezado-vista";
 
 export default function LecturasFuentePage() {
   const { sesion } = useSesion();
@@ -59,17 +60,17 @@ export default function LecturasFuentePage() {
   return (
     <>
       <main>
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h1 className="text-lg font-semibold tracking-tight">Lecturas de fuentes</h1>
-          <p className="text-sm text-muted-foreground">
-            {cargadas} de {visibles.length} fuentes con lectura · total{" "}
-            <span className="font-mono text-foreground">{formatearVolumen(total)}</span> MMPCED
-          </p>
-        </div>
-
-        <p className="mt-2 text-sm text-muted-foreground">
+        <EncabezadoVista
+          titulo="Lecturas de fuentes"
+          meta={
+            <>
+              {cargadas} de {visibles.length} fuentes con lectura · total{" "}
+              <span className="font-mono text-foreground">{formatearVolumen(total)}</span> MMPCED
+            </>
+          }
+        >
           Esto es el <strong>recibido</strong> del balance: el gas que entra al sistema.
-        </p>
+        </EncabezadoVista>
 
         <AvisoSoloConsulta sesion={sesion} departamento={DEPARTAMENTO_DESPACHO} />
 

@@ -18,6 +18,8 @@ import {
   type FiltrosNovedades,
 } from "@/lib/despacho";
 import { useSesion } from "@/lib/sesion";
+import { EncabezadoVista } from "@/components/encabezado-vista";
+import { IconPencil, IconPlus } from "@tabler/icons-react";
 
 const CAMPO =
   "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -75,15 +77,14 @@ export default function NovedadesPage() {
 
   return (
     <main>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-lg font-semibold tracking-tight">Novedades operativas</h1>
-        {paginacion ? (
-          <p className="text-sm text-muted-foreground">
-            {paginacion.totalItems}{" "}
-            {paginacion.totalItems === 1 ? "novedad" : "novedades"}
-          </p>
-        ) : null}
-      </div>
+      <EncabezadoVista
+        titulo="Novedades operativas"
+        meta={
+          paginacion
+            ? `${paginacion.totalItems} ${paginacion.totalItems === 1 ? "novedad" : "novedades"}`
+            : undefined
+        }
+      />
 
       <AvisoSoloConsulta sesion={sesion} departamento={DEPARTAMENTO_DESPACHO} />
 
@@ -143,6 +144,7 @@ export default function NovedadesPage() {
               setEditando(null);
             }}
           >
+            <IconPlus size={16} stroke={2} aria-hidden />
             Nueva novedad
           </Button>
         </div>
@@ -262,6 +264,7 @@ function Tarjeta({
         <p className="text-xs text-muted-foreground">Registrada por {n.usuarioNombre}</p>
         {puedeEditar ? (
           <Button variant="outline" onClick={onEditar}>
+            <IconPencil size={14} stroke={1.75} aria-hidden />
             Editar
           </Button>
         ) : null}

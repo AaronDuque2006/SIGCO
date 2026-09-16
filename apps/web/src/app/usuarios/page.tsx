@@ -18,6 +18,7 @@ import {
 } from "@/lib/usuarios";
 import { CredencialTemporal } from "./credencial-temporal";
 import { FormularioAlta } from "./formulario-alta";
+import { EncabezadoVista } from "@/components/encabezado-vista";
 
 export default function UsuariosPage() {
   return (
@@ -54,11 +55,12 @@ function Usuarios() {
     <>
       <Encabezado />
       <main className="mx-auto w-full max-w-5xl p-4">
-        <h1 className="mt-4 text-lg font-semibold tracking-tight">Usuarios</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Las cuentas no se borran: dar de baja es bloquear, porque cada persona tiene
-          auditoría e historial colgando.
-        </p>
+        <div className="mt-4">
+          <EncabezadoVista titulo="Usuarios">
+            Las cuentas no se borran: dar de baja es bloquear, porque cada persona tiene
+            auditoría e historial colgando.
+          </EncabezadoVista>
+        </div>
 
         {credencial ? (
           <CredencialTemporal resultado={credencial} onCerrar={() => setCredencial(null)} />

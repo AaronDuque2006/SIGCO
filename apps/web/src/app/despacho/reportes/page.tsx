@@ -7,6 +7,7 @@ import { TablaDesplazable, TH } from "@/components/tabla-desplazable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { EncabezadoVista } from "@/components/encabezado-vista";
 import {
   diaMes,
   formatearVolumen,
@@ -44,11 +45,10 @@ export default function ReportesPage() {
 
   return (
     <main>
-      <h1 className="text-lg font-semibold tracking-tight">Reportes y gráficas</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
+      <EncabezadoVista titulo="Reportes y gráficas">
         Las mismas cuatro vistas de las hojas <em>EJECUTIVO PUNTUAL</em> y{" "}
         <em>PROMEDIO</em> del balance, con el corte como selector.
-      </p>
+      </EncabezadoVista>
 
       {/* Los filtros, en una fila arriba de todo lo demás. */}
       <div className="mt-4 grid gap-3 sm:grid-cols-3">

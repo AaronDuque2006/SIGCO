@@ -5,6 +5,7 @@ import { Encabezado } from "@/components/encabezado";
 import { GuardiaSesion } from "@/components/guardia-sesion";
 import { DOMINIOS, type Dominio } from "@/lib/dominios";
 import { useSesion } from "@/lib/sesion";
+import { EncabezadoVista } from "@/components/encabezado-vista";
 
 export default function HubPage() {
   return (
@@ -30,10 +31,11 @@ function Hub() {
     <>
       <Encabezado />
       <main className="mx-auto w-full max-w-5xl p-4">
-        <h1 className="mt-4 text-lg font-semibold tracking-tight">Dominios</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Puede consultar los cuatro. Edita sólo el que le corresponde.
-        </p>
+        <div className="mt-4">
+          <EncabezadoVista titulo="Dominios">
+            Puede consultar los cuatro. Edita sólo el que le corresponde.
+          </EncabezadoVista>
+        </div>
 
         <ul className="mt-6 grid gap-3 sm:grid-cols-2">
           {DOMINIOS.map((dominio) => (

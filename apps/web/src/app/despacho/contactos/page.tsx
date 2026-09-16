@@ -20,6 +20,8 @@ import {
   type FiltrosContactos,
 } from "@/lib/despacho";
 import { useSesion } from "@/lib/sesion";
+import { EncabezadoVista } from "@/components/encabezado-vista";
+import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 
 const CAMPO =
   "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -63,18 +65,16 @@ export default function ContactosPage() {
 
   return (
     <main>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-lg font-semibold tracking-tight">Contactos</h1>
-        {paginacion ? (
-          <p className="text-sm text-muted-foreground">
-            {paginacion.totalItems} {paginacion.totalItems === 1 ? "contacto" : "contactos"}
-          </p>
-        ) : null}
-      </div>
-
-      <p className="mt-2 text-sm text-muted-foreground">
+      <EncabezadoVista
+        titulo="Contactos"
+        meta={
+          paginacion
+            ? `${paginacion.totalItems} ${paginacion.totalItems === 1 ? "contacto" : "contactos"}`
+            : undefined
+        }
+      >
         Teléfonos de los operadores de cada cliente y cada fuente.
-      </p>
+      </EncabezadoVista>
 
       <AvisoSoloConsulta sesion={sesion} departamento={DEPARTAMENTO_DESPACHO} />
 
@@ -123,6 +123,7 @@ export default function ContactosPage() {
               setEditando(null);
             }}
           >
+            <IconPlus size={16} stroke={2} aria-hidden />
             Nuevo contacto
           </Button>
         </div>
@@ -311,9 +312,11 @@ function Fila({
                 peso; eliminar es excepcional y va en `ghost` para no competir
                 con ella a igualdad de forma. */}
             <Button variant="outline" onClick={onEditar}>
+              <IconPencil size={14} stroke={1.75} aria-hidden />
               Editar
             </Button>
             <Button variant="ghost" onClick={() => setConfirmando(true)}>
+              <IconTrash size={14} stroke={1.75} aria-hidden />
               Eliminar
             </Button>
           </span>

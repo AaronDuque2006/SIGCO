@@ -17,6 +17,7 @@ import {
   useQuemaDelDia,
 } from "@/lib/despacho";
 import { useSesion } from "@/lib/sesion";
+import { EncabezadoVista } from "@/components/encabezado-vista";
 
 /**
  * La quema nacional es **una sola cifra por día y por corte**, no una grilla.
@@ -45,11 +46,10 @@ export default function QuemaNacionalPage() {
 
   return (
     <main>
-      <h1 className="text-lg font-semibold tracking-tight">Quema nacional</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
+      <EncabezadoVista titulo="Quema nacional">
         El total quemado en el día. No entra ni en el recibido ni en el transportado
         del Balance Nación: se informa aparte.
-      </p>
+      </EncabezadoVista>
 
       <AvisoSoloConsulta sesion={sesion} departamento={DEPARTAMENTO_DESPACHO} />
 

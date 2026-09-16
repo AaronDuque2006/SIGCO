@@ -23,6 +23,7 @@ import {
 } from "@/lib/despacho";
 import { useSesion } from "@/lib/sesion";
 import { TarjetasBalance } from "./tarjetas-balance";
+import { EncabezadoVista } from "@/components/encabezado-vista";
 
 export default function BalanceDiarioPage() {
   const { sesion } = useSesion();
@@ -75,13 +76,15 @@ export default function BalanceDiarioPage() {
   return (
     <>
       <main>
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h1 className="text-lg font-semibold tracking-tight">Balance diario</h1>
-          <p className="text-sm text-muted-foreground">
-            {cargadas} de {visibles.length} clientes con lectura · total{" "}
-            <span className="font-mono text-foreground">{formatearVolumen(total)}</span> MMPCED
-          </p>
-        </div>
+        <EncabezadoVista
+          titulo="Balance diario"
+          meta={
+            <>
+              {cargadas} de {visibles.length} clientes con lectura · total{" "}
+              <span className="font-mono text-foreground">{formatearVolumen(total)}</span> MMPCED
+            </>
+          }
+        />
 
         <AvisoSoloConsulta sesion={sesion} departamento={DEPARTAMENTO_DESPACHO} />
 

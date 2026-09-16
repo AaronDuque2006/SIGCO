@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatearVolumen, useHistorialLectura, type RecursoLectura } from "@/lib/despacho";
+import { IconHistory } from "@tabler/icons-react";
 
 /**
  * El historial de correcciones de una lectura, desplegable desde su fila.
@@ -53,9 +54,12 @@ export function BotonCorrecciones({
       aria-controls={idPanel}
       aria-label={`${correcciones === 1 ? "1 corrección" : `${correcciones} correcciones`} de ${etiqueta}`}
       title="Ver las correcciones"
-      className="rounded-md border border-border px-1.5 py-0.5 font-mono text-[0.7rem] leading-none text-muted-foreground tabular-nums hover:border-ring hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+      className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 font-mono text-[0.7rem] leading-none text-muted-foreground tabular-nums hover:border-ring hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
     >
-      {correcciones}✎
+      {/* El reloj de historial y no un lápiz: el botón no edita, abre lo que ya
+          se editó. `aria-hidden` porque el `aria-label` del botón ya lo dice. */}
+      <IconHistory size={12} stroke={2} aria-hidden />
+      {correcciones}
     </button>
   );
 }

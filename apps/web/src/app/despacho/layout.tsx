@@ -4,6 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Encabezado } from "@/components/encabezado";
 import { GuardiaSesion } from "@/components/guardia-sesion";
+import {
+  IconAlertTriangle,
+  IconChartBar,
+  IconFlame,
+  IconGauge,
+  IconPhone,
+  IconTable,
+} from "@tabler/icons-react";
 
 interface Vista {
   ruta: string;
@@ -11,6 +19,9 @@ interface Vista {
   descripcion: string;
   /** `false` mientras la vista no exista todavía. */
   disponible: boolean;
+  /** El icono es semántico, no decorativo: en un menú de seis entradas con
+   *  nombres de longitud parecida, la forma se reconoce antes que la palabra. */
+  Icono: typeof IconTable;
 }
 
 // El orden es el del trabajo diario: primero se digita lo entregado a clientes,
@@ -22,36 +33,42 @@ const VISTAS: Vista[] = [
     nombre: "Balance diario",
     descripcion: "Entregas por cliente",
     disponible: true,
+    Icono: IconTable,
   },
   {
     ruta: "/despacho/fuentes",
     nombre: "Lecturas de fuentes",
     descripcion: "Gas recibido",
     disponible: true,
+    Icono: IconGauge,
   },
   {
     ruta: "/despacho/quema",
     nombre: "Quema nacional",
     descripcion: "Total quemado del día",
     disponible: true,
+    Icono: IconFlame,
   },
   {
     ruta: "/despacho/novedades",
     nombre: "Novedades",
     descripcion: "Eventos operativos",
     disponible: true,
+    Icono: IconAlertTriangle,
   },
   {
     ruta: "/despacho/contactos",
     nombre: "Contactos",
     descripcion: "Teléfonos de operadores",
     disponible: true,
+    Icono: IconPhone,
   },
   {
     ruta: "/despacho/reportes",
     nombre: "Reportes y gráficas",
     descripcion: "Balance nación y consumo",
     disponible: true,
+    Icono: IconChartBar,
   },
 ];
 
@@ -96,13 +113,19 @@ function MenuLateral() {
 }
 
 function EntradaMenu({ vista, activa }: { vista: Vista; activa: boolean }) {
+  const { Icono } = vista;
   const contenido = (
-    <>
-      <span className="block text-sm font-medium">{vista.nombre}</span>
-      <span className="mt-0.5 block text-xs text-muted-foreground">
-        {vista.disponible ? vista.descripcion : "En desarrollo"}
+    <span className="flex items-start gap-2.5">
+      {/* `aria-hidden`: el nombre de al lado ya dice qué es, y un lector de
+          pantalla no gana nada leyendo el icono dos veces. */}
+      <Icono size={18} stroke={1.75} aria-hidden className="mt-0.5 shrink-0" />
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{vista.nombre}</span>
+        <span className="mt-0.5 block text-xs text-muted-foreground">
+          {vista.disponible ? vista.descripcion : "En desarrollo"}
+        </span>
       </span>
-    </>
+    </span>
   );
 
   // Una vista que no existe no es un control: va atenuada y fuera del recorrido
