@@ -61,8 +61,6 @@ Es O(n²) sobre siete porciones como mucho, y queda puro.
 
 1. **Las 9 categorías de la cuarta gráfica**: el owner cree que **son como
    regiones**, pero va a preguntar antes de confirmarlo. Sigue bloqueada.
-2. **El job no cierra la quema de los días sin lecturas de clientes** (§11.5).
-   Se explicó en detalle; la solución sería que las fechas pendientes salgan de
-   la unión de las dos tablas. Falta el visto bueno para tocar el contrato del
-   job.
+2. ~~El job no cierra la quema de los días sin lecturas de clientes~~ **Hecho
+   en la misma sesión** — ver la entrada siguiente.
 3. La skill de UI que el owner va a pasar.

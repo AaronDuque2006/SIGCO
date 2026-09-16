@@ -17,7 +17,7 @@ export interface CierreExistente {
 }
 
 export interface ICierreDiarioRepository {
-  fechasConPuntualHasta(hasta: string): Promise<string[]>;
+  fechasConDatosHasta(hasta: string): Promise<string[]>;
   ultimaFechaConPuntual(): Promise<string | null>;
   valoresPuntualDelDia(fecha: string): Promise<ValoresDelDia[]>;
   cierresDelDia(fecha: string): Promise<CierreExistente[]>;
@@ -39,15 +39,48 @@ export interface ICierreDiarioRepository {
 }
 
 export class PrismaCierreDiarioRepository implements ICierreDiarioRepository {
-  async fechasConPuntualHasta(hasta: string): Promise<string[]> {
-    const filas = await prisma.lecturaBalance.groupBy({
-      by: ["fecha"],
-      where: { tipoCorte: "PUNTUAL", fecha: { lte: fechaToDate(hasta) } },
-      orderBy: { fecha: "asc" },
-    });
-    return filas.map((f) => dateToFecha(f.fecha));
+  /**
+   * Los días que tienen algo que cerrar: la **unión** de las fechas con
+   * `PUNTUAL` de clientes y de las que tienen `PUNTUAL` de quema nacional.
+   *
+   * Antes salía sólo de `LECTURA_BALANCE`, y como `cerrarQuema` se llama desde
+   * dentro de `cerrarDia`, un día con quema digitada pero sin ninguna lectura
+   * de cliente **nunca recibía su `CIERRE_PROMEDIO`**: no entraba en la lista
+   * de pendientes. En operación normal no se daba —todo día operativo tiene
+   * lecturas— pero era una dependencia escondida entre dos tablas
+   * independientes.
+   */
+  async fechasConDatosHasta(hasta: string): Promise<string[]> {
+    const tope = fechaToDate(hasta);
+    const [clientes, quemas] = await Promise.all([
+      prisma.lecturaBalance.groupBy({
+        by: ["fecha"],
+        where: { tipoCorte: "PUNTUAL", fecha: { lte: tope } },
+      }),
+      prisma.quemaNacional.groupBy({
+        by: ["fecha"],
+        where: { tipoCorte: "PUNTUAL", fecha: { lte: tope } },
+      }),
+    ]);
+    // Se unen y se ordenan acá y no en SQL: son dos listas de días, y el
+    // `groupBy` de Prisma no sabe hacer un UNION entre dos tablas.
+    const fechas = new Set([
+      ...clientes.map((f) => dateToFecha(f.fecha)),
+      ...quemas.map((f) => dateToFecha(f.fecha)),
+    ]);
+    return [...fechas].sort();
   }
 
+  /**
+   * La última fecha con lecturas de clientes, para el carry-forward.
+   *
+   * **A propósito mira sólo `LECTURA_BALANCE` y no la unión**, al revés que
+   * `fechasConDatosHasta`. El carry-forward de la decisión #43 copia lecturas
+   * *de clientes* al día siguiente; si un día con sólo quema adelantara esta
+   * fecha, la cadena arrancaría después y los días intermedios se quedarían
+   * sin sus copias. Son dos preguntas distintas: "qué días hay que cerrar" y
+   * "desde dónde hay que arrastrar".
+   */
   async ultimaFechaConPuntual(): Promise<string | null> {
     const fila = await prisma.lecturaBalance.findFirst({
       where: { tipoCorte: "PUNTUAL" },

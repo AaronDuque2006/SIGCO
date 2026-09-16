@@ -58,7 +58,7 @@ export class CierreDiarioService {
     resumen.truncado = truncado;
 
     // Sólo se cierran días ya completos: el de hoy todavía puede cambiar.
-    for (const fecha of await this.repo.fechasConPuntualHasta(sumarDias(hoy, -1))) {
+    for (const fecha of await this.repo.fechasConDatosHasta(sumarDias(hoy, -1))) {
       const cambios = await this.cerrarDia(fecha);
       if (cambios.creados > 0 || cambios.recalculados > 0) resumen.diasCerrados.push(fecha);
       resumen.cierresCreados += cambios.creados;
@@ -113,21 +113,37 @@ export class CierreDiarioService {
     }
 
     await this.repo.guardarCierres(fecha, nuevos, correcciones);
-    await this.cerrarQuema(fecha);
+    const quema = await this.cerrarQuema(fecha);
 
-    return { creados: nuevos.length, recalculados: correcciones.length };
+    // La quema suma a los contadores del día: si no, un día que sólo tenía
+    // quema se cerraría de verdad pero saldría del resumen como si no hubiera
+    // pasado nada, y el log diría `diasCerrados: []`.
+    return {
+      creados: nuevos.length + quema.creados,
+      recalculados: correcciones.length + quema.recalculados,
+    };
   }
 
-  // Mismo mecanismo para la quema nacional (decisiones #14 y #34).
-  private async cerrarQuema(fecha: string): Promise<void> {
+  /**
+   * Mismo mecanismo para la quema nacional (decisiones #14 y #34).
+   *
+   * Devuelve qué hizo, para que el día entre en `diasCerrados` aunque no haya
+   * tenido ninguna lectura de cliente — desde que las fechas pendientes salen
+   * de la unión de las dos tablas, eso ya es un caso posible.
+   */
+  private async cerrarQuema(fecha: string): Promise<{ creados: number; recalculados: number }> {
+    const nada = { creados: 0, recalculados: 0 };
     const puntual: ValoresDelDia | null = await this.repo.quemaValoresDelDia(fecha);
-    if (!puntual) return;
+    if (!puntual) return nada;
 
     const valor = media(puntual.valores);
     const existente = await this.repo.quemaCierreDelDia(fecha);
-    if (existente?.mmpced.equals(valor)) return;
+    // Sólo si cambió: correr el job de nuevo con los mismos datos no debe
+    // ensuciar el historial con filas idénticas.
+    if (existente?.mmpced.equals(valor)) return nada;
 
     await this.repo.guardarQuemaCierre(fecha, valor, puntual.usuarioId, existente);
+    return existente ? { creados: 0, recalculados: 1 } : { creados: 1, recalculados: 0 };
   }
 }
 
