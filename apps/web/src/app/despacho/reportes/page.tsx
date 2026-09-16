@@ -37,6 +37,10 @@ export default function ReportesPage() {
   const serie = useSerieBalance(fecha, dias, tipoCorte);
 
   const error = balance.error ?? consumo.error ?? serie.error;
+  // Las tres consultas describen el mismo día, así que la pantalla espera a las
+  // tres y aparece entera. Dejarlas entrar de a una haría saltar el layout tres
+  // veces, y en una máquina cargada eso son varios segundos de brincos.
+  const cargando = balance.isPending || consumo.isPending || serie.isPending;
 
   return (
     <main>
@@ -83,11 +87,15 @@ export default function ReportesPage() {
         <Alert variant="destructive" className="mt-6">
           <AlertDescription>{error.message}</AlertDescription>
         </Alert>
+      ) : cargando ? (
+        <p className="mt-6 text-sm text-muted-foreground" role="status">
+          Cargando los reportes…
+        </p>
       ) : null}
 
       {/* Balance Nación como cifras y no como gráfica: son cuatro números
           sueltos, y una barra de un solo valor no dice más que el número. */}
-      {balance.data ? (
+      {!cargando && balance.data ? (
         <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Tarjeta titulo="Recibido" valor={balance.data.recibidoMmpced} />
           <Tarjeta
@@ -109,7 +117,7 @@ export default function ReportesPage() {
         </section>
       ) : null}
 
-      {serie.data ? (
+      {!cargando && serie.data ? (
         <section className="mt-4 rounded-lg border border-border bg-card p-4">
           <GraficaLinea
             puntos={serie.data.dias.map((d) => ({
@@ -123,7 +131,7 @@ export default function ReportesPage() {
         </section>
       ) : null}
 
-      {consumo.data ? (
+      {!cargando && consumo.data ? (
         <>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <section className="rounded-lg border border-border bg-card p-4">

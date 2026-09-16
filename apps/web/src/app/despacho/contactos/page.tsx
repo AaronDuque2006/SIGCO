@@ -274,25 +274,46 @@ function Fila({
         {!puedeEditar ? null : confirmando ? (
           // Se confirma en el lugar porque es la única acción de Despacho que
           // no se puede deshacer: el borrado es físico, la fila no vuelve.
-          <span className="inline-flex items-center gap-2">
-            <span className="text-xs text-destructive">¿Borrar definitivamente?</span>
+          //
+          // Los pesos visuales van al revés de lo intuitivo: **la confirmación
+          // lleva el estilo destructivo y la salida lleva el normal**. Quien
+          // llegó hasta acá puede haber llegado de más, así que la opción segura
+          // tiene que ser la fácil de elegir y la irreversible la que se ve.
+          <span className="inline-flex flex-wrap items-center justify-end gap-2">
+            {eliminar.error ? (
+              <span className="text-xs text-destructive" role="alert">
+                {eliminar.error.message}
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">¿Borrar definitivamente?</span>
+            )}
             <Button
-              variant="outline"
+              variant="destructive"
               disabled={eliminar.isPending}
               onClick={() => eliminar.mutate(c.id)}
             >
-              Sí, borrar
+              {eliminar.isPending ? "Borrando…" : "Sí, borrar"}
             </Button>
-            <Button variant="outline" onClick={() => setConfirmando(false)}>
+            <Button
+              variant="outline"
+              disabled={eliminar.isPending}
+              onClick={() => {
+                setConfirmando(false);
+                eliminar.reset();
+              }}
+            >
               No
             </Button>
           </span>
         ) : (
           <span className="inline-flex gap-2">
+            {/* Editar es la acción habitual de un directorio y se queda con el
+                peso; eliminar es excepcional y va en `ghost` para no competir
+                con ella a igualdad de forma. */}
             <Button variant="outline" onClick={onEditar}>
               Editar
             </Button>
-            <Button variant="outline" onClick={() => setConfirmando(true)}>
+            <Button variant="ghost" onClick={() => setConfirmando(true)}>
               Eliminar
             </Button>
           </span>
