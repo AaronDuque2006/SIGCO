@@ -69,6 +69,10 @@ pnpm --filter api run crear-superadmin <nombre>   # imprime la temporal UNA vez
 ./scripts/dev.sh              # API en :4000 y web en :3000, con la salida etiquetada
 ```
 
+`crear-superadmin` compila los contratos antes de correr, igual que `dev`,
+`build` y `typecheck`: importa `@sicog/shared-validators` desde `dist`, que en
+un clon recién instalado todavía no existe.
+
 Falta en el clon y hay que traerlo aparte: **`archivos-fuente/`** (gitignored —
 el workbook, el Manual DAO y las planillas reales) y **`.env`**. Sin
 `archivos-fuente/` el sistema corre igual; lo que no se puede es verificar una
