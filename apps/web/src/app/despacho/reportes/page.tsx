@@ -2,7 +2,7 @@
 
 import type { TipoCorte } from "@sicog/shared-types";
 import { useState } from "react";
-import { GraficaBarras, GraficaLinea } from "@/components/graficas";
+import { GraficaBarras, GraficaDona, GraficaLinea } from "@/components/graficas";
 import { TablaDesplazable, TH } from "@/components/tabla-desplazable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -127,17 +127,23 @@ export default function ReportesPage() {
         <>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <section className="rounded-lg border border-border bg-card p-4">
-              <GraficaBarras
+              {/* Dona, como en el workbook y a pedido del owner. Las porciones
+                  van en el orden del catálogo —por `sector.id`— y no por
+                  tamaño: así un sector está siempre en el mismo lugar del
+                  anillo y comparar dos días muestra porciones que cambian de
+                  tamaño, no de posición. */}
+              <GraficaDona
                 titulo="Consumo por sectores"
-                datos={consumo.data.nacional.map((s) => ({
-                  etiqueta: s.sector.nombre,
-                  valor: s.totalMmpced,
-                }))}
+                datos={[...consumo.data.nacional]
+                  .sort((a, b) => a.sector.id - b.sector.id)
+                  .map((s) => ({
+                    id: s.sector.id,
+                    etiqueta: s.sector.nombre,
+                    valor: s.totalMmpced,
+                  }))}
                 total={consumo.data.totalMmpced}
+                nota="No incluye la quema nacional: no es consumo de ningún sector."
               />
-              <p className="mt-3 text-xs text-muted-foreground">
-                No incluye la quema nacional: no es consumo de ningún sector.
-              </p>
             </section>
 
             <section className="rounded-lg border border-border bg-card p-4">

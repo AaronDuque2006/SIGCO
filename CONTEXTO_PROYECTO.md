@@ -322,6 +322,13 @@ ctrl-operacional-gas/
     - **Un solo tono para las barras**: el largo ya codifica la magnitud, y pintarlas de colores distintos sugeriría una identidad que no existe. Las dos series de la línea sí son categóricas y llevan leyenda siempre.
     - **Balance Nación va como cifras y no como gráfica**: son cuatro números sueltos, y una barra de un solo valor no dice más que el número.
 
+76. **El consumo por sectores se muestra como dona, no como barras.** Pedido del owner el 2026-09-16, después de ver las pantallas funcionando: es la forma que el área ya lee en el workbook. Se cambió la gráfica de sectores; **las barras se conservan** para el entregado por región, que no es una participación sobre un total.
+    - **Paleta categórica de 7 tonos, una por sector del catálogo, validada** contra la superficie `#101828` incluido **el par que cierra el anillo** (el último toca al primero, cosa que el validador lineal no mira). Peor par adyacente: ΔE 9,4 en deuteranopía y 16,6 a color pleno.
+    - **El orden de la paleta no es decorativo, es el que se validó.** Verde y rosa quedan separados a propósito —colisionan en deuteranopía, ΔE 5,8— y lo mismo cian con verde. Reordenar la lista invalida la comprobación.
+    - **Seis tonos que sobrevivan la comparación de *todos* los pares no es alcanzable en fondo oscuro.** Por eso cada porción lleva nombre, cifra y porcentaje en la leyenda: es la codificación secundaria que la skill exige cuando un par cae en la banda de 6-8.
+    - **El color sigue al sector, no a su tamaño** (`sector.id`), y las porciones van en el orden del catálogo y no por magnitud: así un sector está siempre en el mismo lugar del anillo, y comparar dos días muestra porciones que cambian de tamaño, no de posición.
+    - **El agujero lleva el total.** En una dona el centro es espacio desperdiciado, y la cifra que se busca primero es justamente la suma.
+
 ---
 
 ## 7. ERD consolidado (vigente)
@@ -614,7 +621,7 @@ erDiagram
 - Las grillas scrollean solas con encabezado fijo (#64), muestran dos decimales (#65), filtran por sector económico (#70) y despliegan el historial de correcciones en la fila corregida (#69).
 - La celda de volumen **avisa cuando rechaza lo tecleado** (#71) y las grillas explican por qué quedan de sólo lectura (#65).
 
-⚠️ **De todo lo anterior, el owner sólo abrió en un navegador `/login`, `/cambiar-password`, el hub, Balance Diario y Fuentes.** Las pantallas de quema, novedades, contactos y reportes, el historial por fila y la validación de la celda **compilan y sirven `200`, pero nadie las miró**. Sus endpoints sí están verificados contra la base real.
+**Todas las vistas fueron revisadas por el owner en un navegador el 2026-09-16**, con la funcionalidad confirmada. Queda pendiente una pasada de aspecto: el owner anunció una skill de UI para eso.
 
 **Contratos**: escritos y en uso para Despacho (§11), `auth` (§12) y gestión de usuarios (§13). `shared-types` y `shared-validators` se compilan a `dist` y los consumen la API y el frontend por igual (decisión #57).
 
@@ -628,8 +635,8 @@ erDiagram
 
 ### Por acá arranca la próxima sesión
 
-1. **Abrir en el navegador lo que nadie miró todavía**: quema nacional, novedades, contactos, reportes, el historial desplegable de las grillas y el aviso de la celda inválida. Es lo primero, y de ahí suelen salir los pedidos que más valen (las decisiones #63, #64, #69, #70 y #71 nacieron todas de abrir una pantalla).
-    - Sigue abierto de la decisión #60 si hacen falta **subtotales por sistema o región** en la grilla de Balance Diario; sólo se ve usándola.
+1. ~~**Abrir en el navegador lo que nadie miró**~~ **Hecho**: el owner revisó todas las vistas el 2026-09-16 y confirmó que **la funcionalidad anda bien**. De ahí salió la decisión #76 (la dona) y quedó anunciada una skill de UI para mejorar el aspecto, que todavía no llegó.
+    - Sigue abierto de la decisión #60 si hacen falta **subtotales por sistema o región** en la grilla de Balance Diario.
 2. **La cuarta gráfica del workbook** (entregado por "SISTEMAS"), bloqueada hasta que el área explique qué son esas 9 categorías (§11.5).
 3. **Edición de usuarios en la pantalla del superadmin**: el backend ya la expone (`PATCH /api/usuarios/:id`, §13), la UI no.
 4. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de §11).
