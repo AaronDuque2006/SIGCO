@@ -660,11 +660,29 @@ erDiagram
 
 ### Por acá arranca la próxima sesión
 
-1. ~~**Abrir en el navegador lo que nadie miró**~~ **Hecho**: el owner revisó todas las vistas el 2026-09-16 y confirmó que **la funcionalidad anda bien**. De ahí salió la decisión #76 (la dona) y quedó anunciada una skill de UI para mejorar el aspecto, que todavía no llegó.
-    - Sigue abierto de la decisión #60 si hacen falta **subtotales por sistema o región** en la grilla de Balance Diario.
-2. ~~**Las transferencias entre sistemas**~~ **Hechas** (decisión #79). Con eso, **el Excel ya no tiene nada que SICOG no cubra**: era el último bloqueante conocido del reemplazo.
-3. **Edición de usuarios en la pantalla del superadmin**: el backend ya la expone (`PATCH /api/usuarios/:id`, §13), la UI no.
-4. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de §11).
+**Estado al cierre del 2026-09-16.** Despacho está completo y **no queda
+bloqueante conocido para retirar el Excel** (decisión #79 cerró el último).
+`PRODUCT.md` y `DESIGN.md` existen en la raíz y son la entrada para cualquier
+trabajo de producto o de interfaz.
+
+1. **Edición de usuarios en la pantalla del superadmin.** El backend ya la
+   expone (`PATCH /api/usuarios/:id`, §13) y la UI no. Es lo más chico y
+   concreto que queda; acordado con el owner.
+2. **Mejoras de UI.** El owner pasó la skill `impeccable`, y `DESIGN.md`
+   documenta el sistema actual, así que un cambio de aspecto se puede medir
+   contra algo escrito. De la auditoría previa quedó sin hacer nada más:
+   iconos y escala tipográfica ya se aplicaron.
+3. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de §11). Es
+   el trabajo grande que sigue.
+4. **Abrir en el navegador el bloque de transferencias** (decisión #79): es lo
+   único de Despacho que nadie miró todavía.
+
+Preguntas abiertas que sólo se contestan usando el sistema:
+
+- ¿Hacen falta **subtotales por sistema o región** en la grilla de Balance
+  Diario? (decisión #60).
+- ¿Los analistas necesitan **borrar** una novedad mal cargada, o alcanza con
+  corregirla? (§11.5).
 
 ### Pendientes menores, no bloqueantes
 

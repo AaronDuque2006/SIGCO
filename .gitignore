@@ -12,3 +12,6 @@ archivos-fuente/
 # Clon del repo de skills de terceros (addyosmani/agent-skills): trae su
 # propio .git, no es fuente de este proyecto.
 agent-skills/
+
+# Ajustes locales de Claude Code: son de la máquina, no del proyecto.
+.claude/settings.local.json

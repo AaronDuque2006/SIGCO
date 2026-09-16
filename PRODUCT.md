@@ -96,9 +96,12 @@ el transportado, porque el workbook las cuenta y el sistema las ignoraba.
   shadcn/ui sobre Tailwind, en Next.js App Router.
 - Una sola base PostgreSQL para los cuatro dominios, **sin mezclarlos**: sólo
   los catálogos genuinamente transversales se comparten por referencia.
-- La máquina de desarrollo actual tiene 3,6 GiB de RAM y 512 MiB de swap; con
-  los dos servidores levantados se agota y compilar una página pasa de segundos
-  a minutos. Se espera una con más capacidad.
+- ~~La máquina de desarrollo se queda sin memoria~~ **Resuelto el 2026-09-16**:
+  el owner pasó a un equipo con más capacidad. La anterior tenía 3,6 GiB de RAM
+  y 512 MiB de swap, y con los dos servidores levantados compilar una página
+  pasaba de segundos a minutos. Si algo vuelve a ir lento, medir antes de
+  culpar al disco: el aviso de Next sobre "slow filesystem" apuntaba al lugar
+  equivocado.
 
 **Facts de producto todavía sin decidir:** si la grilla de Balance Diario
 necesita subtotales por sistema o región; si las novedades mal cargadas se

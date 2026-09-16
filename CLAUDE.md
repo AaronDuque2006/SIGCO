@@ -55,6 +55,26 @@ A separate, unrelated repo at `../SIGCO-GAS-Prototipo-v1` holds an earlier throw
 
 ## Commands
 
+### Arrancar en una máquina nueva
+
+```bash
+git clone <repo> && cd SICOG
+cp .env.example .env          # y generar un JWT_SECRET propio (mín. 32 caracteres)
+pnpm install                  # pnpm 11.24, Node 22
+docker compose up -d          # Postgres con pgvector, base ctrl_operacional_gas
+pnpm --filter @sicog/db migrate:dev
+pnpm --filter @sicog/db run seed
+pnpm --filter api run crear-superadmin <nombre>   # imprime la temporal UNA vez
+./scripts/dev.sh              # API en :4000 y web en :3000, con la salida etiquetada
+```
+
+Falta en el clon y hay que traerlo aparte: **`archivos-fuente/`** (gitignored —
+el workbook, el Manual DAO y las planillas reales) y **`.env`**. Sin
+`archivos-fuente/` el sistema corre igual; lo que no se puede es verificar una
+regla contra su fuente, que es como se trabaja acá.
+
+### Comandos del día a día
+
 ```bash
 docker compose up -d                              # Postgres local
 pnpm --filter @sicog/db migrate:dev               # migraciones
