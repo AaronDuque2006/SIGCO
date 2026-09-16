@@ -6,8 +6,10 @@ import type {
   ConsumoPorSectoresDto,
   ContactoDto,
   FilaBalanceDiarioDto,
+  FilaTransferenciaDto,
   FuenteDto,
   HistorialEntryDto,
+  LecturaTransferenciaDto,
   NovedadOperativaDto,
   FilaFuenteDiariaDto,
   LecturaBalanceDto,
@@ -461,3 +463,53 @@ export const diaMes = (fecha: string): string => {
   const [, mes, dia] = fecha.split("-");
   return `${dia}/${mes}`;
 };
+
+// ---------------------------------------------------------------------------
+// Transferencias — el gas que sale del sistema sin ser consumo de un cliente
+// ---------------------------------------------------------------------------
+
+export const claveTransferencias = (fecha: string, tipoCorte: TipoCorte) =>
+  ["transferencias", fecha, tipoCorte] as const;
+
+/** Cinco puntos: la grilla viene entera, como la del día. */
+export function useGrillaTransferencias(fecha: string, tipoCorte: TipoCorte) {
+  return useQuery<Paginated<FilaTransferenciaDto>, ApiError>({
+    queryKey: claveTransferencias(fecha, tipoCorte),
+    queryFn: () =>
+      api<Paginated<FilaTransferenciaDto>>(
+        `/despacho/transferencias?fecha=${fecha}&tipoCorte=${tipoCorte}`,
+      ),
+  });
+}
+
+/**
+ * Un solo hook para crear y corregir, igual que en las demás grillas.
+ *
+ * Invalida además el Balance Nación: las transferencias entran en el
+ * transportado (decisión #79), así que las tarjetas quedan desactualizadas
+ * apenas se toca una.
+ */
+export function useGuardarTransferencia(fecha: string, tipoCorte: TipoCorte) {
+  const cliente = useQueryClient();
+  return useMutation<
+    LecturaTransferenciaDto,
+    ApiError,
+    { puntoId: number; lecturaId: string | null; mmpced: number }
+  >({
+    mutationFn: ({ puntoId, lecturaId, mmpced }) =>
+      lecturaId === null
+        ? api<LecturaTransferenciaDto>("/despacho/transferencias", {
+            metodo: "POST",
+            cuerpo: { puntoId, fecha, mmpced },
+          })
+        : api<LecturaTransferenciaDto>(`/despacho/transferencias/${lecturaId}`, {
+            metodo: "PATCH",
+            cuerpo: { mmpced },
+          }),
+    onSuccess: () => {
+      void cliente.invalidateQueries({ queryKey: claveTransferencias(fecha, tipoCorte) });
+      void cliente.invalidateQueries({ queryKey: ["balance-nacion", fecha] });
+      void cliente.invalidateQueries({ queryKey: ["consumo-sectores", fecha] });
+    },
+  });
+}

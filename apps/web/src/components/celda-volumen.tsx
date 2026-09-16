@@ -34,7 +34,11 @@ export type ResultadoCelda =
   | { tipo: "rechazar"; mensaje: string }
   | { tipo: "nada" };
 
-export function evaluarCelda(texto: string, valor: number | null): ResultadoCelda {
+export function evaluarCelda(
+  texto: string,
+  valor: number | null,
+  permiteNegativo = false,
+): ResultadoCelda {
   // Se acepta la coma decimal: es lo que teclea la gente acá.
   const limpio = texto.trim().replace(",", ".");
   if (limpio === "") return { tipo: "reponer" };
@@ -45,7 +49,12 @@ export function evaluarCelda(texto: string, valor: number | null): ResultadoCeld
   // Lo rechaza también el schema del backend: un volumen entregado no puede
   // ser negativo, y "Desvío" se modela como una FUENTE aparte (decisión #5).
   // Avisar acá ahorra el viaje y el 422.
-  if (numero < 0) return { tipo: "rechazar", mensaje: "No puede ser negativo" };
+  //
+  // La excepción es un punto de transferencia bidireccional, donde el signo
+  // **es** el dato: codifica en qué sentido fue el gas (decisión #79).
+  if (numero < 0 && !permiteNegativo) {
+    return { tipo: "rechazar", mensaje: "No puede ser negativo" };
+  }
 
   // La columna es Decimal(14,4): más posiciones las redondea Postgres sin
   // avisar, que es la misma sorpresa silenciosa que todo esto evita.
@@ -67,6 +76,7 @@ export function CeldaVolumen({
   valor,
   etiqueta,
   editable,
+  permiteNegativo = false,
   guardando,
   error,
   onGuardar,
@@ -75,6 +85,8 @@ export function CeldaVolumen({
   /** Para el lector de pantalla: de qué fila es esta celda. */
   etiqueta: string;
   editable: boolean;
+  /** Cuando es `true` se admite el signo: el valor codifica una dirección. */
+  permiteNegativo?: boolean;
   guardando: boolean;
   error: string | null;
   onGuardar: (volumen: number) => void;
@@ -109,7 +121,7 @@ export function CeldaVolumen({
   }
 
   const confirmar = () => {
-    const resultado = evaluarCelda(texto, valor);
+    const resultado = evaluarCelda(texto, valor, permiteNegativo);
     if (resultado.tipo === "rechazar") {
       setErrorLocal(resultado.mensaje);
       return;

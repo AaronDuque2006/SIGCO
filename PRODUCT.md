@@ -83,9 +83,10 @@ cierre diario.
 Análisis Operacional. Los dos últimos **ni siquiera están diseñados**: no existe
 la planilla ni la especificación de origen.
 
-**Pendiente para poder retirar el Excel** (ver `CONTEXTO_PROYECTO.md` §11.5):
-las transferencias entre sistemas (`ICO Morón`, `APORTE A EYP`) son flujos de
-gasoducto que el workbook muestra y SICOG todavía no modela.
+**Ya no queda un bloqueante conocido para retirar el Excel.** El último eran
+las transferencias fuera del sistema (`ICO Morón`, `APORTE A EYP`), modeladas
+el 2026-09-16 (decisión #79). Antes de eso SICOG reportaba 8 MMPCED de menos en
+el transportado, porque el workbook las cuenta y el sistema las ignoraba.
 
 **Restricciones técnicas confirmadas:**
 

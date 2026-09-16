@@ -114,14 +114,51 @@ export class CierreDiarioService {
 
     await this.repo.guardarCierres(fecha, nuevos, correcciones);
     const quema = await this.cerrarQuema(fecha);
+    const transferencias = await this.cerrarTransferencias(fecha);
 
     // La quema suma a los contadores del día: si no, un día que sólo tenía
     // quema se cerraría de verdad pero saldría del resumen como si no hubiera
     // pasado nada, y el log diría `diasCerrados: []`.
     return {
-      creados: nuevos.length + quema.creados,
-      recalculados: correcciones.length + quema.recalculados,
+      creados: nuevos.length + quema.creados + transferencias.creados,
+      recalculados: correcciones.length + quema.recalculados + transferencias.recalculados,
     };
+  }
+
+  /**
+   * Mismo mecanismo para las transferencias (decisión #79): una por punto, y
+   * el cierre es la media de los valores que tuvo el puntual ese día.
+   *
+   * La media se calcula en `Decimal` como todas las demás, así que un punto
+   * bidireccional promedia su signo sin caso especial: si el gas fue en un
+   * sentido media jornada y en el otro la otra, el promedio lo refleja.
+   */
+  private async cerrarTransferencias(
+    fecha: string,
+  ): Promise<{ creados: number; recalculados: number }> {
+    const [valores, existentes] = await Promise.all([
+      this.repo.transferenciaValoresDelDia(fecha),
+      this.repo.transferenciaCierresDelDia(fecha),
+    ]);
+    // `clienteId` acarrea el `puntoId`: es la misma forma de fila que reusa el
+    // repositorio para no duplicar el tipo.
+    const porPunto = new Map(existentes.map((c) => [c.puntoId, c]));
+
+    const nuevos: { puntoId: number; mmpced: Prisma.Decimal; usuarioId: number }[] = [];
+    const correcciones: { id: bigint; mmpced: Prisma.Decimal; usuarioId: number }[] = [];
+
+    for (const fila of valores) {
+      const valor = media(fila.valores);
+      const existente = porPunto.get(fila.clienteId);
+      if (!existente) {
+        nuevos.push({ puntoId: fila.clienteId, mmpced: valor, usuarioId: fila.usuarioId });
+      } else if (!existente.mmpced.equals(valor)) {
+        correcciones.push({ id: existente.id, mmpced: valor, usuarioId: fila.usuarioId });
+      }
+    }
+
+    await this.repo.guardarTransferenciaCierres(fecha, nuevos, correcciones);
+    return { creados: nuevos.length, recalculados: correcciones.length };
   }
 
   /**

@@ -16,6 +16,7 @@ import * as lecturaFuente from "./controllers/lectura-fuente.controller.js";
 import * as novedad from "./controllers/novedad.controller.js";
 import * as quemaNacional from "./controllers/quema-nacional.controller.js";
 import * as reportes from "./controllers/reportes.controller.js";
+import * as transferencia from "./controllers/transferencia.controller.js";
 
 // Anotación explícita por TS2742: los symlinks de pnpm impiden que TS nombre
 // el tipo inferido (mismo caso que shared/prisma-client.ts).
@@ -77,6 +78,14 @@ router.get("/quema-nacional", asyncHandler(quemaNacional.obtenerDelDia));
 router.post("/quema-nacional", soloDespacho, asyncHandler(quemaNacional.registrar));
 router.patch("/quema-nacional/:id", soloDespacho, asyncHandler(quemaNacional.corregir));
 router.get("/quema-nacional/:id/historial", asyncHandler(quemaNacional.listarHistorial));
+
+// ── Transferencias ───────────────────────────────────────────────────────────
+// El gas que sale del sistema sin ser consumo de un cliente (decisión #79).
+// Cinco puntos, así que la grilla viene entera y sin paginar.
+router.get("/transferencias", asyncHandler(transferencia.listarGrilla));
+router.post("/transferencias", soloDespacho, asyncHandler(transferencia.registrar));
+router.patch("/transferencias/:id", soloDespacho, asyncHandler(transferencia.corregir));
+router.get("/transferencias/:id/historial", asyncHandler(transferencia.listarHistorial));
 
 // ── Novedades operativas ─────────────────────────────────────────────────────
 // `/tipos` va **antes** que `/:id`, que si no se la traga — el mismo tropiezo

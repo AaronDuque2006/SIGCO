@@ -40,6 +40,40 @@ export interface FuenteDto {
   sistema: SistemaDto;
 }
 
+/**
+ * Punto por el que el gas sale del sistema sin ser consumo de un cliente: un
+ * aporte a otra división o una transferencia a otro sistema (decisión #79).
+ */
+export interface PuntoTransferenciaDto {
+  id: number;
+  nombre: string;
+  /** A dónde va: `EYP`, `NURGAS`. */
+  destino: string;
+  /** Cuando es `true`, `mmpced` admite signo: positivo en el sentido que
+   *  nombra el punto, negativo en el contrario. */
+  bidireccional: boolean;
+  sistema: SistemaDto;
+  subSistema: { id: number; nombre: string } | null;
+}
+
+export interface LecturaTransferenciaDto {
+  id: string;
+  puntoId: number;
+  fecha: string;
+  tipoCorte: TipoCorte;
+  /** **Puede ser negativo** en un punto bidireccional. */
+  mmpced: number;
+  usuarioId: number;
+}
+
+/** Una fila del bloque de transferencias, exista o no la lectura. */
+export interface FilaTransferenciaDto {
+  punto: PuntoTransferenciaDto;
+  lectura: LecturaTransferenciaDto | null;
+  /** Ver `FilaBalanceDiarioDto.correcciones`. */
+  correcciones: number;
+}
+
 export interface LecturaBalanceDto {
   id: string;
   clienteId: number;
@@ -155,10 +189,13 @@ export interface BalanceNacionDto {
   fecha: string;
   tipoCorte: TipoCorte;
   recibidoMmpced: number;
-  /** Incluye la quema nacional del corte (decisión #74). */
+  /** Incluye la quema nacional y las transferencias del corte
+   *  (decisiones #74 y #79). */
   transportadoMmpced: number;
   /** Cuánto del transportado es quema, para poder desglosarlo en pantalla. */
   quemaMmpced: number;
+  /** Cuánto del transportado son transferencias fuera del sistema (#79). */
+  transferenciasMmpced: number;
   variacionMmpced: number;
   condicion: CondicionBalance;
 }

@@ -29,6 +29,13 @@ export interface ICierreDiarioRepository {
   clientesConPuntual(fecha: string): Promise<number[]>;
   copiarPuntualAlDiaSiguiente(desde: string, hacia: string): Promise<number>;
   quemaValoresDelDia(fecha: string): Promise<ValoresDelDia | null>;
+  transferenciaValoresDelDia(fecha: string): Promise<ValoresDelDia[]>;
+  transferenciaCierresDelDia(fecha: string): Promise<{ id: bigint; puntoId: number; mmpced: Prisma.Decimal }[]>;
+  guardarTransferenciaCierres(
+    fecha: string,
+    nuevos: { puntoId: number; mmpced: Prisma.Decimal; usuarioId: number }[],
+    correcciones: { id: bigint; mmpced: Prisma.Decimal; usuarioId: number }[],
+  ): Promise<void>;
   quemaCierreDelDia(fecha: string): Promise<{ id: bigint; mmpced: Prisma.Decimal } | null>;
   guardarQuemaCierre(
     fecha: string,
@@ -43,7 +50,10 @@ export class PrismaCierreDiarioRepository implements ICierreDiarioRepository {
    * Los días que tienen algo que cerrar: la **unión** de las fechas con
    * `PUNTUAL` de clientes y de las que tienen `PUNTUAL` de quema nacional.
    *
-   * Antes salía sólo de `LECTURA_BALANCE`, y como `cerrarQuema` se llama desde
+   * Antes salía sólo de `LECTURA_BALANCE` y después de las dos primeras; las
+   * transferencias entraron en la unión por el mismo motivo (decisión #79).
+   *
+   * Como `cerrarQuema` se llama desde
    * dentro de `cerrarDia`, un día con quema digitada pero sin ninguna lectura
    * de cliente **nunca recibía su `CIERRE_PROMEDIO`**: no entraba en la lista
    * de pendientes. En operación normal no se daba —todo día operativo tiene
@@ -52,12 +62,16 @@ export class PrismaCierreDiarioRepository implements ICierreDiarioRepository {
    */
   async fechasConDatosHasta(hasta: string): Promise<string[]> {
     const tope = fechaToDate(hasta);
-    const [clientes, quemas] = await Promise.all([
+    const [clientes, quemas, transferencias] = await Promise.all([
       prisma.lecturaBalance.groupBy({
         by: ["fecha"],
         where: { tipoCorte: "PUNTUAL", fecha: { lte: tope } },
       }),
       prisma.quemaNacional.groupBy({
+        by: ["fecha"],
+        where: { tipoCorte: "PUNTUAL", fecha: { lte: tope } },
+      }),
+      prisma.lecturaTransferencia.groupBy({
         by: ["fecha"],
         where: { tipoCorte: "PUNTUAL", fecha: { lte: tope } },
       }),
@@ -67,6 +81,7 @@ export class PrismaCierreDiarioRepository implements ICierreDiarioRepository {
     const fechas = new Set([
       ...clientes.map((f) => dateToFecha(f.fecha)),
       ...quemas.map((f) => dateToFecha(f.fecha)),
+      ...transferencias.map((f) => dateToFecha(f.fecha)),
     ]);
     return [...fechas].sort();
   }
@@ -213,6 +228,69 @@ export class PrismaCierreDiarioRepository implements ICierreDiarioRepository {
         where: { id: existente.id },
         data: { mmpced: valor, usuarioId },
       });
+    });
+  }
+
+  /**
+   * Los valores que tuvo cada transferencia ese día, con su historial. Mismo
+   * criterio que las lecturas: la fila está atada a una fecha, así que sus
+   * valores son los de ese día aunque se corrijan después (decisión #44).
+   */
+  async transferenciaValoresDelDia(fecha: string): Promise<ValoresDelDia[]> {
+    const filas = await prisma.lecturaTransferencia.findMany({
+      where: { fecha: fechaToDate(fecha), tipoCorte: "PUNTUAL" },
+      select: {
+        id: true,
+        puntoId: true,
+        usuarioId: true,
+        mmpced: true,
+        historial: { select: { mmpcedAnt: true } },
+      },
+    });
+    return filas.map((l) => ({
+      lecturaId: l.id,
+      clienteId: l.puntoId,
+      usuarioId: l.usuarioId,
+      valores: [...l.historial.map((h) => h.mmpcedAnt), l.mmpced],
+    }));
+  }
+
+  transferenciaCierresDelDia(
+    fecha: string,
+  ): Promise<{ id: bigint; puntoId: number; mmpced: Prisma.Decimal }[]> {
+    return prisma.lecturaTransferencia.findMany({
+      where: { fecha: fechaToDate(fecha), tipoCorte: "CIERRE_PROMEDIO" },
+      select: { id: true, puntoId: true, mmpced: true },
+    });
+  }
+
+  async guardarTransferenciaCierres(
+    fecha: string,
+    nuevos: { puntoId: number; mmpced: Prisma.Decimal; usuarioId: number }[],
+    correcciones: { id: bigint; mmpced: Prisma.Decimal; usuarioId: number }[],
+  ): Promise<void> {
+    if (nuevos.length === 0 && correcciones.length === 0) return;
+
+    await prisma.$transaction(async (tx) => {
+      if (nuevos.length > 0) {
+        await tx.lecturaTransferencia.createMany({
+          data: nuevos.map((n) => ({
+            ...n,
+            fecha: fechaToDate(fecha),
+            tipoCorte: "CIERRE_PROMEDIO" as const,
+          })),
+        });
+      }
+      for (const c of correcciones) {
+        const actual = await tx.lecturaTransferencia.findUniqueOrThrow({ where: { id: c.id } });
+        await tx.lecturaTransferenciaHistorial.create({
+          data: { lecturaId: c.id, mmpcedAnt: actual.mmpced, usuarioId: c.usuarioId },
+        });
+        await tx.lecturaTransferencia.update({
+          where: { id: c.id },
+          data: { mmpced: c.mmpced, usuarioId: c.usuarioId },
+        });
+      }
     });
   }
 }

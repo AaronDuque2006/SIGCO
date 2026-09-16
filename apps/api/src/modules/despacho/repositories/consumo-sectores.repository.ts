@@ -81,18 +81,31 @@ export class PrismaConsumoSectoresRepository implements IConsumoSectoresReposito
    * **es** la regla, sin ramificar en JavaScript.
    */
   entregaPorAgrupacion(fecha: string, tipoCorte: TipoCorte): Promise<FilaAgrupacion[]> {
+    const dia = fechaToDate(fecha);
+    // Dos orígenes, un mismo eje: lo entregado a clientes y lo que sale por un
+    // punto de transferencia (decisión #79). Se unen antes de agrupar porque en
+    // el workbook viven en el mismo bloque y suman al mismo total; separarlos
+    // dejaría la barra corta, que es justo el error que esto corrige.
     return prisma.$queryRaw<FilaAgrupacion[]>`
+      WITH entregado AS (
+        SELECT c.sistema_id, c.sub_sistema_id, lb.volumen_mmpced AS mmpced
+        FROM lecturas_balance lb
+        JOIN clientes c ON c.id = lb.cliente_id
+        WHERE lb.fecha = ${dia} AND lb.tipo_corte = ${tipoCorte}::tipo_corte
+        UNION ALL
+        SELECT p.sistema_id, p.sub_sistema_id, lt.mmpced
+        FROM lecturas_transferencia lt
+        JOIN puntos_transferencia p ON p.id = lt.punto_id
+        WHERE lt.fecha = ${dia} AND lt.tipo_corte = ${tipoCorte}::tipo_corte
+      )
       SELECT s.id      AS "sistemaId",
              s.nombre  AS "sistemaNombre",
              ss.id     AS "subSistemaId",
              ss.nombre AS "subSistemaNombre",
-             SUM(lb.volumen_mmpced) AS "totalMmpced"
-      FROM lecturas_balance lb
-      JOIN clientes c          ON c.id = lb.cliente_id
-      JOIN sistemas s          ON s.id = c.sistema_id
-      LEFT JOIN sub_sistemas ss ON ss.id = c.sub_sistema_id
-      WHERE lb.fecha = ${fechaToDate(fecha)}
-        AND lb.tipo_corte = ${tipoCorte}::tipo_corte
+             SUM(e.mmpced) AS "totalMmpced"
+      FROM entregado e
+      JOIN sistemas s           ON s.id = e.sistema_id
+      LEFT JOIN sub_sistemas ss ON ss.id = e.sub_sistema_id
       GROUP BY s.id, s.nombre, ss.id, ss.nombre
       ORDER BY 5 DESC
     `;
@@ -107,8 +120,8 @@ export class PrismaConsumoSectoresRepository implements IConsumoSectoresReposito
    * separado y se unen por fecha con un `FULL OUTER JOIN`: un día puede tener
    * fuentes y no clientes, o al revés.
    *
-   * La quema va **dentro** del transportado, igual que en el Balance Nación
-   * (decisión #74).
+   * La quema y las transferencias van **dentro** del transportado, igual que en
+   * el Balance Nación (decisiones #74 y #79).
    */
   serieBalance(desde: string, hasta: string, tipoCorte: TipoCorte): Promise<FilaSerie[]> {
     const d = fechaToDate(desde);
@@ -130,6 +143,11 @@ export class PrismaConsumoSectoresRepository implements IConsumoSectoresReposito
           SELECT fecha, mmpced AS total
           FROM quemas_nacional
           WHERE fecha BETWEEN ${d} AND ${h} AND tipo_corte = ${tipoCorte}::tipo_corte
+          UNION ALL
+          SELECT fecha, SUM(mmpced) AS total
+          FROM lecturas_transferencia
+          WHERE fecha BETWEEN ${d} AND ${h} AND tipo_corte = ${tipoCorte}::tipo_corte
+          GROUP BY fecha
         ) u
         GROUP BY fecha
       )

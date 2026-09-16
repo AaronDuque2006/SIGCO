@@ -254,7 +254,10 @@ export function GraficaBarras({
   total: number;
 }) {
   const idTitulo = useId();
-  const maximo = Math.max(1, ...datos.map((d) => d.valor));
+  // La escala se mide en valor absoluto: desde que una agrupación puede incluir
+  // una transferencia bidireccional (decisión #79), un total puede dar
+  // negativo, y medir contra el máximo con signo distorsionaría el resto.
+  const maximo = Math.max(1, ...datos.map((d) => Math.abs(d.valor)));
 
   return (
     <figure className="m-0">
@@ -269,7 +272,10 @@ export function GraficaBarras({
       ) : (
         <ul className="mt-3 space-y-2" aria-labelledby={idTitulo}>
           {datos.map((d) => {
-            const proporcion = (d.valor / maximo) * 100;
+            // Un valor negativo no dibuja barra. Aplastarlo a un 1% diría
+            // "casi nada entregado" cuando lo que hubo fue entrada neta; el
+            // número con su signo lo cuenta bien y la barra se calla.
+            const proporcion = d.valor <= 0 ? 0 : (d.valor / maximo) * 100;
             const parte = total > 0 ? (d.valor / total) * 100 : null;
             return (
               <li key={d.etiqueta} className="grid grid-cols-[11rem_1fr_auto] items-center gap-3">
@@ -285,7 +291,10 @@ export function GraficaBarras({
                   {/* Extremo redondeado de 4px, anclado a la línea base. */}
                   <span
                     className="block h-full rounded-r-[4px]"
-                    style={{ width: `${Math.max(proporcion, 1)}%`, background: BARRA }}
+                    style={{
+                      width: `${d.valor > 0 ? Math.max(proporcion, 1) : 0}%`,
+                      background: BARRA,
+                    }}
                   />
                 </span>
                 <span className="font-mono text-xs tabular-nums">

@@ -391,6 +391,69 @@ async function seedSubSistemas() {
   }
 }
 
+/**
+ * Puntos de transferencia: las cinco filas del workbook que salen del sistema
+ * sin ser consumo de un cliente (decisión #79).
+ *
+ * Los cuatro `APORTE A EYP` viven en el bloque COSTA ESTE de `CEN-ORI` y la
+ * transferencia ICO-NURGAS en el de ULÉ-AMUAY; los dos bloques los cuentan en
+ * su TOTAL VENTAS, y de ahí viajan al transportado del Balance Nación.
+ */
+const PUNTOS_TRANSFERENCIA: {
+  sistema: string;
+  subSistema: string | null;
+  nombre: string;
+  destino: string;
+  bidireccional: boolean;
+}[] = [
+  { sistema: "Ulé - Amuay", subSistema: "Costa Este", nombre: "Aporte a EYP K04+600 (La Pica)", destino: "EYP", bidireccional: false },
+  { sistema: "Ulé - Amuay", subSistema: "Costa Este", nombre: "Aporte a EYP K00", destino: "EYP", bidireccional: false },
+  { sistema: "Ulé - Amuay", subSistema: "Costa Este", nombre: "Aporte a EYP K00 (fugas hacia PEPG)", destino: "EYP", bidireccional: false },
+  { sistema: "Ulé - Amuay", subSistema: "Costa Este", nombre: "Aporte a EYP K04+600 (Tablazo)", destino: "EYP", bidireccional: false },
+  // La única bidireccional: positivo es ICO→NURGAS, negativo NURGAS→ICO, tal
+  // como el workbook lo resuelve con el signo de FUENTES!Q31.
+  { sistema: "Ulé - Amuay", subSistema: null, nombre: "Transferencia ICO-NURGAS", destino: "NURGAS", bidireccional: true },
+];
+
+async function seedPuntosTransferencia() {
+  const sistemas = new Map(
+    (await prisma.sistema.findMany({ select: { id: true, nombre: true } })).map((x) => [x.nombre, x.id]),
+  );
+
+  for (const punto of PUNTOS_TRANSFERENCIA) {
+    const sistemaId = sistemas.get(punto.sistema);
+    if (sistemaId === undefined) {
+      console.warn(`[seed] No existe el sistema "${punto.sistema}"; se omite el punto "${punto.nombre}".`);
+      continue;
+    }
+    const subSistemaId =
+      punto.subSistema === null
+        ? null
+        : ((await prisma.subSistema.findUnique({
+            where: { sistemaId_nombre: { sistemaId, nombre: punto.subSistema } },
+            select: { id: true },
+          }))?.id ?? null);
+
+    // Aditivo e idempotente, como el resto del seed.
+    const existe = await prisma.puntoTransferencia.findUnique({
+      where: { sistemaId_nombre: { sistemaId, nombre: punto.nombre } },
+      select: { id: true },
+    });
+    if (existe) continue;
+
+    await prisma.puntoTransferencia.create({
+      data: {
+        sistemaId,
+        subSistemaId,
+        nombre: punto.nombre,
+        destino: punto.destino,
+        bidireccional: punto.bidireccional,
+      },
+    });
+    console.log(`[seed] Punto de transferencia "${punto.nombre}" creado.`);
+  }
+}
+
 async function main() {
   await seedSistemaYFuente();
   await seedRegionOperativa();
@@ -402,6 +465,8 @@ async function main() {
   await seedClientes();
   // Después de los clientes: les asigna su rama.
   await seedSubSistemas();
+  // Después de los sub-sistemas: los puntos cuelgan de ellos.
+  await seedPuntosTransferencia();
 }
 
 main()

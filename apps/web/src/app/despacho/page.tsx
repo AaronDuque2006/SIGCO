@@ -24,6 +24,7 @@ import {
 import { useSesion } from "@/lib/sesion";
 import { TarjetasBalance } from "./tarjetas-balance";
 import { EncabezadoVista } from "@/components/encabezado-vista";
+import { BloqueTransferencias } from "@/components/bloque-transferencias";
 
 export default function BalanceDiarioPage() {
   const { sesion } = useSesion();
@@ -179,6 +180,11 @@ export default function BalanceDiarioPage() {
             puedeEditar={puedeEditar}
           />
         )}
+
+        {/* Al final del día: lo que sale del sistema sin ser consumo de un
+            cliente. Va acá porque es donde el workbook lo tiene y donde el
+            analista ya está digitando (decisión #79). */}
+        <BloqueTransferencias fecha={fecha} tipoCorte={tipoCorte} puedeEditar={puedeEditar} />
       </main>
     </>
   );

@@ -91,6 +91,7 @@ model Sistema {
   fuentes     Fuente[]
   clientes    Cliente[]
   subSistemas SubSistema[]
+  puntosTransferencia PuntoTransferencia[]
 
   @@map("sistemas")
 }
@@ -110,8 +111,9 @@ model SubSistema {
   // podrian tener una rama con el mismo nombre generico.
   nombre    String
 
-  sistema  Sistema   @relation(fields: [sistemaId], references: [id])
-  clientes Cliente[]
+  sistema             Sistema              @relation(fields: [sistemaId], references: [id])
+  clientes            Cliente[]
+  puntosTransferencia PuntoTransferencia[]
 
   @@unique([sistemaId, nombre])
   @@map("sub_sistemas")
@@ -173,6 +175,69 @@ model Fuente {
   contactos          Contacto[]
 
   @@map("fuentes")
+}
+
+// Punto por el que el gas sale del sistema sin ser consumo de un cliente: un
+// aporte a otra division (E&P) o una transferencia a otro sistema.
+//
+// Existe porque el workbook los lleva como filas dentro del bloque de clientes
+// y los cuenta en su TOTAL VENTAS, pero la decision #46 los saco del catalogo
+// CLIENTE con razon: no son clientes. Excluirlos del todo dejaba el
+// transportado 8 MMPCED corto contra el Excel. Decision #79.
+model PuntoTransferencia {
+  id            Int     @id @default(autoincrement())
+  sistemaId     Int     @map("sistema_id")
+  // Donde lo cuenta el balance. Nulo cuando el sistema no esta subdividido.
+  subSistemaId  Int?    @map("sub_sistema_id")
+  nombre        String
+  // A donde va: "EYP", "NURGAS". Texto libre por ahora, son dos valores.
+  destino       String
+  // Cuando es true el volumen admite signo: positivo en el sentido que nombra
+  // `nombre`, negativo en el contrario. Es el caso de ICO-NURGAS, que el
+  // workbook resuelve exactamente asi (FUENTES!Q31).
+  bidireccional Boolean @default(false)
+
+  sistema    Sistema                 @relation(fields: [sistemaId], references: [id])
+  subSistema SubSistema?             @relation(fields: [subSistemaId], references: [id])
+  lecturas   LecturaTransferencia[]
+
+  @@unique([sistemaId, nombre])
+  @@map("puntos_transferencia")
+}
+
+// Misma mecanica que LECTURA_BALANCE: dos cortes, historial obligatorio de
+// correcciones (decision #3) y un valor por punto, fecha y corte.
+//
+// A diferencia de las demas lecturas, `mmpced` **admite negativos** cuando el
+// punto es bidireccional.
+model LecturaTransferencia {
+  id        BigInt    @id @default(autoincrement())
+  puntoId   Int       @map("punto_id")
+  fecha     DateTime  @db.Date
+  tipoCorte TipoCorte @map("tipo_corte")
+  mmpced    Decimal   @db.Decimal(14, 4)
+  usuarioId Int       @map("usuario_id")
+
+  punto     PuntoTransferencia              @relation(fields: [puntoId], references: [id])
+  usuario   Usuario                         @relation(fields: [usuarioId], references: [id])
+  historial LecturaTransferenciaHistorial[]
+
+  @@unique([puntoId, fecha, tipoCorte])
+  @@index([fecha])
+  @@map("lecturas_transferencia")
+}
+
+model LecturaTransferenciaHistorial {
+  id           BigInt   @id @default(autoincrement())
+  lecturaId    BigInt   @map("lectura_id")
+  mmpcedAnt    Decimal  @map("mmpced_ant") @db.Decimal(14, 4)
+  usuarioId    Int      @map("usuario_id")
+  modificadoEn DateTime @default(now()) @map("modificado_en")
+
+  lectura LecturaTransferencia @relation(fields: [lecturaId], references: [id], onDelete: Cascade)
+  usuario Usuario              @relation(fields: [usuarioId], references: [id])
+
+  @@map("lecturas_transferencia_historial")
 }
 
 model LecturaBalance {
@@ -466,6 +531,8 @@ model Usuario {
   lecturasFuenteHistorial  LecturaFuenteHistorial[]
   quemasNacional           QuemaNacional[]
   quemasNacionalHistorial  QuemaNacionalHistorial[]
+  lecturasTransferencia    LecturaTransferencia[]
+  lecturasTransferenciaHistorial LecturaTransferenciaHistorial[]
   novedadesOperativa       NovedadOperativa[]
   reportesTelemetria       ReporteTelemetriaEstacion[]
   actividadesRegistro      ActividadRegistro[]

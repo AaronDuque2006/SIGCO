@@ -338,6 +338,16 @@ ctrl-operacional-gas/
     - **La regla se resuelve en SQL, no en JavaScript**: el `GROUP BY` lleva sistema y sub-sistema, y el `LEFT JOIN` deja `NULL` en la segunda columna. Cada sistema produce una fila por rama con consumo más una con `NULL` que junta a los directos. El Service sólo elige el nombre del eje, así que el gráfico no conoce la decisión.
     - **Los 4 `APORTE A EYP …` del bloque COSTA ESTE no se asignan**: la decisión #46 los sacó del catálogo `CLIENTE` por ser transferencias entre sistemas. De los 23 nombres del workbook quedan 19 clientes.
 
+79. **Las transferencias son un modelo propio, y entran en el transportado.** Confirmado por el owner el 2026-09-16. Son las 5 filas del workbook que salen del sistema sin ser consumo de un cliente: cuatro `APORTE A EYP` en el bloque COSTA ESTE y `TRANSFERENCIA ICO-NURGAS` en el de ULÉ-AMUAY. La decisión #46 las había sacado del catálogo `CLIENTE` con razón —no son clientes— pero excluirlas del todo dejaba las cifras cortas.
+    - **La discrepancia era real y medible.** El workbook cuenta esas filas dentro del `TOTAL VENTAS` de su bloque, y ese total viaja hasta el transportado (`D149` → `C43` → `C45` → `E14`). Con COSTA ESTE en 90 según el Excel, SICOG reportaba **82**: los 8 MMPCED del aporte de La Pica. Ahora cuadra.
+    - **Dos tablas nuevas, `PUNTO_TRANSFERENCIA` y `LECTURA_TRANSFERENCIA`**, con su historial. La lectura tiene la misma mecánica que `LECTURA_BALANCE`: dos cortes, `@@unique(punto, fecha, corte)`, historial obligatorio en la misma transacción. `CLIENTE` no se toca, así que la decisión #46 sigue en pie.
+    - **`mmpced` admite negativos, y sólo en un punto bidireccional.** Es cómo el workbook resuelve la dirección de ICO-NURGAS (`FUENTES!Q31` con signo): positivo en el sentido que nombra el punto, negativo en el contrario. El schema del borde acepta signo porque no sabe de qué punto se trata; **quien lo rechaza es el Service**, que sí lo sabe. Un aporte a EYP en negativo sería gas volviendo de otra división, no una dirección contraria.
+    - **El promedio del cierre funciona sin caso especial**: se calcula en `Decimal` como todos, así que un punto que fue en un sentido media jornada y en el otro la otra promedia su signo solo. Verificado: `(6+10)/2 → 8`.
+    - **Las fechas pendientes del job suman una tercera tabla** (decisión #77): un día con sólo transferencias también se cierra.
+    - **Entran en el transportado y en la barra por sistema, no en el consumo por sectores**: no tienen sector. `BalanceNacionDto` gana `transferenciasMmpced` para poder desglosarlo.
+    - **Se digitan dentro de Balance Diario**, en un bloque propio al final, porque es donde el workbook las tiene y donde el analista ya está. No mezcladas entre los 111 clientes: no son clientes.
+    - **La gráfica de barras dejó de mentir con un negativo.** Desde que una agrupación puede dar negativo, la escala se mide en valor absoluto y un total negativo no dibuja barra: aplastarlo a un 1% diría "casi nada entregado" cuando lo que hubo fue entrada neta.
+
 77. **Los días a cerrar salen de la unión de `LECTURA_BALANCE` y `QUEMA_NACIONAL`, pero el ancla del carry-forward sigue mirando sólo a los clientes.** Confirmado por el owner el 2026-09-16. Antes las fechas pendientes salían sólo de `LECTURA_BALANCE`, y como `cerrarQuema` se llama desde dentro de `cerrarDia`, un día con quema digitada y sin ninguna lectura de cliente **nunca recibía su `CIERRE_PROMEDIO`**.
     - **Son dos preguntas distintas y por eso dos consultas distintas.** `fechasConDatosHasta` responde "qué días hay que cerrar" y mira las dos tablas; `ultimaFechaConPuntual` responde "desde dónde hay que arrastrar" y **a propósito sigue mirando sólo `LECTURA_BALANCE`**. Si la quema adelantara ese ancla, el carry-forward de la decisión #43 arrancaría después y los días intermedios se quedarían sin sus copias — una regresión silenciosa, verificada explícitamente para descartarla.
     - **`cerrarQuema` ahora devuelve qué hizo**, y su conteo suma al del día. Si no, un día que sólo tenía quema se cerraba de verdad pero salía del resumen como si no hubiera pasado nada, y el log decía `diasCerrados: []`.
@@ -627,7 +637,8 @@ erDiagram
 - Rebanada `QUEMA_NACIONAL` con su pantalla (decisión #68), integrada con el job de cierre.
 - Rebanada `NOVEDAD_OPERATIVA` con su pantalla (decisión #72): lista paginada, alta y edición.
 - Rebanada `CONTACTO` con su pantalla (decisión #73): directorio buscable, alta, edición y borrado físico.
-- Reportes `consumo-por-sectores` y `serie-balance` con su pantalla y tres de las cuatro gráficas del workbook (decisiones #74 y #75).
+- Reportes `consumo-por-sectores` y `serie-balance` con su pantalla y las cuatro gráficas del workbook (decisiones #74, #75 y #78).
+- Transferencias fuera del sistema (decisión #79), con su bloque en Balance Diario, sumadas al transportado y cerradas por el job.
 - RBAC resuelto contra la BD en cada petición, nunca contra el token: `requireDepartamento`, `requireSuperadmin` y `requireSupervisor` (decisión #67).
 
 **Frontend (`apps/web`)** — stack confirmado, paleta del prototipo cargada como tokens de shadcn, oscuro fijo:
@@ -651,7 +662,7 @@ erDiagram
 
 1. ~~**Abrir en el navegador lo que nadie miró**~~ **Hecho**: el owner revisó todas las vistas el 2026-09-16 y confirmó que **la funcionalidad anda bien**. De ahí salió la decisión #76 (la dona) y quedó anunciada una skill de UI para mejorar el aspecto, que todavía no llegó.
     - Sigue abierto de la decisión #60 si hacen falta **subtotales por sistema o región** en la grilla de Balance Diario.
-2. **Las transferencias entre sistemas** (`ICO (MORÓN)`, `APORTE A EYP`): son las 2 categorías que faltan de la cuarta gráfica y el pendiente que la decisión #46 dejó abierto. `FUENTES!Q31` es un valor con signo cuya dirección codifica el sentido de la transferencia — se modelarían con origen y destino, sin signo.
+2. ~~**Las transferencias entre sistemas**~~ **Hechas** (decisión #79). Con eso, **el Excel ya no tiene nada que SICOG no cubra**: era el último bloqueante conocido del reemplazo.
 3. **Edición de usuarios en la pantalla del superadmin**: el backend ya la expone (`PATCH /api/usuarios/:id`, §13), la UI no.
 4. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de §11).
 
@@ -709,6 +720,9 @@ Diseñado con la skill `api-and-interface-design` (contract-first). Los tipos **
 | GET | `/quema-nacional?fecha&tipoCorte` | Una cifra por fecha+corte, envuelta en `QuemaNacionalDiaDto`; `quema: null` si no se digitó (decisión #68). Sin paginar. |
 | POST · PATCH | `/quema-nacional` · `/quema-nacional/:id` | Mismo trato que `LECTURA_BALANCE` (decisión #14): el `POST` **sólo crea `PUNTUAL`** y da `409` si ya existe; el `PATCH` escribe historial en la misma transacción. |
 | GET | `/quema-nacional/:id/historial` | Paginado. |
+| GET | `/transferencias?fecha&tipoCorte` | Los 5 puntos con su lectura o `null`. Sin paginar: no crece. |
+| POST · PATCH | `/transferencias` · `/transferencias/:id` | Mismo trato que `LECTURA_BALANCE`. `mmpced` admite negativo **sólo** en un punto bidireccional; el Service lo hace cumplir (decisión #79). |
+| GET | `/transferencias/:id/historial` | Paginado. |
 | GET | `/novedades` | Filtros: `desde`, `hasta` (día operativo de Venezuela, no UTC — decisión #72), `clienteId`, `fuenteId`. Paginado, más recientes primero. |
 | GET | `/novedades/tipos` | Valores de `tipo` ya usados, para sugerir en el alta. Sin paginar. **Va antes que `/:id`** en el router. |
 | POST · GET · PATCH | `/novedades` · `/novedades/:id` | `PATCH` no permite cambiar el origen (cliente↔fuente). **Sin DELETE**: no hay campo `activo` y el dominio es auditable; si hace falta borrar, se decide aparte. |
@@ -747,7 +761,7 @@ Diseñado con la skill `api-and-interface-design` (contract-first). Los tipos **
 - **Volúmenes no negativos**: los schemas rechazan valores negativos (un volumen entregado no puede serlo, y "Desvío" es una `FUENTE`, decisión #5). Si existiera algún caso real de lectura negativa, hay que revisarlo.
 - ~~**El job sólo cierra la quema de los días que tienen lecturas de clientes.**~~ **Resuelto el 2026-09-16 (decisión #77)**: las fechas pendientes salen de la unión de `LECTURA_BALANCE` y `QUEMA_NACIONAL`.
 - ~~**La gráfica de "SISTEMAS" del workbook mezcla tres niveles.**~~ **Resuelto (decisión #78)** para las 7 categorías que vienen de clientes. Las 2 restantes —`ENTREGAS DIRECTAS ORI.` e `ICO (MORÓN)`— siguen abiertas: son flujos de gasoducto, no consumo, y arrastran el pendiente de la decisión #46.
-- **`C45` del workbook excluye `C37` (ENTREGA ICO MORÓN)** del total entregado aunque la fila esté en la lista. Sin explicación conocida; relacionado con el punto anterior.
+- ~~**`C45` del workbook excluye `C37` (ENTREGA ICO MORÓN)**~~ **Sin resolver, pero ya no bloquea**: las transferencias se modelaron (decisión #79) y `ICO` quedó como punto propio. Por qué el workbook lo excluye de su total sigue sin explicación conocida; SICOG lo suma, que es lo coherente con el resto.
 - **Borrado de novedades**: hoy no hay endpoint. Si los analistas necesitan borrar una novedad mal cargada, hay que decidir entre borrado físico o agregar soft-delete al modelo.
 
 ---

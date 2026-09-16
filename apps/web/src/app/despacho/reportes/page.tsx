@@ -101,11 +101,7 @@ export default function ReportesPage() {
           <Tarjeta
             titulo="Transportado"
             valor={balance.data.transportadoMmpced}
-            nota={
-              balance.data.quemaMmpced > 0
-                ? `incluye ${formatearVolumen(balance.data.quemaMmpced)} de quema`
-                : undefined
-            }
+            nota={desgloseTransportado(balance.data) ?? undefined}
           />
           <Tarjeta titulo="Variación" valor={balance.data.variacionMmpced} />
           <div className="rounded-lg border border-border bg-card p-4">
@@ -239,6 +235,24 @@ export default function ReportesPage() {
       ) : null}
     </main>
   );
+}
+
+/**
+ * Qué parte del transportado no es consumo de clientes.
+ *
+ * Se nombra sólo lo que hay: un día sin quema ni transferencias no necesita
+ * explicar que no las tuvo.
+ */
+function desgloseTransportado(b: {
+  quemaMmpced: number;
+  transferenciasMmpced: number;
+}): string | null {
+  const partes: string[] = [];
+  if (b.quemaMmpced !== 0) partes.push(`${formatearVolumen(b.quemaMmpced)} de quema`);
+  if (b.transferenciasMmpced !== 0) {
+    partes.push(`${formatearVolumen(b.transferenciasMmpced)} de transferencias`);
+  }
+  return partes.length === 0 ? null : `incluye ${partes.join(" y ")}`;
 }
 
 function Tarjeta({

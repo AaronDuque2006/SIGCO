@@ -125,6 +125,38 @@ export const updateQuemaNacionalSchema = z.object({
   mmpced: volumenMmpcedSchema,
 });
 
+// ===== TRANSFERENCIAS (decisión #79) =====
+
+/**
+ * A diferencia de `volumenMmpcedSchema`, **admite negativos**.
+ *
+ * Un punto bidireccional codifica la dirección en el signo, igual que el
+ * workbook con `FUENTES!Q31`. Que un punto de una sola dirección acepte un
+ * negativo lo decide el Service, que es quien sabe si el punto lo es.
+ */
+export const volumenTransferenciaSchema = z
+  .number()
+  .finite()
+  .min(-9_999_999_999)
+  .max(9_999_999_999);
+
+export const listTransferenciasQuerySchema = gridPaginationSchema.extend({
+  fecha: fechaSchema,
+  tipoCorte: tipoCorteSchema.default("PUNTUAL"),
+});
+
+// Sólo crea `PUNTUAL`, igual que las demás lecturas: el `CIERRE_PROMEDIO` lo
+// escribe el job de medianoche (decisiones #34 y #42).
+export const createTransferenciaSchema = z.object({
+  puntoId: z.number().int().positive(),
+  fecha: fechaSchema,
+  mmpced: volumenTransferenciaSchema,
+});
+
+export const updateTransferenciaSchema = z.object({
+  mmpced: volumenTransferenciaSchema,
+});
+
 // ===== NOVEDAD_OPERATIVA =====
 // El "exactamente uno de cliente/fuente" refleja en el borde el CHECK que
 // existe en la BD (migración 20260910150000), para fallar con un mensaje útil
@@ -227,6 +259,9 @@ export type ListLecturasBalanceQuery = z.infer<typeof listLecturasBalanceQuerySc
 export type ListLecturasFuenteQuery = z.infer<typeof listLecturasFuenteQuerySchema>;
 export type ListClientesQuery = z.infer<typeof listClientesQuerySchema>;
 export type ListFuentesQuery = z.infer<typeof listFuentesQuerySchema>;
+export type ListTransferenciasQuery = z.infer<typeof listTransferenciasQuerySchema>;
+export type CreateTransferenciaInput = z.infer<typeof createTransferenciaSchema>;
+export type UpdateTransferenciaInput = z.infer<typeof updateTransferenciaSchema>;
 export type ListNovedadesQuery = z.infer<typeof listNovedadesQuerySchema>;
 export type ListContactosQuery = z.infer<typeof listContactosQuerySchema>;
 export type ReporteQuery = z.infer<typeof reporteQuerySchema>;
