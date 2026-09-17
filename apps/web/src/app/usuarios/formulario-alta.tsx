@@ -6,11 +6,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { useCrearUsuario } from "@/lib/usuarios";
 import type { UsuarioConPasswordTemporalDto } from "@sicog/shared-types";
-
-const claseSelect =
-  "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
 export function FormularioAlta({
   catalogos,
@@ -65,26 +63,24 @@ export function FormularioAlta({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="nuevo-puesto">Puesto</Label>
-          <select
+          <Select
             id="nuevo-puesto"
             value={puestoId}
             onChange={(e) => setPuestoId(e.target.value)}
-            className={claseSelect}
           >
             {catalogos.puestos.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nombre}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="nuevo-departamento">Departamento</Label>
-          <select
+          <Select
             id="nuevo-departamento"
             value={departamentoId}
             onChange={(e) => setDepartamentoId(e.target.value)}
-            className={claseSelect}
           >
             <option value="">Ninguno</option>
             {catalogos.departamentos.map((d) => (
@@ -92,7 +88,7 @@ export function FormularioAlta({
                 {d.nombre}
               </option>
             ))}
-          </select>
+          </Select>
           <p className="text-xs text-muted-foreground">
             Obligatorio salvo para Gerente y superadmin.
           </p>

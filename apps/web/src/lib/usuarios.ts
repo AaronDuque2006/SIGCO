@@ -8,7 +8,7 @@ import type {
 } from "@sicog/shared-types";
 import type { ActualizarUsuarioInput, CrearUsuarioInput } from "@sicog/shared-validators";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError } from "./api";
+import { api, ApiError, todasLasPaginas } from "./api";
 
 export interface FiltroUsuarios {
   page: number;
@@ -37,6 +37,23 @@ export function useListaUsuarios(filtro: FiltroUsuarios) {
       if (filtro.soloBloqueados) p.set("soloBloqueados", "true");
       return api<Paginated<UsuarioDto>>(`/usuarios?${p.toString()}`);
     },
+  });
+}
+
+/**
+ * Todos los usuarios, para el desplegable de supervisor del formulario de
+ * edición. El listado de la pantalla no sirve: está paginado y filtrado, y el
+ * supervisor de alguien puede estar en otra página o no coincidir con la
+ * búsqueda en curso.
+ *
+ * La cadena de supervisión no puede tener ciclos (§13.2), pero **quien rechaza
+ * un ciclo es el backend**, que recorre la cadena hacia arriba. Acá sólo se
+ * saca a la propia persona de la lista, que es el caso trivial.
+ */
+export function useCandidatosSupervisor() {
+  return useQuery<UsuarioDto[], ApiError>({
+    queryKey: ["usuarios", "todos"],
+    queryFn: () => todasLasPaginas<UsuarioDto>("/usuarios"),
   });
 }
 

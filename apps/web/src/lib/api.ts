@@ -1,4 +1,4 @@
-import type { ApiErrorBody } from "@sicog/shared-types";
+import type { ApiErrorBody, Paginated } from "@sicog/shared-types";
 
 // El navegador nunca ve los tokens: viajan en cookies httpOnly (decisión #49),
 // así que toda petición va con `credentials: "include"` y no hay ningún header
@@ -66,4 +66,21 @@ export const api = async <T>(ruta: string, opciones: Opciones = {}): Promise<T> 
   if (!res.ok) throw await leerError(res);
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
+};
+
+/**
+ * Recorre un listado paginado hasta agotarlo, para armar un desplegable que
+ * necesita el catálogo completo. Los listados topan en 100 por página, así que
+ * un catálogo más largo son varias peticiones, una sola vez y cacheadas:
+ * preferible a subir el tope del contrato para una pantalla.
+ */
+export const todasLasPaginas = async <T>(ruta: string): Promise<T[]> => {
+  const acumulado: T[] = [];
+  for (let page = 1; ; page++) {
+    const r = await api<Paginated<T>>(
+      `${ruta}${ruta.includes("?") ? "&" : "?"}page=${page}&pageSize=100`,
+    );
+    acumulado.push(...r.data);
+    if (page >= r.pagination.totalPages || r.data.length === 0) return acumulado;
+  }
 };

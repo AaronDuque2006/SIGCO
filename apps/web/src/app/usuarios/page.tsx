@@ -1,8 +1,13 @@
 "use client";
 
-import type { UsuarioConPasswordTemporalDto, UsuarioDto } from "@sicog/shared-types";
+import type {
+  CatalogosUsuarioDto,
+  UsuarioConPasswordTemporalDto,
+  UsuarioDto,
+} from "@sicog/shared-types";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
+import { CONTENEDOR } from "@/components/contenedor";
 import { Encabezado } from "@/components/encabezado";
 import { GuardiaSesion } from "@/components/guardia-sesion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -18,6 +23,7 @@ import {
 } from "@/lib/usuarios";
 import { CredencialTemporal } from "./credencial-temporal";
 import { FormularioAlta } from "./formulario-alta";
+import { FormularioEdicion } from "./formulario-edicion";
 import { EncabezadoVista } from "@/components/encabezado-vista";
 
 export default function UsuariosPage() {
@@ -54,7 +60,7 @@ function Usuarios() {
   return (
     <>
       <Encabezado />
-      <main className="mx-auto w-full max-w-5xl p-4">
+      <main className={`${CONTENEDOR} p-4`}>
         <div className="mt-4">
           <EncabezadoVista titulo="Usuarios">
             Las cuentas no se borran: dar de baja es bloquear, porque cada persona tiene
@@ -109,6 +115,7 @@ function Usuarios() {
           <Tabla
             usuarios={lista.data.data}
             yoId={sesion.id}
+            catalogos={catalogos.data ?? null}
             onCredencial={setCredencial}
           />
         )}
@@ -145,14 +152,20 @@ function Usuarios() {
 function Tabla({
   usuarios,
   yoId,
+  catalogos,
   onCredencial,
 }: {
   usuarios: UsuarioDto[];
   yoId: number;
+  catalogos: CatalogosUsuarioDto | null;
   onCredencial: (r: UsuarioConPasswordTemporalDto) => void;
 }) {
   const bloqueo = useEstablecerBloqueo();
   const reinicio = useReiniciarPassword();
+  // Una fila abierta a la vez: dos formularios de edición sobre la misma tabla
+  // compiten por el mismo espacio y no hay razón para editar a dos personas
+  // al mismo tiempo.
+  const [editando, setEditando] = useState<number | null>(null);
 
   if (usuarios.length === 0) {
     return <p className="mt-6 text-sm text-muted-foreground">Ningún usuario coincide.</p>;
@@ -182,8 +195,10 @@ function Tabla({
           <tbody>
             {usuarios.map((u) => {
               const yo = u.id === yoId;
+              const abierto = editando === u.id;
               return (
-                <tr key={u.id} className="border-b border-border last:border-0">
+                <Fragment key={u.id}>
+                <tr className="border-b border-border last:border-0">
                   <th scope="row" className="px-3 py-2 text-left font-normal">
                     {u.nombre}
                     {u.esSuperadmin ? (
@@ -200,6 +215,15 @@ function Tabla({
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        aria-expanded={abierto}
+                        disabled={catalogos === null}
+                        onClick={() => setEditando(abierto ? null : u.id)}
+                      >
+                        {abierto ? "Cerrar" : "Editar"}
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -227,6 +251,19 @@ function Tabla({
                     </div>
                   </td>
                 </tr>
+                {abierto && catalogos ? (
+                  <tr className="border-b border-border last:border-0">
+                    <td colSpan={5} className="p-3">
+                      <FormularioEdicion
+                        usuario={u}
+                        catalogos={catalogos}
+                        esYo={yo}
+                        onCerrar={() => setEditando(null)}
+                      />
+                    </td>
+                  </tr>
+                ) : null}
+                </Fragment>
               );
             })}
           </tbody>
