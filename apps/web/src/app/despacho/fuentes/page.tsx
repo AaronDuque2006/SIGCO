@@ -2,6 +2,7 @@
 
 import type { FilaFuenteDiariaDto } from "@sicog/shared-types";
 import { Fragment, useMemo, useState } from "react";
+import { AvanceDelDia } from "@/components/avance-del-dia";
 import { AvisoSoloConsulta } from "@/components/aviso-solo-consulta";
 import { CeldaVolumen } from "@/components/celda-volumen";
 import {
@@ -64,13 +65,18 @@ export default function LecturasFuentePage() {
           titulo="Lecturas de fuentes"
           meta={
             <>
-              {cargadas} de {visibles.length} fuentes con lectura · total{" "}
-              <span className="font-mono text-foreground">{formatearVolumen(total)}</span> MMPCED
+              total{" "}
+              <span className="font-mono text-foreground tabular-nums">
+                {formatearVolumen(total)}
+              </span>{" "}
+              MMPCED
             </>
           }
         >
           Esto es el <strong>recibido</strong> del balance: el gas que entra al sistema.
         </EncabezadoVista>
+
+        <AvanceDelDia cargadas={cargadas} total={visibles.length} sustantivo="fuentes" />
 
         <AvisoSoloConsulta sesion={sesion} departamento={DEPARTAMENTO_DESPACHO} />
 

@@ -18,13 +18,13 @@ import { formatearVolumen } from "@/lib/despacho";
  * fondo oscuro, así que acá se usa su versión oscurecida.
  */
 export const SERIE = {
-  recibido: "#3b82f6",
-  transportado: "#d97706",
+  recibido: "var(--serie-recibido)",
+  transportado: "var(--serie-transportado)",
 } as const;
 
 /** Un solo tono para las barras: el largo ya codifica la magnitud, y pintarlas
  *  de colores distintos sugeriría una identidad que no existe. */
-const BARRA = "#3b82f6";
+const BARRA = "var(--barra)";
 
 const EJE = "var(--border)";
 const TINTA_TENUE = "var(--muted-foreground)";
@@ -282,7 +282,7 @@ export function GraficaBarras({
                 <span className="min-w-0" title={d.detalle ? `${d.etiqueta} — ${d.detalle}` : d.etiqueta}>
                   <span className="block truncate text-xs text-foreground">{d.etiqueta}</span>
                   {d.detalle ? (
-                    <span className="block truncate text-[0.65rem] leading-tight text-muted-foreground">
+                    <span className="block truncate text-xs leading-tight text-muted-foreground">
                       {d.detalle}
                     </span>
                   ) : null}
@@ -317,28 +317,33 @@ export function GraficaBarras({
 /**
  * Paleta categórica de las porciones de la dona.
  *
- * Siete tonos, uno por sector del catálogo. **Validada con el script de la
- * skill `dataviz`** contra la superficie `#101828`, incluido el par que cierra
- * el anillo (el último toca al primero, cosa que el validador lineal no mira).
- * El peor par adyacente separa ΔE 9,4 en deuteranopía y 16,6 a color pleno.
+ * Siete tonos, uno por sector del catálogo. Los valores viven en `globals.css`
+ * porque **son dos paletas, una por tema**: una validación hecha contra
+ * `#101828` no dice absolutamente nada sobre un fondo blanco, así que la clara
+ * se revalidó entera con `scripts/validar-paleta.mjs`.
  *
- * El orden **no es decorativo**: es el que se validó. Verde y rosa quedan
- * separados a propósito —colisionan en deuteranopía, ΔE 5,8— y lo mismo cian
- * con verde. Reordenar esta lista invalida la comprobación.
+ * Oscuro (`#101828`): peor par adyacente ΔE 11,5 en deuteranopía; el peor par
+ * global es cian contra verde, ΔE 4,3 en tritanopía, y queda **no adyacente**
+ * a propósito.
+ * Claro (`#ffffff`): los siete pasan de 5:1 como marca —mejor que en oscuro,
+ * donde el magenta se quedaba en 2,94— y el peor par adyacente separa ΔE 8,8.
  *
- * Seis tonos que sobrevivan la comparación de *todos* los pares no es
- * alcanzable en fondo oscuro; por eso las porciones llevan además nombre y
- * cifra en la leyenda, que es la codificación secundaria que la skill exige
- * cuando un par cae en la banda de 6-8.
+ * El orden **no es decorativo**: es el que se validó, y es el mismo en los dos
+ * temas. Reordenar la lista invalida las dos comprobaciones.
+ *
+ * Siete tonos que sobrevivan la comparación de *todos* los pares no es
+ * alcanzable en ninguno de los dos fondos; por eso las porciones llevan además
+ * nombre y cifra en la leyenda, que es la codificación secundaria que la regla
+ * exige cuando un par cae por debajo de ΔE 8.
  */
 const PALETA_SECTORES = [
-  "#0891b2",
-  "#e11d48",
-  "#d97706",
-  "#3b82f6",
-  "#059669",
-  "#9333ea",
-  "#be185d",
+  "var(--sector-1)",
+  "var(--sector-2)",
+  "var(--sector-3)",
+  "var(--sector-4)",
+  "var(--sector-5)",
+  "var(--sector-6)",
+  "var(--sector-7)",
 ] as const;
 
 export interface PorcionDato {
@@ -501,5 +506,69 @@ export function GraficaDona({
 
       {nota ? <p className="mt-3 text-xs text-muted-foreground">{nota}</p> : null}
     </figure>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+
+/**
+ * La curva de una serie corta, dentro de la tarjeta que muestra su cifra de hoy.
+ *
+ * Va acá adentro y no como una banda aparte porque el alto de la pantalla le
+ * pertenece a la grilla: una franja propia se llevaba filas de digitación, que
+ * es el trabajo real. Como vive pegada a su número, no necesita ejes, rótulos
+ * ni leyenda — el número ya dice cuánto, y la curva sólo dice **de dónde
+ * viene**.
+ *
+ * Un solo tono, por lo mismo que el resto del sistema: el rojo y el verde
+ * significan Desempacado y Empacado en esta misma fila de tarjetas.
+ */
+export function Chispa({
+  valores,
+  etiqueta,
+}: {
+  valores: number[];
+  /** Qué serie es, para quien no ve la curva. */
+  etiqueta: string;
+}) {
+  if (valores.length < 2) return null;
+
+  const W = 220;
+  const H = 22;
+  const P = 3;
+
+  // Escala simétrica alrededor del cero: la serie tiene signo, y el cruce por
+  // cero es lo que se quiere leer.
+  const tope = Math.max(1, ...valores.map(Math.abs));
+  const x = (i: number) => P + ((W - P * 2) * i) / (valores.length - 1);
+  const y = (v: number) => H / 2 - ((H / 2 - P) * v) / tope;
+
+  const ruta = valores.map((v, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(v)}`).join(" ");
+  const ultimo = valores.length - 1;
+
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="mt-1.5 w-full"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={etiqueta}
+    >
+      <line x1={0} x2={W} y1={H / 2} y2={H / 2} stroke={EJE} strokeWidth={1} />
+      <path
+        d={ruta}
+        fill="none"
+        stroke={BARRA}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+        opacity={0.75}
+      />
+      {/* El último punto marcado: es el día que se está digitando. */}
+      <circle cx={x(ultimo)} cy={y(valores[ultimo])} r={2.5} fill={BARRA} />
+    </svg>
   );
 }

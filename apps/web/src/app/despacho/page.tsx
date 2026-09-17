@@ -2,6 +2,7 @@
 
 import type { FilaBalanceDiarioDto, TipoCorte } from "@sicog/shared-types";
 import { Fragment, useMemo, useState } from "react";
+import { AvanceDelDia } from "@/components/avance-del-dia";
 import { AvisoSoloConsulta } from "@/components/aviso-solo-consulta";
 import { CeldaVolumen } from "@/components/celda-volumen";
 import {
@@ -11,15 +12,20 @@ import {
 } from "@/components/historial-correcciones";
 import { TablaDesplazable, TH } from "@/components/tabla-desplazable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import {
   DEPARTAMENTO_DESPACHO,
   formatearVolumen,
   hoy,
   puedeEditarDespacho,
+  useBalanceNacion,
   useGrillaBalance,
+  useGrillaTransferencias,
   useGuardarLectura,
+  useSerieBalance,
 } from "@/lib/despacho";
 import { useSesion } from "@/lib/sesion";
 import { TarjetasBalance } from "./tarjetas-balance";
@@ -35,7 +41,22 @@ export default function BalanceDiarioPage() {
   const [busqueda, setBusqueda] = useState("");
 
   const grilla = useGrillaBalance(fecha, tipoCorte);
+  const balance = useBalanceNacion(fecha, tipoCorte);
+  const transferencias = useGrillaTransferencias(fecha, tipoCorte);
+  // La misma serie que alimenta la gráfica de Reportes, en la ventana del
+  // workbook. No entra en la compuerta de carga de la vista: es contexto, no el
+  // dato del día, y hacer esperar la grilla por él sería cobrarle a la tarea el
+  // precio de la referencia.
+  const serie = useSerieBalance(fecha, 7, tipoCorte);
   const filas = useMemo(() => grilla.data?.data ?? [], [grilla.data]);
+
+  // Las tres consultas describen el mismo día, así que la pantalla espera a las
+  // tres y aparece entera. Dejarlas entrar de a una hacía saltar el layout tres
+  // veces —tarjetas, grilla y transferencias, cada una con su propio
+  // "Cargando…"— justo en la pantalla donde se pasa el turno completo.
+  const error = grilla.error ?? balance.error ?? transferencias.error;
+  const listo =
+    balance.data !== undefined && transferencias.data !== undefined && !grilla.isPending;
 
   // Los sistemas salen de las filas ya cargadas y no de un catálogo aparte: la
   // grilla trae el sistema de cada cliente y todavía no existe el endpoint de
@@ -81,15 +102,54 @@ export default function BalanceDiarioPage() {
           titulo="Balance diario"
           meta={
             <>
-              {cargadas} de {visibles.length} clientes con lectura · total{" "}
-              <span className="font-mono text-foreground">{formatearVolumen(total)}</span> MMPCED
+              total{" "}
+              <span className="font-mono text-foreground tabular-nums">
+                {formatearVolumen(total)}
+              </span>{" "}
+              MMPCED
             </>
           }
         />
 
+        <AvanceDelDia cargadas={cargadas} total={visibles.length} sustantivo="clientes" />
+
         <AvisoSoloConsulta sesion={sesion} departamento={DEPARTAMENTO_DESPACHO} />
 
-        <TarjetasBalance fecha={fecha} tipoCorte={tipoCorte} />
+        {/* El resumen del día antes de los controles que lo acotan: se entra a
+            mirar en qué anda el sistema, y recién después se filtra. La carga y
+            el error de las tres consultas se anuncian una sola vez, acá. */}
+        {error ? (
+          <Alert variant="destructive" className="mt-4">
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+              <span>{error.message}</span>
+              {/* Nombrar el problema sin ofrecer la salida deja a quien digita
+                  con una pantalla vacía y el botón de recargar del navegador,
+                  que además le borra los filtros. */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void grilla.refetch();
+                  void balance.refetch();
+                  void transferencias.refetch();
+                }}
+              >
+                Reintentar
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : listo ? (
+          <TarjetasBalance
+            datos={balance.data}
+            serieVariacion={serie.data?.dias.map(
+              (d) => d.recibidoMmpced - d.transportadoMmpced,
+            )}
+          />
+        ) : (
+          <p className="mt-4 text-sm text-muted-foreground" role="status">
+            Cargando el día…
+          </p>
+        )}
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="space-y-1.5">
@@ -103,47 +163,36 @@ export default function BalanceDiarioPage() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="corte">Corte</Label>
-            <select
+            <Select
               id="corte"
               value={tipoCorte}
               onChange={(e) => setTipoCorte(e.target.value as TipoCorte)}
-              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <option value="PUNTUAL">Puntual</option>
               <option value="CIERRE_PROMEDIO">Cierre promedio</option>
-            </select>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="sistema">Sistema</Label>
-            <select
-              id="sistema"
-              value={sistema}
-              onChange={(e) => setSistema(e.target.value)}
-              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
+            <Select id="sistema" value={sistema} onChange={(e) => setSistema(e.target.value)}>
               <option value="">Todos</option>
               {sistemas.map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="sector">Sector</Label>
-            <select
-              id="sector"
-              value={sector}
-              onChange={(e) => setSector(e.target.value)}
-              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
+            <Select id="sector" value={sector} onChange={(e) => setSector(e.target.value)}>
               <option value="">Todos</option>
               {sectores.map((x) => (
                 <option key={x} value={x}>
                   {x}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="busqueda">Cliente</Label>
@@ -156,37 +205,73 @@ export default function BalanceDiarioPage() {
           </div>
         </div>
 
-        {tipoCorte === "CIERRE_PROMEDIO" ? (
-          <p className="mt-4 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
-            El cierre promedio lo calcula el job de medianoche a partir de todos los
-            valores que tuvo el puntual ese día. Acá no se pueden crear filas nuevas;
-            las que ya existen sí se pueden corregir.
-          </p>
+        <AvisoAlcance fecha={fecha} tipoCorte={tipoCorte} puedeEditar={puedeEditar} />
+
+        {listo ? (
+          <>
+            <Tabla
+              filas={visibles}
+              fecha={fecha}
+              tipoCorte={tipoCorte}
+              puedeEditar={puedeEditar}
+            />
+            {/* Al final del día: lo que sale del sistema sin ser consumo de un
+                cliente. Va acá porque es donde el workbook lo tiene y donde el
+                analista ya está digitando (decisión #79). */}
+            <BloqueTransferencias
+              filas={transferencias.data.data}
+              fecha={fecha}
+              tipoCorte={tipoCorte}
+              puedeEditar={puedeEditar}
+            />
+          </>
         ) : null}
-
-        {grilla.isPending ? (
-          <p className="mt-6 text-sm text-muted-foreground" role="status">
-            Cargando la grilla…
-          </p>
-        ) : grilla.error ? (
-          <Alert variant="destructive" className="mt-6">
-            <AlertDescription>{grilla.error.message}</AlertDescription>
-          </Alert>
-        ) : (
-          <Tabla
-            filas={visibles}
-            fecha={fecha}
-            tipoCorte={tipoCorte}
-            puedeEditar={puedeEditar}
-          />
-        )}
-
-        {/* Al final del día: lo que sale del sistema sin ser consumo de un
-            cliente. Va acá porque es donde el workbook lo tiene y donde el
-            analista ya está digitando (decisión #79). */}
-        <BloqueTransferencias fecha={fecha} tipoCorte={tipoCorte} puedeEditar={puedeEditar} />
       </main>
     </>
+  );
+}
+
+/**
+ * Qué consecuencias tiene escribir en el día que está elegido.
+ *
+ * El momento de mayor consecuencia del sistema no decía nada: corregir un valor
+ * de un día ya cerrado **recalcula** ese `CIERRE_PROMEDIO` y se arrastra a los
+ * días siguientes que sigan siendo copias intactas del carry-forward
+ * (decisiones #44 y #45). Nadie puede consentir algo que no se le dijo, así que
+ * se dice acá, en el aviso que ya existía, y no en un modal que interrumpa.
+ */
+function AvisoAlcance({
+  fecha,
+  tipoCorte,
+  puedeEditar,
+}: {
+  fecha: string;
+  tipoCorte: TipoCorte;
+  puedeEditar: boolean;
+}) {
+  if (!puedeEditar) return null;
+
+  const cierre = tipoCorte === "CIERRE_PROMEDIO";
+  const pasado = fecha < hoy();
+  if (!cierre && !pasado) return null;
+
+  return (
+    <p className="mt-4 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+      {cierre ? (
+        <>
+          El cierre promedio lo calcula el job de medianoche a partir de todos los
+          valores que tuvo el puntual ese día. Acá no se pueden crear filas nuevas;
+          las que ya existen sí se pueden corregir.{" "}
+        </>
+      ) : null}
+      {pasado ? (
+        <>
+          Es un día ya cerrado: al corregir un valor se <strong>recalcula el cierre</strong>{" "}
+          de esa fecha, y la corrección <strong>se arrastra a los días siguientes</strong> que
+          nadie haya tocado a mano. Todo queda en el historial.
+        </>
+      ) : null}
+    </p>
   );
 }
 

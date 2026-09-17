@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { cambiarPasswordSchema, PASSWORD_MIN_LARGO } from "@sicog/shared-validators";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -11,6 +12,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MensajeDeCampo } from "@/components/mensaje-de-campo";
+import { EncabezadoVista } from "@/components/encabezado-vista";
 import { useCambiarPassword, useSesion } from "@/lib/sesion";
 
 // La confirmación es sólo de la pantalla: al backend le llegan dos campos, no
@@ -51,17 +54,14 @@ export default function CambiarPasswordPage() {
   });
 
   return (
-    <main className="flex min-h-svh items-center justify-center p-6">
+    <main className="flex min-h-[100dvh] items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="mb-8">
-          <h1 className="text-lg font-semibold tracking-tight">
-            {forzado ? "Cambie su contraseña" : "Cambiar contraseña"}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <EncabezadoVista titulo={forzado ? "Cambie su contraseña" : "Cambiar contraseña"}>
             {forzado
               ? "Está usando una contraseña temporal. Debe cambiarla antes de poder usar el sistema."
               : "Al cambiarla se cierran todas sus sesiones abiertas, en este y en cualquier otro equipo."}
-          </p>
+          </EncabezadoVista>
         </div>
 
         <form onSubmit={enviar} noValidate className="space-y-4">
@@ -120,12 +120,19 @@ export default function CambiarPasswordPage() {
             {cambiar.isPending ? "Guardando…" : "Cambiar contraseña"}
           </Button>
         </form>
+
+        {/* Quien llegó con una temporal no tiene a dónde ir: el backend le
+            responde 403 en todo lo demás hasta que la cambie (decisión #54).
+            Quien vino por su cuenta sí, y hasta acá el único camino de vuelta
+            era el botón atrás del navegador. */}
+        {forzado ? null : (
+          <p className="mt-6 text-center text-sm">
+            <Link href="/" className="text-muted-foreground hover:text-foreground hover:underline">
+              Volver sin cambiarla
+            </Link>
+          </p>
+        )}
       </div>
     </main>
   );
-}
-
-function MensajeDeCampo({ texto }: { texto?: string }) {
-  if (!texto) return null;
-  return <p className="text-xs text-destructive">{texto}</p>;
 }

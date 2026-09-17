@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import {
   isoALocal,
   localAIso,
@@ -16,8 +17,6 @@ import {
   useTodosLosClientes,
 } from "@/lib/despacho";
 
-const CAMPO =
-  "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 const AREA =
   "w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
@@ -142,12 +141,12 @@ export function FormularioNovedad({
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="origen">Origen</Label>
-          <select
+          <Select
             id="origen"
             value={b.origen}
             disabled={editando}
             onChange={(e) => campo("origen", e.target.value)}
-            className={`${CAMPO} disabled:opacity-60`}
+            className="disabled:opacity-60"
             aria-describedby={editando ? "origen-fijo" : undefined}
           >
             <option value="">Elegir cliente o fuente…</option>
@@ -165,7 +164,7 @@ export function FormularioNovedad({
                 </option>
               ))}
             </optgroup>
-          </select>
+          </Select>
           {editando ? (
             <p id="origen-fijo" className="text-xs text-muted-foreground">
               El origen no se puede cambiar: sería otra novedad, no una corrección de

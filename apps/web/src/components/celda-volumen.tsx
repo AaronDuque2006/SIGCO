@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatearVolumen } from "@/lib/despacho";
 
 /**
@@ -66,11 +66,42 @@ export function evaluarCelda(
 }
 
 /**
+ * La celda de volumen siguiente (o anterior) de la misma grilla, en el orden en
+ * que se ve.
+ *
+ * Se resuelve contra el DOM y no con una lista de refs porque el orden que
+ * importa es el que la persona tiene delante: la grilla se filtra en el
+ * navegador (decisión #60), así que el orden visible cambia con el filtro y el
+ * documento ya lo refleja. Cada grilla es su propia `<table>`, de modo que el
+ * recorrido no salta de los clientes a las transferencias.
+ */
+const celdaVecina = (desde: HTMLInputElement, paso: 1 | -1): HTMLInputElement | null => {
+  const grilla = desde.closest("table");
+  if (!grilla) return null;
+  const celdas = [...grilla.querySelectorAll<HTMLInputElement>("input[data-celda-volumen]")];
+  const i = celdas.indexOf(desde);
+  return i === -1 ? null : (celdas[i + paso] ?? null);
+};
+
+/** Cuánto dura el acuse de guardado. */
+const ACUSE_MS = 700;
+
+/**
  * Celda editable de volumen, común a las grillas de clientes y de fuentes.
  *
  * Guarda al salir del campo o con Enter, no con un botón por fila: digitar el
  * día son cien filas seguidas y un botón por fila obligaría a sacar la mano del
  * teclado cien veces. `Escape` descarta.
+ *
+ * **Enter baja a la celda siguiente** y Shift+Enter sube. Sin eso el guardado al
+ * salir del campo cumplía su promesa a medias: el foco caía al `body` y había
+ * que buscar la fila siguiente con Tab —pasando por el botón de historial— o con
+ * el mouse, ciento once veces. Mover el foco es además lo que dispara el
+ * guardado, así que no hay dos caminos que mantener.
+ *
+ * **Mientras guarda el campo no se deshabilita.** Deshabilitarlo le quitaba el
+ * foco a quien digita por teclado justo en el campo que acababa de dejar, así
+ * que se perdía el foco dos veces por celda. El estado viaja en `aria-busy`.
  */
 export function CeldaVolumen({
   valor,
@@ -112,6 +143,28 @@ export function CeldaVolumen({
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
   const mensaje = errorLocal ?? error;
 
+  // Acuse de guardado. El sistema ya decía **por qué** rechazaba lo tecleado y
+  // no decía nada al aceptarlo: desde el teclado, una celda que guardó y una
+  // cuyo POST falló en silencio se veían igual una vez que el spinner se iba.
+  // Es la simétrica de esa regla, y en un dato que alimenta el informe de
+  // cierre es la diferencia entre confiar y barrer la columna al final del
+  // turno.
+  //
+  // La transición se detecta durante el render, como el valor de arriba, para
+  // no gastar un render extra por celda y por refresco.
+  const [acuse, setAcuse] = useState(false);
+  const [guardandoAnterior, setGuardandoAnterior] = useState(guardando);
+  if (guardando !== guardandoAnterior) {
+    setGuardandoAnterior(guardando);
+    if (!guardando && error === null) setAcuse(true);
+  }
+
+  useEffect(() => {
+    if (!acuse) return;
+    const t = setTimeout(() => setAcuse(false), ACUSE_MS);
+    return () => clearTimeout(t);
+  }, [acuse]);
+
   if (!editable) {
     return (
       <span className="font-mono tabular-nums">
@@ -140,10 +193,11 @@ export function CeldaVolumen({
       ) : null}
       <input
         inputMode="decimal"
+        data-celda-volumen=""
         aria-label={etiqueta}
         aria-invalid={mensaje !== null}
+        aria-busy={guardando}
         value={texto}
-        disabled={guardando}
         onChange={(e) => {
           setTexto(e.target.value);
           // El aviso desaparece apenas se empieza a corregir: dejarlo puesto
@@ -152,14 +206,30 @@ export function CeldaVolumen({
         }}
         onBlur={confirmar}
         onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Enter") {
+            // Se evalúa antes de moverse: si lo tecleado no sirve, el foco se
+            // queda donde está. Irse dejando el aviso atrás sería descartar en
+            // silencio con un cartel que nadie va a mirar.
+            const resultado = evaluarCelda(texto, valor, permiteNegativo);
+            if (resultado.tipo === "rechazar") {
+              setErrorLocal(resultado.mensaje);
+              return;
+            }
+            // Mover el foco dispara el `onBlur`, que es el que guarda: así el
+            // guardado tiene un solo camino y no dos que mantener sincronizados.
+            const vecina = celdaVecina(e.currentTarget, e.shiftKey ? -1 : 1);
+            if (vecina) vecina.focus();
+            else e.currentTarget.blur();
+          }
           if (e.key === "Escape") {
             setTexto(comoTexto(valor));
             setErrorLocal(null);
             e.currentTarget.blur();
           }
         }}
-        className="w-28 rounded-md border border-input bg-transparent px-2 py-0.5 text-right font-mono text-sm tabular-nums outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 aria-[invalid=true]:border-destructive"
+        className={`w-28 rounded-md border border-input bg-transparent px-2 py-0.5 text-right font-mono text-sm tabular-nums outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-[invalid=true]:border-destructive aria-[busy=true]:text-muted-foreground ${
+          acuse ? "acuse-guardado" : ""
+        }`}
       />
     </span>
   );

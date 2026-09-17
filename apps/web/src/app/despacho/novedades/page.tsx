@@ -8,8 +8,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import {
   DEPARTAMENTO_DESPACHO,
+  fechaHora,
   formatearVolumen,
   puedeEditarDespacho,
   useNovedades,
@@ -20,18 +22,6 @@ import {
 import { useSesion } from "@/lib/sesion";
 import { EncabezadoVista } from "@/components/encabezado-vista";
 import { IconPencil, IconPlus } from "@tabler/icons-react";
-
-const CAMPO =
-  "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
-
-const fechaHora = (iso: string): string =>
-  new Date(iso).toLocaleString("es-VE", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 
 /**
  * Novedades operativas: la primera pantalla con lista paginada y formulario.
@@ -111,11 +101,10 @@ export default function NovedadesPage() {
           <Label htmlFor="origen">Origen</Label>
           {/* Un solo desplegable y no dos: filtrar por cliente *y* fuente a la
               vez no devolvería nada nunca, porque exactamente uno está lleno. */}
-          <select
+          <Select
             id="origen"
             value={origen}
             onChange={(e) => filtrar(() => setOrigen(e.target.value))}
-            className={CAMPO}
           >
             <option value="">Todos</option>
             <optgroup label="Clientes">
@@ -132,7 +121,7 @@ export default function NovedadesPage() {
                 </option>
               ))}
             </optgroup>
-          </select>
+          </Select>
         </div>
       </div>
 

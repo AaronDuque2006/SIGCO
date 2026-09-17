@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   DEPARTAMENTO_DESPACHO,
+  fechaHora,
   formatearVolumen,
   hoy,
   puedeEditarDespacho,
@@ -137,7 +138,7 @@ export default function QuemaNacionalPage() {
                       {formatearVolumen(h.valorAnterior)}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(h.modificadoEn).toLocaleString("es-VE")}
+                      {fechaHora(h.modificadoEn)}
                     </span>
                   </li>
                 ))}

@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { formatearVolumen, useHistorialLectura, type RecursoLectura } from "@/lib/despacho";
+import {
+  fechaHora,
+  formatearVolumen,
+  useHistorialLectura,
+  type RecursoLectura,
+} from "@/lib/despacho";
 import { IconHistory } from "@tabler/icons-react";
 
 /**
@@ -54,7 +59,7 @@ export function BotonCorrecciones({
       aria-controls={idPanel}
       aria-label={`${correcciones === 1 ? "1 corrección" : `${correcciones} correcciones`} de ${etiqueta}`}
       title="Ver las correcciones"
-      className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 font-mono text-[0.7rem] leading-none text-muted-foreground tabular-nums hover:border-ring hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+      className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 font-mono text-xs leading-none text-muted-foreground tabular-nums hover:border-ring hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
     >
       {/* El reloj de historial y no un lápiz: el botón no edita, abre lo que ya
           se editó. `aria-hidden` porque el `aria-label` del botón ya lo dice. */}
@@ -111,7 +116,7 @@ export function FilaHistorial({
                 <span>
                   reemplazado por <span className="text-foreground">{h.usuarioNombre}</span>
                 </span>
-                <span>{new Date(h.modificadoEn).toLocaleString("es-VE")}</span>
+                <span>{fechaHora(h.modificadoEn)}</span>
               </li>
             ))}
           </ol>

@@ -1,63 +1,73 @@
-"use client";
-
-import type { TipoCorte } from "@sicog/shared-types";
-import { formatearVolumen, useBalanceNacion } from "@/lib/despacho";
+import type { BalanceNacionDto } from "@sicog/shared-types";
+import { Chispa } from "@/components/graficas";
+import { TarjetaCifra } from "@/components/tarjeta-cifra";
 
 /**
  * El "Balance Nación" del §11, que es query-calculado y no una tabla
  * (decisión #15).
  *
- * `recibido` sale de las lecturas de FUENTES y `entregado` de las de CLIENTES;
- * la quema nacional no entra en ninguno de los dos (confirmado con el owner).
- * La condición replica la fórmula del workbook real: corte estricto en cero,
- * sin umbral, así que una variación de exactamente 0 es DESEMPAQUE.
+ * `recibido` sale de las lecturas de FUENTES y `transportado` de las de
+ * CLIENTES **más la quema y las transferencias**: el workbook las cuenta en su
+ * total y así quedó (decisiones #74 y #79). La condición replica la fórmula del
+ * workbook real: corte estricto en cero, sin umbral, así que una variación de
+ * exactamente 0 cae en desempaque.
+ *
+ * Recibe el dato ya cargado en vez de consultarlo: la pantalla espera a sus
+ * tres consultas y aparece entera, y así esta tarjeta no puede renderizarse sin
+ * datos. Cuando podía, el pie afirmaba "Salió más gas del que entró" mientras
+ * cargaba — una afirmación sobre el sistema de transporte nacional emitida
+ * antes de tener la cifra.
  */
 export function TarjetasBalance({
-  fecha,
-  tipoCorte,
+  datos,
+  serieVariacion,
 }: {
-  fecha: string;
-  tipoCorte: TipoCorte;
+  datos: BalanceNacionDto;
+  /** La variación de los últimos días, para la curva de esa tarjeta. Opcional:
+   *  es contexto, y la vista no espera por ella. */
+  serieVariacion?: number[];
 }) {
-  const balance = useBalanceNacion(fecha, tipoCorte);
-
-  if (balance.error) {
-    return (
-      <p className="mt-4 rounded-lg bg-danger-soft px-3 py-2 text-sm text-destructive" role="alert">
-        No se pudo calcular el balance: {balance.error.message}
-      </p>
-    );
-  }
-
-  const d = balance.data;
-  const empaque = d?.condicion === "EMPAQUE";
+  const empaque = datos.condicion === "EMPAQUE";
 
   return (
     <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <Tarjeta titulo="Recibido" valor={d?.recibidoMmpced} pie="Lecturas de fuentes" />
-      <Tarjeta titulo="Entregado" valor={d?.transportadoMmpced} pie="Lecturas de clientes" />
-      <Tarjeta
-        titulo="Variación"
-        valor={d?.variacionMmpced}
-        pie="Recibido menos entregado"
-        tono={d === undefined ? undefined : empaque ? "ok" : "warn"}
+      <TarjetaCifra
+        titulo="Recibido"
+        valor={datos.recibidoMmpced}
+        pie="Lecturas de fuentes"
       />
-      <div className="rounded-lg border border-border bg-card p-3">
-        <dt className="text-xs text-muted-foreground">Condición del sistema</dt>
-        <dd className="mt-1">
-          {d === undefined ? (
-            <span className="text-muted-foreground">…</span>
-          ) : (
-            <span
-              className={`rounded-md px-2 py-0.5 text-sm font-medium ${
-                empaque ? "bg-ok-soft text-ok" : "bg-warn-soft text-warn"
-              }`}
-            >
-              {empaque ? "Empacado" : "Desempacado"}
-            </span>
-          )}
+      <TarjetaCifra
+        titulo="Entregado"
+        valor={datos.transportadoMmpced}
+        pie={pieTransportado(datos)}
+      />
+      <TarjetaCifra
+        titulo="Variación"
+        valor={datos.variacionMmpced}
+        pie="Recibido menos entregado"
+        curva={
+          serieVariacion ? (
+            <Chispa valores={serieVariacion} etiqueta="Variación de los últimos días" />
+          ) : undefined
+        }
+      />
+      <div className="rounded-lg border border-border bg-card px-3 py-2.5">
+        <dt className="text-xs font-medium text-muted-foreground">Condición del sistema</dt>
+        <dd className="mt-0.5">
+          {/* Verde y rojo, a pedido del owner: el empaque del sistema de
+              transporte **es** un estado operativo, que es justo para lo que el
+              sistema reserva estos tres colores. Que el desempaque sea
+              frecuente no lo vuelve neutro — es la condición que el área quiere
+              ver de lejos. */}
+          <span
+            className={`rounded-md px-2 py-0.5 text-sm font-medium ${
+              empaque ? "bg-ok-soft text-ok" : "bg-danger-soft text-destructive"
+            }`}
+          >
+            {empaque ? "Empacado" : "Desempacado"}
+          </span>
         </dd>
-        <p className="mt-1.5 text-xs text-muted-foreground">
+        <p className="mt-1 text-xs text-muted-foreground">
           {empaque ? "Entró más gas del que salió" : "Salió más gas del que entró"}
         </p>
       </div>
@@ -65,35 +75,17 @@ export function TarjetasBalance({
   );
 }
 
-function Tarjeta({
-  titulo,
-  valor,
-  pie,
-  tono,
-}: {
-  titulo: string;
-  valor: number | undefined;
-  pie: string;
-  tono?: "ok" | "warn";
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-3">
-      <dt className="text-xs text-muted-foreground">{titulo}</dt>
-      <dd
-        className={`mt-1 font-mono text-xl tabular-nums ${
-          tono === "ok" ? "text-ok" : tono === "warn" ? "text-warn" : ""
-        }`}
-      >
-        {valor === undefined ? (
-          <span className="text-base text-muted-foreground">…</span>
-        ) : (
-          <>
-            {formatearVolumen(valor)}{" "}
-            <span className="font-sans text-xs text-muted-foreground">MMPCED</span>
-          </>
-        )}
-      </dd>
-      <p className="mt-1.5 text-xs text-muted-foreground">{pie}</p>
-    </div>
-  );
+/**
+ * Qué parte del entregado no es consumo de clientes.
+ *
+ * Se nombra sólo lo que hay: un día sin quema ni transferencias no necesita
+ * explicar que no las tuvo.
+ */
+function pieTransportado(b: BalanceNacionDto): string {
+  const partes: string[] = [];
+  if (b.quemaMmpced !== 0) partes.push("quema");
+  if (b.transferenciasMmpced !== 0) partes.push("transferencias");
+  return partes.length === 0
+    ? "Lecturas de clientes"
+    : `Clientes más ${partes.join(" y ")}`;
 }

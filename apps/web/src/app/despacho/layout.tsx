@@ -1,5 +1,6 @@
 "use client";
 
+import { CONTENEDOR } from "@/components/contenedor";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Encabezado } from "@/components/encabezado";
@@ -85,7 +86,7 @@ export default function DespachoLayout({ children }: LayoutProps<"/despacho">) {
   return (
     <GuardiaSesion>
       <Encabezado />
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 md:flex-row">
+      <div className={`${CONTENEDOR} flex flex-col gap-4 p-4 md:flex-row`}>
         <MenuLateral />
         <div className="min-w-0 flex-1">{children}</div>
       </div>

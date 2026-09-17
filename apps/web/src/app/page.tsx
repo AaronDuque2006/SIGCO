@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CONTENEDOR } from "@/components/contenedor";
 import { Encabezado } from "@/components/encabezado";
 import { GuardiaSesion } from "@/components/guardia-sesion";
 import { DOMINIOS, type Dominio } from "@/lib/dominios";
@@ -30,7 +31,7 @@ function Hub() {
   return (
     <>
       <Encabezado />
-      <main className="mx-auto w-full max-w-5xl p-4">
+      <main className={`${CONTENEDOR} p-4`}>
         <div className="mt-4">
           <EncabezadoVista titulo="Dominios">
             Puede consultar los cuatro. Edita sólo el que le corresponde.

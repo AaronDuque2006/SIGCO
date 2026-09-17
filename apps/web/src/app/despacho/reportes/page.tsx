@@ -7,6 +7,8 @@ import { TablaDesplazable, TH } from "@/components/tabla-desplazable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { TarjetaCifra } from "@/components/tarjeta-cifra";
 import { EncabezadoVista } from "@/components/encabezado-vista";
 import {
   diaMes,
@@ -16,9 +18,6 @@ import {
   useConsumoPorSectores,
   useSerieBalance,
 } from "@/lib/despacho";
-
-const CAMPO =
-  "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
 /**
  * Los reportes del módulo, con las gráficas del workbook.
@@ -58,28 +57,22 @@ export default function ReportesPage() {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="corte">Corte</Label>
-          <select
+          <Select
             id="corte"
             value={tipoCorte}
             onChange={(e) => setTipoCorte(e.target.value as TipoCorte)}
-            className={CAMPO}
           >
             <option value="PUNTUAL">Puntual</option>
             <option value="CIERRE_PROMEDIO">Cierre promedio</option>
-          </select>
+          </Select>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="dias">Ventana de la serie</Label>
-          <select
-            id="dias"
-            value={dias}
-            onChange={(e) => setDias(Number(e.target.value))}
-            className={CAMPO}
-          >
+          <Select id="dias" value={dias} onChange={(e) => setDias(Number(e.target.value))}>
             <option value={7}>7 días</option>
             <option value={15}>15 días</option>
             <option value={30}>30 días</option>
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -96,21 +89,34 @@ export default function ReportesPage() {
       {/* Balance Nación como cifras y no como gráfica: son cuatro números
           sueltos, y una barra de un solo valor no dice más que el número. */}
       {!cargando && balance.data ? (
-        <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Tarjeta titulo="Recibido" valor={balance.data.recibidoMmpced} />
-          <Tarjeta
+        <dl className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <TarjetaCifra titulo="Recibido" valor={balance.data.recibidoMmpced} pie="MMPCED" />
+          <TarjetaCifra
             titulo="Transportado"
             valor={balance.data.transportadoMmpced}
-            nota={desgloseTransportado(balance.data) ?? undefined}
+            pie={desgloseTransportado(balance.data) ?? "MMPCED"}
           />
-          <Tarjeta titulo="Variación" valor={balance.data.variacionMmpced} />
-          <div className="rounded-lg border border-border bg-card p-4">
-            <h2 className="text-xs font-medium text-muted-foreground">Condición</h2>
-            <p className="mt-1 text-2xl font-semibold tracking-tight">
-              {balance.data.condicion === "EMPAQUE" ? "Empaque" : "Desempaque"}
-            </p>
+          <TarjetaCifra titulo="Variación" valor={balance.data.variacionMmpced} pie="MMPCED" />
+          <div className="rounded-lg border border-border bg-card px-3 py-2.5">
+            <dt className="text-xs font-medium text-muted-foreground">Condición</dt>
+            {/* "Empacado/Desempacado", que es como lo rotula el resto del
+                sistema. Acá decía "Empaque/Desempaque": el mismo estado con dos
+                nombres en dos pantallas. Verde y rojo, igual que en Balance
+                Diario. */}
+            <dd className="mt-0.5">
+              <span
+                className={`rounded-md px-2 py-0.5 text-sm font-medium ${
+                  balance.data.condicion === "EMPAQUE"
+                    ? "bg-ok-soft text-ok"
+                    : "bg-danger-soft text-destructive"
+                }`}
+              >
+                {balance.data.condicion === "EMPAQUE" ? "Empacado" : "Desempacado"}
+              </span>
+            </dd>
+            <p className="mt-1 text-xs text-muted-foreground">Del sistema de transporte</p>
           </div>
-        </section>
+        </dl>
       ) : null}
 
       {!cargando && serie.data ? (
@@ -206,10 +212,15 @@ export default function ReportesPage() {
                         key={`${r.region.id}-${s.sector.id}`}
                         className="border-b border-border last:border-0"
                       >
-                        {/* El nombre de la región sólo en su primera fila: el
-                            desglose es disperso y repetirlo sería ruido. */}
+                        {/* El nombre de la región se **ve** sólo en su
+                            primera fila —repetirlo sería ruido— pero se
+                            **anuncia** en todas: con el `<th>` vacío, un lector
+                            de pantalla oía un encabezado de fila en blanco en
+                            cada sector siguiente y perdía de qué región estaba
+                            leyendo. */}
                         <th scope="row" className="px-3 py-1.5 text-left font-normal">
-                          {i === 0 ? r.region.nombre : ""}
+                          <span aria-hidden={i !== 0}>{i === 0 ? r.region.nombre : ""}</span>
+                          {i === 0 ? null : <span className="sr-only">{r.region.nombre}</span>}
                         </th>
                         <td className="px-3 py-1.5 text-muted-foreground">{s.sector.nombre}</td>
                         <td className="px-3 py-1.5 text-right font-mono tabular-nums">
@@ -253,24 +264,4 @@ function desgloseTransportado(b: {
     partes.push(`${formatearVolumen(b.transferenciasMmpced)} de transferencias`);
   }
   return partes.length === 0 ? null : `incluye ${partes.join(" y ")}`;
-}
-
-function Tarjeta({
-  titulo,
-  valor,
-  nota,
-}: {
-  titulo: string;
-  valor: number;
-  nota?: string;
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <h2 className="text-xs font-medium text-muted-foreground">{titulo}</h2>
-      <p className="mt-1 font-mono text-2xl font-semibold tabular-nums">
-        {formatearVolumen(valor)}
-      </p>
-      <p className="text-xs text-muted-foreground">{nota ?? "MMPCED"}</p>
-    </div>
-  );
 }

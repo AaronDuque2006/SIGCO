@@ -35,7 +35,7 @@ export function GuardiaSesion({ children }: { children: React.ReactNode }) {
 export function PantallaDeEspera() {
   return (
     <div
-      className="flex min-h-svh items-center justify-center text-sm text-muted-foreground"
+      className="flex min-h-[100dvh] items-center justify-center text-sm text-muted-foreground"
       role="status"
       aria-live="polite"
     >

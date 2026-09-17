@@ -1,14 +1,15 @@
 "use client";
 
 import type { FilaTransferenciaDto, TipoCorte } from "@sicog/shared-types";
+import { Fragment } from "react";
 import { CeldaVolumen } from "@/components/celda-volumen";
-import { TablaDesplazable, TH } from "@/components/tabla-desplazable";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  formatearVolumen,
-  useGrillaTransferencias,
-  useGuardarTransferencia,
-} from "@/lib/despacho";
+  BotonCorrecciones,
+  FilaHistorial,
+  useDesplegable,
+} from "@/components/historial-correcciones";
+import { TablaDesplazable, TH } from "@/components/tabla-desplazable";
+import { formatearVolumen, useGuardarTransferencia } from "@/lib/despacho";
 
 /**
  * Las transferencias, al final del Balance Diario.
@@ -18,18 +19,22 @@ import {
  * desvío. Lo que sí cambia es que **no son clientes** — salen del sistema sin
  * que nadie las consuma— así que van en su propio bloque rotulado y no
  * mezcladas entre los ciento once (decisión #79).
+ *
+ * Recibe las filas ya cargadas: la pantalla espera a sus tres consultas y
+ * aparece entera, en vez de traer tres bloques con su propio "Cargando…".
  */
 export function BloqueTransferencias({
+  filas,
   fecha,
   tipoCorte,
   puedeEditar,
 }: {
+  filas: FilaTransferenciaDto[];
   fecha: string;
   tipoCorte: TipoCorte;
   puedeEditar: boolean;
 }) {
-  const grilla = useGrillaTransferencias(fecha, tipoCorte);
-  const filas = grilla.data?.data ?? [];
+  const { abierta, alternar } = useDesplegable();
 
   const total = filas.reduce((suma, f) => suma + (f.lectura?.mmpced ?? 0), 0);
   const cargadas = filas.filter((f) => f.lectura !== null).length;
@@ -51,15 +56,7 @@ export function BloqueTransferencias({
         del Balance Nación, pero no al consumo por sectores.
       </p>
 
-      {grilla.isPending ? (
-        <p className="mt-3 text-sm text-muted-foreground" role="status">
-          Cargando…
-        </p>
-      ) : grilla.error ? (
-        <Alert variant="destructive" className="mt-3">
-          <AlertDescription>{grilla.error.message}</AlertDescription>
-        </Alert>
-      ) : filas.length === 0 ? (
+      {filas.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">
           No hay puntos de transferencia en el catálogo.
         </p>
@@ -74,25 +71,64 @@ export function BloqueTransferencias({
             </tr>
           </thead>
           <tbody>
-            {filas.map((fila) => (
-              <tr key={fila.punto.id} className="border-b border-border last:border-0">
-                <th scope="row" className="px-3 py-1.5 text-left font-normal">
-                  {fila.punto.nombre}
-                  {fila.punto.bidireccional ? (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      va en los dos sentidos
-                    </span>
+            {filas.map((fila) => {
+              const clave = String(fila.punto.id);
+              const idPanel = `historial-transferencia-${clave}`;
+              const abierto = abierta === clave;
+              return (
+                <Fragment key={fila.punto.id}>
+                  <tr className="border-b border-border last:border-0">
+                    <th scope="row" className="px-3 py-1.5 text-left font-normal">
+                      {fila.punto.nombre}
+                      {/* Qué significa el signo, dicho donde se teclea. Antes
+                          decía "va en los dos sentidos", que plantea la
+                          pregunta sin contestarla: cuál de los dos es el
+                          positivo vivía sólo en un comentario del código. */}
+                      {fila.punto.bidireccional ? (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          + hacia {fila.punto.destino}, − al contrario
+                        </span>
+                      ) : null}
+                    </th>
+                    <td className="px-3 py-1.5 text-muted-foreground">{fila.punto.destino}</td>
+                    <td className="px-3 py-1.5 text-muted-foreground">
+                      {fila.punto.subSistema?.nombre ?? fila.punto.sistema.nombre}
+                    </td>
+                    <td className="px-3 py-1.5 text-right">
+                      <span className="inline-flex items-center justify-end gap-2">
+                        {/* El backend le escribe historial en la misma
+                            transacción desde el primer día, y el conteo ya
+                            viajaba en el DTO: lo único que faltaba era
+                            mirarlo. Sin esto, el bloque más nuevo era el único
+                            que no cumplía la decisión #69. */}
+                        <BotonCorrecciones
+                          correcciones={fila.correcciones}
+                          abierto={abierto}
+                          onClick={() => alternar(clave)}
+                          etiqueta={fila.punto.nombre}
+                          idPanel={idPanel}
+                        />
+                        <Celda
+                          fila={fila}
+                          fecha={fecha}
+                          tipoCorte={tipoCorte}
+                          puedeEditar={puedeEditar}
+                        />
+                      </span>
+                    </td>
+                  </tr>
+                  {abierto && fila.lectura ? (
+                    <FilaHistorial
+                      recurso="transferencias"
+                      lecturaId={fila.lectura.id}
+                      columnas={4}
+                      idPanel={idPanel}
+                      valorActual={fila.lectura.mmpced}
+                    />
                   ) : null}
-                </th>
-                <td className="px-3 py-1.5 text-muted-foreground">{fila.punto.destino}</td>
-                <td className="px-3 py-1.5 text-muted-foreground">
-                  {fila.punto.subSistema?.nombre ?? fila.punto.sistema.nombre}
-                </td>
-                <td className="px-3 py-1.5 text-right">
-                  <Celda fila={fila} fecha={fecha} tipoCorte={tipoCorte} puedeEditar={puedeEditar} />
-                </td>
-              </tr>
-            ))}
+                </Fragment>
+              );
+            })}
           </tbody>
         </TablaDesplazable>
       )}

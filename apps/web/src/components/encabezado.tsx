@@ -1,7 +1,10 @@
 "use client";
 
+import { CONTENEDOR } from "@/components/contenedor";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { SelectorTema } from "@/components/selector-tema";
 import { Button } from "@/components/ui/button";
 import { useLogout, useSesion } from "@/lib/sesion";
 
@@ -13,12 +16,18 @@ export function Encabezado() {
   const { sesion } = useSesion();
   const logout = useLogout();
   const router = useRouter();
+  // "Salir" es el control más prominente del encabezado y está a un clic
+  // durante las doce horas del turno. Cerrar sesión no destruye datos, pero sí
+  // saca a alguien de la pantalla que estaba digitando, así que pide un paso
+  // más — el mismo patrón en el lugar que ya usa el borrado de contactos, en
+  // vez de un `confirm()` del navegador.
+  const [confirmando, setConfirmando] = useState(false);
 
   if (!sesion) return null;
 
   return (
     <header className="border-b border-border">
-      <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 p-4">
+      <div className={`${CONTENEDOR} flex flex-wrap items-center justify-between gap-3 p-4`}>
         <div className="min-w-0">
           <Link href="/" className="text-base font-semibold tracking-tight hover:underline">
             SICOG
@@ -30,6 +39,7 @@ export function Encabezado() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <SelectorTema />
           {/* Sólo se muestra a quien puede usarla. La puerta real es el 403 de
               `requireSuperadmin`, que además deja registro del intento. */}
           {sesion.esSuperadmin ? (
@@ -37,15 +47,29 @@ export function Encabezado() {
               Usuarios
             </Button>
           ) : null}
-          <Button
-            variant="outline"
-            onClick={() =>
-              logout.mutate(undefined, { onSuccess: () => router.replace("/login") })
-            }
-            disabled={logout.isPending}
-          >
-            Salir
-          </Button>
+          {confirmando ? (
+            <>
+              <span className="text-sm text-muted-foreground">¿Cerrar la sesión?</span>
+              {/* El peso marcado va en confirmar y el normal en cancelar: quien
+                  llegó acá de más tiene que encontrar la salida fácil. */}
+              <Button
+                variant="destructive"
+                onClick={() =>
+                  logout.mutate(undefined, { onSuccess: () => router.replace("/login") })
+                }
+                disabled={logout.isPending}
+              >
+                {logout.isPending ? "Saliendo…" : "Sí, salir"}
+              </Button>
+              <Button variant="ghost" onClick={() => setConfirmando(false)}>
+                Seguir aquí
+              </Button>
+            </>
+          ) : (
+            <Button variant="outline" onClick={() => setConfirmando(true)}>
+              Salir
+            </Button>
+          )}
         </div>
       </div>
     </header>

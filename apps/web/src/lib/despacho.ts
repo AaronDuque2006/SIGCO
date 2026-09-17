@@ -28,7 +28,7 @@ import type {
   UpdateNovedadInput,
 } from "@sicog/shared-validators";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError } from "./api";
+import { api, ApiError, todasLasPaginas } from "./api";
 
 export const claveGrilla = (fecha: string, tipoCorte: TipoCorte) =>
   ["balance", fecha, tipoCorte] as const;
@@ -108,6 +108,27 @@ export function hoy(): string {
  */
 export const formatearVolumen = (v: number): string =>
   v.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/**
+ * El día operativo es el de Venezuela, también al mostrar una marca de tiempo.
+ *
+ * `toLocaleString` sin `timeZone` resuelve en la zona **del navegador**, así que
+ * la misma corrección se leía con hora distinta según dónde estuviera la
+ * máquina, y en un equipo mal configurado podía caer en otro día. Es el mismo
+ * desfase que ya había corrido las novedades de las 22:00 al día siguiente
+ * (decisión #72), y la zona sale de la misma constante que usa el job de cierre.
+ */
+export const ZONA_OPERATIVA = "America/Caracas";
+
+export const fechaHora = (iso: string): string =>
+  new Date(iso).toLocaleString("es-VE", {
+    timeZone: ZONA_OPERATIVA,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
 /**
  * El nombre del departamento es la clave que se compara contra
@@ -241,7 +262,7 @@ export function useHistorialQuema(quemaId: string | null) {
 // ---------------------------------------------------------------------------
 
 /** Las dos grillas comparten endpoint salvo por el segmento de la ruta. */
-export type RecursoLectura = "lecturas-balance" | "lecturas-fuente";
+export type RecursoLectura = "lecturas-balance" | "lecturas-fuente" | "transferencias";
 
 /**
  * El historial de una lectura concreta.
@@ -330,22 +351,8 @@ export function useActualizarNovedad(id: string) {
   });
 }
 
-/**
- * El catálogo completo, para el desplegable de origen.
- *
- * `/clientes` pagina a 100 como máximo (§11.1) y hay 111, así que se recorren
- * las páginas hasta completar. Son dos peticiones, una sola vez, y react-query
- * las cachea: preferible a subir el tope del contrato para una pantalla.
- */
-async function todasLasPaginas<T>(ruta: string): Promise<T[]> {
-  const acumulado: T[] = [];
-  for (let page = 1; ; page++) {
-    const r = await api<Paginated<T>>(`${ruta}${ruta.includes("?") ? "&" : "?"}page=${page}&pageSize=100`);
-    acumulado.push(...r.data);
-    if (page >= r.pagination.totalPages || r.data.length === 0) return acumulado;
-  }
-}
-
+/** El catálogo completo, para el desplegable de origen: `/clientes` pagina a
+ *  100 como máximo (§11.1) y hay 111. */
 export function useTodosLosClientes() {
   return useQuery<ClienteDto[], ApiError>({
     queryKey: ["clientes-todos"],
