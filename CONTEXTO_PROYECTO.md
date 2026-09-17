@@ -615,7 +615,7 @@ erDiagram
 2. **Dominio D — Análisis Operacional**: sin Excel ni especificación, alcance funcional totalmente por definir.
 
 ### 9.2 Módulo de Actividades
-3. Estructura de `INSUMO`/`PRODUCTO_SERVICIO` solo se levantó para **Mantenimiento** (vía `ACTIVIDADES_MDC_FINAL_V4.xls`). Falta el equivalente para Despacho, Calidad de Gas y Análisis Operacional — mismo esquema de tablas, catálogos de valores distintos.
+3. Estructura de `INSUMO`/`PRODUCTO_SERVICIO` solo se levantó para **Mantenimiento** (vía `ACTIVIDADES_MDC_FINAL_V4.xls`). Falta el equivalente para Despacho, Calidad de Gas y Análisis Operacional — mismo esquema de tablas, catálogos de valores distintos. **El de Mantenimiento quedó completo el 2026-09-17** (10 insumos, 24 productos, 16 gerencias requirientes — §14.5); los otros tres no tienen planilla de origen, así que se cargan desde el ABM cuando el Supervisor de cada departamento los tenga.
 4. Lista cerrada completa del ENUM/catálogo `tipo` de `NOVEDAD_OPERATIVA` (Despacho, ya tiene "Corrida de Pig", faltan los demás valores) — candidato a pasar a catálogo editable siguiendo el mismo patrón que se aplicó a Actividades y Telemetría.
 
 ### 9.3 Mantenimiento / histórico
@@ -679,29 +679,47 @@ erDiagram
 
 ### Por acá arranca la próxima sesión
 
-**Estado al cierre del 2026-09-16.** Despacho está completo y **no queda
+**Estado al cierre del 2026-09-17.** Despacho está completo y **no queda
 bloqueante conocido para retirar el Excel** (decisión #79 cerró el último).
-`PRODUCT.md` y `DESIGN.md` existen en la raíz y son la entrada para cualquier
-trabajo de producto o de interfaz.
+Todo lo que la sesión anterior dejó como próximo paso está hecho: la edición de
+usuarios (#80), la pasada de UI con `impeccable` (crítica 27/40, sus arreglos y
+el tema claro, #81) y el bloque de transferencias revisado en navegador.
 
-1. **Edición de usuarios en la pantalla del superadmin.** El backend ya la
-   expone (`PATCH /api/usuarios/:id`, §13) y la UI no. Es lo más chico y
-   concreto que queda; acordado con el owner.
-2. **Mejoras de UI.** El owner pasó la skill `impeccable`, y `DESIGN.md`
-   documenta el sistema actual, así que un cambio de aspecto se puede medir
-   contra algo escrito. De la auditoría previa quedó sin hacer nada más:
-   iconos y escala tipográfica ya se aplicaron.
-3. **Contrato + API de Mantenimiento y Actividades** (mismo patrón de §11). Es
-   el trabajo grande que sigue.
-4. **Abrir en el navegador el bloque de transferencias** (decisión #79): es lo
-   único de Despacho que nadie miró todavía.
+**El módulo de Actividades está empezado, no construido.** Lo que existe:
+
+- **El contrato, §14**, escrito después de auditar `ACTIVIDADES MDC FINAL V4.xls`.
+  La auditoría corrigió dos premisas del propio contexto y sacó dos reglas que
+  no estaban en ninguna parte — leer §14.4 y §14.6 **antes** de escribir código,
+  porque cambian números.
+- **Los schemas y DTOs** en `packages/shared-validators/src/actividades.ts` y
+  `packages/shared-types/src/actividades.ts`, compilando.
+- **El seed**, que era el bloqueante real: `GERENCIA_REQUIRIENTE` estaba en cero
+  filas con un FK obligatorio, así que no se podía registrar ni una actividad.
+  Hoy hay 16 gerencias, 10 insumos y 24 productos/servicio.
+
+**Lo que sigue, en orden:**
+
+1. **La API de Actividades**: Repository → Service → Controller para los
+   catálogos, `/registros` y `/metas`, más los dos reportes del §14.4. Nada de
+   esto existe todavía — no hay un solo archivo en `apps/api/src/modules/actividades/`.
+2. **Las pantallas** del módulo, detrás del card de Mantenimiento del hub, que
+   sigue en "En desarrollo".
+3. **Decidir cómo se carga el plan anual** (grilla entera contra celda por
+   celda). El owner lo dejó explícitamente para cuando se vea la pantalla; el
+   contrato expone los dos endpoints para no forzarlo antes.
 
 Preguntas abiertas que sólo se contestan usando el sistema:
 
 - ¿Hacen falta **subtotales por sistema o región** en la grilla de Balance
   Diario? (decisión #60).
-- ¿Los analistas necesitan **borrar** una novedad mal cargada, o alcanza con
-  corregirla? (§11.5).
+- ¿**Pegar una columna desde Excel** en las grillas de digitación? Es la única
+  recomendación de la crítica de diseño que no se implementó: los analistas
+  vienen de un workbook donde pegaban la columna entera, pero hace falta
+  confirmar con el área el formato y qué pasa si lo pegado no calza con el
+  filtro activo.
+- **Los dos huecos del §14.7**: `ACTIVIDAD_REGISTRO` no tiene tabla de historial
+  y no se guarda quién asignó una tarea. Las dos se arreglan con una migración,
+  y las dos son cambios a un modelo cerrado.
 
 ### Pendientes menores, no bloqueantes
 
@@ -874,3 +892,104 @@ Todo `/api/usuarios` va detrás de tres puertas: **autenticado**, **con la contr
 - **No hay pantalla de "olvidé mi contraseña"** y no se planea: sin correo en el modelo `USUARIO`, la recuperación es pedirle al superadmin un reinicio en persona. Si más adelante se agrega correo institucional, esto se puede revisar.
 - **La lista de bloqueo de contraseñas es curada, no exhaustiva** (≈48 bases + 5 términos institucionales). Con el mínimo bajado a 6 (decisión #58) esto **dejó de ser un pendiente menor**: la longitud ya no descarta sola las contraseñas más comunes, así que la lista es ahora la defensa principal contra lo que un atacante prueba primero. Cargar una lista real de las N más filtradas pasó a ser lo más valioso que se puede hacer por la seguridad del login.
 - **El puesto del primer superadmin** lo pone el comando de arranque como `Analista` por defecto, porque el superadmin no tiene un cargo del organigrama que le corresponda por sí mismo (#53). Si la persona además tiene un cargo real, se corrige después por `PATCH`.
+
+---
+
+## 14. Contrato de la API — Módulo Actividades / Horas-Hombre
+
+Mismo enfoque contract-first del §11 y §13. Schemas en `packages/shared-validators/src/actividades.ts`, DTOs en `packages/shared-types/src/actividades.ts`. Diseñado el 2026-09-17 **después de auditar `ACTIVIDADES MDC FINAL V4.xls`**, que corrigió dos premisas del propio contexto (ver §14.6).
+
+Es un módulo **transversal**: los cuatro departamentos comparten estructura y cada uno tiene sus propios catálogos (decisión #9). Hoy sólo Mantenimiento tiene catálogo levantado.
+
+### 14.1 Convenciones transversales
+
+- **Prefijo**: `/api/actividades`. Mismo formato de error, misma validación sólo en el borde, misma representación en el cable que el §11 (`BigInt` → string, `Decimal` → number, fechas `YYYY-MM-DD`).
+- **Paginación obligatoria** en `/registros`: es una bitácora que crece sin techo. Los catálogos y la matriz de metas no se paginan.
+- **El departamento acota todo.** Cada catálogo cuelga de un `departamentoId` y los registros se filtran por el departamento de su responsable. Un insumo de Mantenimiento no se ofrece a Calidad de Gas — es la decisión #9 (no mezclar dominios) aplicada dentro de un módulo compartido.
+
+### 14.2 Quién puede qué
+
+La regla de escritura es **propia de este módulo** y no se deduce del organigrama. Confirmada por el owner el 2026-09-17:
+
+- **Crear un registro: todos menos el Analista.** Gerente, Superintendente, Supervisor e Ingeniero crean filas, **incluso a nombre de otra persona** de su departamento. El Ingeniero queda de este lado aunque la decisión #23 lo ponga en el mismo nivel que el Analista: la regla apunta al **puesto**, no al rango, así que no contradice esa decisión ni la reabre.
+- **El Analista no crea: recibe.** Su supervisor le asigna la tarea creando la fila en `RECIBIDO`, con el producto/servicio, la gerencia requiriente y el alcance ya puestos.
+- **El Analista completa lo suyo.** Sobre una fila donde él es el responsable puede mover el estatus (`RECIBIDO` → `EN PROCESO` → `FINALIZADO`) y cargar `cantidad`, `hh` y `detalle`. **Lo que no puede es reasignarla**: `usuarioId` no se acepta en su `PATCH`.
+- **Consultar lo puede hacer cualquiera**, de cualquier departamento (decisión #22). La jerarquía no restringe la lectura, la organiza: ver §14.3.
+
+Esto le da sentido al catálogo de tres estados de la decisión #29, que hasta ahora no lo tenía: **`RECIBIDO` no aparece ni una vez en el trimestre auditado** porque el Excel no tiene flujo de asignación y nadie lo usaba. En SICOG es el estado de una tarea asignada y todavía no empezada.
+
+### 14.3 Rutas
+
+| Método | Ruta | Notas |
+|---|---|---|
+| GET | `/insumos?departamentoId` | Catálogo. Devuelve **también los inactivos**, con su bandera: los reportes históricos los nombran (decisión #31). |
+| POST · PATCH | `/insumos` · `/insumos/:id` | Supervisor+ **de ese departamento** — las dos condiciones encadenadas, igual que la decisión #67. Soft-delete con `{ activo: false }`; sin `DELETE`. |
+| GET | `/productos-servicio?departamentoId&insumoId` | Igual. Trae su insumo embebido. |
+| POST · PATCH | `/productos-servicio` · `/:id` | Supervisor+. |
+| GET | `/gerencias-requirientes?departamentoId` | Igual. 16 filas sembradas para Mantenimiento (§14.5). |
+| POST · PATCH | `/gerencias-requirientes` · `/:id` | Supervisor+. |
+| GET | `/regiones-mtto` | Las 6 de Mantenimiento, reutilizadas (decisión #19). **Sólo lectura**: se siembran, y son de Mantenimiento, no de este módulo. |
+| GET | `/registros` | Filtros: `departamentoId`, `usuarioId`, `cadena`, `desde`, `hasta`, `productoServicioId`, `insumoId`, `gerenciaRequirienteId`, `regionId`, `soloNacional`, `estatus`, `q` (sobre `detalle`). Paginado, más recientes primero. |
+| POST | `/registros` | No Analista. `usuarioId` opcional: si falta, es quien tiene la sesión. |
+| GET · PATCH | `/registros/:id` | **Sin `DELETE`**: es una bitácora de horas-hombre que alimenta indicadores. Un registro que no va se corrige. |
+| GET | `/metas?anio&departamentoId` | La matriz del plan: una fila por producto/servicio con sus doce meses. Sin paginar — son 32 filas. |
+| PUT | `/metas/:anio` | Carga del año entero en una transacción. Supervisor+ (decisión #30). |
+| PATCH | `/metas/:id` | Una celda suelta. Existe para no forzar la forma de la pantalla antes de verla. |
+| GET | `/reportes/plan-vs-real?anio&departamentoId` | §14.4. |
+| GET | `/reportes/participacion?anio&mes&departamentoId` | §14.4. |
+
+**`cadena=true`** sólo tiene efecto junto con `usuarioId`, y expande el filtro a **toda la cadena de supervisión hacia abajo** de esa persona, no a un nivel. Es la decisión #25 hecha endpoint: existe porque un superior tiene que poder ver lo de todo su equipo sin conocer la lista de nombres. Sin `usuarioId`, el listado es el del departamento completo.
+
+### 14.4 Los reportes, tal como los calcula el workbook
+
+Las dos fórmulas salen leídas del archivo real, no supuestas.
+
+**El REAL es agregación, el PLAN es tecleado.** En `GENERAL MDC 2025` cada producto ocupa dos filas, `PLAN` y `REAL`, con dos bloques de doce meses (cantidad y horas-hombre):
+
+```
+REAL cantidad = SUMIFS(bitácora!CANTIDAD; bitácora!PRODUCTO; <producto>; bitácora!MES; <mes>)
+REAL hh       = SUMIFS(bitácora!HH;       bitácora!PRODUCTO; <producto>; bitácora!MES; <mes>)
+```
+
+Dos reglas que se derivan de ahí y que **hay que respetar**:
+
+- **La actividad se imputa al mes en que TERMINÓ.** La columna `MES` del Excel difiere del mes de `DESDE` en 2 de 176 filas, y en las dos coincide con el de `HASTA` (31/01→02/02 se imputa a febrero). Por eso el modelo no necesita columna `mes`: se agrupa por `fechaHasta`. Agrupar por `fechaDesde` daría números distintos de los del área.
+- **El estatus no filtra.** Las filas `EN PROCESO` suman al REAL igual que las `FINALIZADO`. El REAL es esfuerzo incurrido, no trabajo terminado.
+
+**El cumplimiento REAL/PLAN es nuevo de SICOG.** El workbook **no lo calcula en ninguna parte** — no hay una sola división en sus hojas de plan. Se agrega a pedido del owner porque el plan anual existe justamente para compararse, y dividir a mano en doce columnas es lo que nadie hacía. Queda registrado como regla nueva y no como algo que el Excel ya hiciera. **Cuando la meta es cero el porcentaje no se calcula**: viaja `null` y la pantalla escribe "sin meta". El Excel no ofrece respuesta para ese caso porque la división no existe, así que inventar un 100% o un infinito sería peor que decir que no hay con qué comparar.
+
+**La participación sobre el total del mes sí existe en el Excel**, y es el único porcentaje que tiene:
+
+```
+participación de trabajos = cantidad de la actividad / total de cantidades del mes
+participación de HH       = hh de la actividad       / total de HH del mes
+```
+
+Se reproduce **calculada**, no tecleada: en el workbook esa hoja no está enlazada —los números están puestos a mano y lista 12 actividades contra 32 de la hoja de plan—, o sea que es una tercera lista que alguien mantiene aparte y que puede discrepar de las otras dos sin que nadie lo note.
+
+### 14.5 Seed: lo que hay que sembrar antes de que el módulo sirva
+
+- **`GERENCIA_REQUIRIENTE` estaba en cero filas y el FK es obligatorio**, así que hoy no se puede registrar ni una actividad. Se siembran las **16** de la lista de validación del workbook (columna Y), no las 6 que el trimestre usó: es la lista que el área mantiene y representa su universo real. **Con las erratas corregidas** —`GENRENCIA GENERAL` → `GERENCIA GENERAL`, acentos unificados— siguiendo el mismo criterio con que ya se sembraron `ESTADO_TELEMETRIA` e `INSUMO`.
+- **El catálogo de productos estaba corto**, el mismo tipo de gap que la decisión #39 encontró en Despacho. **El número hay que decirlo con cuidado**: la hoja de plan tiene 32 *filas*, pero sólo **25 productos distintos** — siete son repeticiones dentro de la propia hoja. El seed tenía **18 en 9 insumos**; quedó en **24 en 10**.
+    - Falta**ba** un insumo entero, `SISTEMAS DE APOYO`, y seis productos repartidos entre los demás.
+    - **De los 25 distintos se sembraron 24**: se descartó la segunda variante de `GUARDIA`, que es el mismo texto con 29 espacios consecutivos en lugar de la barra separadora. Es la misma actividad tecleada dos veces de forma distinta, no dos productos.
+    - Erratas del archivo corregidas, mismo criterio que el resto del seed: `SITEMA DE GRABACION`, `SYSTEMA DE VIDEO WALL`, el doble espacio de `SISTEMAS DE  APOYO`, el espacio final de `SCADA NACIONAL DE PDVSA GAS `, `HISTORICVOS`, `ACESORIA`, `CAPACITAMIENTO`, `SAMANA`, `MANTENIMIETO`, `PERTENENCIENTES`, `PEREFERICOS` y los acentos graves (`Ò` por `Ó`).
+    - **`ProductoServicio.descripcionActividad` dejó de estar sin usar**: sale de la columna `ACTIVIDAD` de la hoja de plan, que es una descripción **por insumo** salvo en `ESTACIONES T&D` e `INFORME`, donde varía por producto.
+    - **El seed de este catálogo pasó a ser aditivo.** Cortaba temprano si ya existía un insumo, y por eso re-correrlo no traía nada nuevo: es exactamente la razón por la que el catálogo se quedó corto desde la primera lectura.
+- **`EN PROCESO ` lleva un espacio final** en el Excel, en la lista de validación y en los datos. En SICOG el valor es `EN PROCESO`.
+- El seed sigue siendo **aditivo e idempotente**: agrega lo que falta sin tocar lo que ya está.
+
+### 14.6 Lo que la auditoría corrigió
+
+- **§5 describe el archivo como "bitácora + plan/real + % derivados".** Los "% derivados" no son de cumplimiento sino de participación, y la hoja que los tiene **no está enlazada**. La frase quedó imprecisa desde la primera lectura y se corrige acá.
+- **`hh` es el total de horas-hombre de la fila, no por persona.** No existe ninguna columna de cantidad de personas en el workbook, así que el dato ya viene colapsado en origen: el modelo no pierde nada, pero tampoco puede reconstruir personas × horas si alguna vez se pide.
+- **`cantidad` son repeticiones de la misma actividad, no unidades.** El encabezado del Excel lo dice: *"Colocar más de 1 sólo en el caso de que se repita el detalle del requerimiento o actividad"*. Va de 1 a 5, y 139 de 176 filas son 1.
+- **Los rangos de fecha son reales**: 45 de 176 filas abarcan de 1 a 29 días. No es un campo ceremonial.
+
+### 14.7 Abierto en este contrato
+
+- **`ACTIVIDAD_REGISTRO` no tiene tabla de historial**, a diferencia de las lecturas de Despacho. Corregir las horas de un registro ya cargado no deja rastro de quién lo hizo ni de cuál era el valor anterior, y estas horas alimentan indicadores de gestión. Si el área necesita esa trazabilidad es una tabla nueva y una migración; **no se agrega sin confirmarlo**, porque la decisión #3 se tomó para Despacho y nadie la extendió a este módulo.
+- **No se guarda quién asignó una tarea.** El modelo tiene un solo `usuarioId`, que es el responsable. Cuando un supervisor crea la fila a nombre de un analista, su propia identidad no queda en ninguna parte. Mismo trato: es una columna nueva, se confirma antes.
+- **Si un `FINALIZADO` se puede seguir editando** — y si el supervisor puede corregir una fila que el analista ya completó — no está decidido. Por ahora se permite, que es el comportamiento del Excel.
+- **Los otros tres departamentos no tienen catálogo.** Despacho, Calidad de Gas y Análisis Operacional comparten la estructura y necesitan sus propios `INSUMO`/`PRODUCTO_SERVICIO`/`GERENCIA_REQUIRIENTE`, que **no existen en ninguna planilla**. El módulo arranca usable sólo para Mantenimiento; el ABM está listo para que cada Supervisor cargue los suyos.
+- **Cómo se carga el plan anual** (grilla entera contra celda por celda) se decide al diseñar la pantalla, a pedido del owner. El contrato expone los dos endpoints para no forzar la decisión antes de verla en uso.

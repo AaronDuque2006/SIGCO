@@ -174,7 +174,6 @@ async function seedEstadoTelemetria() {
 // typos reales del archivo ("SITEMA" -> "Sistema", "SYSTEMA" -> "Sistema").
 async function seedInsumoProductoServicio() {
   const mantenimiento = await prisma.departamento.findFirstOrThrow({ where: { nombre: "Mantenimiento" } });
-  if ((await prisma.insumo.count({ where: { departamentoId: mantenimiento.id } })) > 0) return;
 
   const catalogo: { insumo: string; descripcionActividad: string; productos: string[] }[] = [
     {
@@ -183,6 +182,7 @@ async function seedInsumoProductoServicio() {
         "Ejerce custodia, mantenimiento y atención de fallas de la base de datos operacional de PDVSA Gas",
       productos: [
         "Respaldo data / históricos - Infoplus 21",
+        "Actualización, mantenimiento, gestión de requerimientos base de datos Infoplus21 / Aspentech",
         "Actualización - solicitud de requerimientos - soporte técnico base de datos operacional Infoplus21 y Aspentech",
         "Mantenimiento preventivo / correctivo servidor Infoplus 21",
       ],
@@ -192,6 +192,8 @@ async function seedInsumoProductoServicio() {
       descripcionActividad: "Ejerce custodia de los equipos pertenecientes al sistema SCADA de PDVSA Gas",
       productos: [
         "Respaldo data / históricos servidores SCADA",
+        "Respaldo data / históricos servidores SCADA y consolas de supervisión y control",
+        "Actualización y gestión de requerimientos SISUGAS (base de datos, despliegues, tendencias, netview, cargas)",
         "Respaldo data consolas de supervisión y control",
         "Mantenimiento preventivo / correctivo servidores SCADA",
         "Mantenimiento preventivo - correctivo consolas de supervisión y control",
@@ -220,6 +222,13 @@ async function seedInsumoProductoServicio() {
       ],
     },
     {
+      insumo: "Estaciones de Transporte y Distribución T&D Gas Metano",
+      descripcionActividad: "Soporte técnico a personal de Operaciones y gerencias de apoyo PDVSA Gas",
+      productos: [
+        "Asesoría, soporte técnico, actualización de tecnologías, atención de requerimientos",
+      ],
+    },
+    {
       insumo: "Plan de Formación",
       descripcionActividad: "Adiestramiento",
       productos: [
@@ -245,30 +254,104 @@ async function seedInsumoProductoServicio() {
     {
       insumo: "Administrativo",
       descripcionActividad: "Administrativo",
-      productos: ["Otras actividades"],
+      productos: ["Gestión administrativa", "Otras actividades"],
+    },
+    // Insumo que faltaba por completo: la primera lectura tomó la tabla
+    // condensada y no la hoja de plan, donde sí está.
+    {
+      insumo: "Sistemas de Apoyo",
+      descripcionActividad:
+        "Custodia, mantenimiento, actualización sistemas tecnológicos de apoyo para el Despacho Central de Gas",
+      productos: [
+        "Mantenimiento, actualización y gestión de solicitudes equipos tecnológicos de apoyo (sistema grabación de llamadas, video wall, consola WebGas)",
+      ],
     },
   ];
 
-  // "Informe" aparece dos veces en el catálogo real (dos actividades
-  // distintas bajo el mismo insumo) - se reutiliza la fila si ya se creó
-  // en esta misma corrida, para no duplicar el Insumo.
-  const insumosCreados = new Map<string, { id: number }>();
+  // Aditivo, como el resto del seed. Antes cortaba temprano si ya había un
+  // insumo, y por eso el catálogo se quedó corto cuando la segunda auditoría
+  // encontró productos que la primera lectura no había visto: re-correr el
+  // seed no los traía.
+  //
+  // "Informe" y "Estaciones T&D" aparecen más de una vez en el catálogo real
+  // (actividades con descripción distinta bajo el mismo insumo), así que el
+  // insumo se busca antes de crearlo.
+  const insumosPorNombre = new Map<string, number>(
+    (
+      await prisma.insumo.findMany({
+        where: { departamentoId: mantenimiento.id },
+        select: { id: true, nombre: true },
+      })
+    ).map((i) => [i.nombre, i.id]),
+  );
 
   for (const grupo of catalogo) {
-    let insumo = insumosCreados.get(grupo.insumo);
-    if (!insumo) {
-      insumo = await prisma.insumo.create({ data: { nombre: grupo.insumo, departamentoId: mantenimiento.id } });
-      insumosCreados.set(grupo.insumo, insumo);
+    let insumoId = insumosPorNombre.get(grupo.insumo);
+    if (insumoId === undefined) {
+      const creado = await prisma.insumo.create({
+        data: { nombre: grupo.insumo, departamentoId: mantenimiento.id },
+      });
+      insumoId = creado.id;
+      insumosPorNombre.set(grupo.insumo, insumoId);
     }
 
-    await prisma.productoServicio.createMany({
-      data: grupo.productos.map((nombre) => ({
-        insumoId: insumo.id,
+    const id = insumoId;
+    await insertarFaltantes(
+      grupo.productos.map((nombre) => ({
+        insumoId: id,
         nombre,
         descripcionActividad: grupo.descripcionActividad,
       })),
-    });
+      (p) => `${p.nombre}|${p.insumoId}`,
+      async () =>
+        (
+          await prisma.productoServicio.findMany({ select: { nombre: true, insumoId: true } })
+        ).map((p) => `${p.nombre}|${p.insumoId}`),
+      (nuevas) => prisma.productoServicio.createMany({ data: nuevas }),
+    );
   }
+}
+
+// GERENCIA_REQUIRIENTE de Mantenimiento, de la lista de validación del
+// workbook (columna Y de "ACTIVIDADES MENSUAL"). Se siembran las 16 de la
+// lista y no las 6 que el trimestre auditado usó: es la lista que el área
+// mantiene, así que representa su universo real.
+//
+// Erratas del archivo corregidas, mismo criterio que el resto del seed:
+// "GENRENCIA GENERAL" -> "Gerencia General", y el acento grave de "DIRECCIÒN".
+async function seedGerenciasRequirientes() {
+  const mantenimiento = await prisma.departamento.findFirstOrThrow({
+    where: { nombre: "Mantenimiento" },
+  });
+
+  const nombres = [
+    "AIT",
+    "Planificación",
+    "DSI",
+    "Comercialización",
+    "Control Operacional",
+    "Control y Gestión",
+    "Gasificación",
+    "Gerencia General",
+    "GIO",
+    "Manejo de Gas",
+    "Mantenimiento Mayor",
+    "Operaciones",
+    "Otros",
+    "Dirección",
+    "Vice-Presidencia",
+    "Calidad de Vida",
+  ];
+
+  await insertarFaltantes(
+    nombres.map((nombre) => ({ nombre, departamentoId: mantenimiento.id })),
+    (g) => `${g.nombre}|${g.departamentoId}`,
+    async () =>
+      (await prisma.gerenciaRequiriente.findMany({
+        select: { nombre: true, departamentoId: true },
+      })).map((g) => `${g.nombre}|${g.departamentoId}`),
+    (nuevas) => prisma.gerenciaRequiriente.createMany({ data: nuevas }),
+  );
 }
 
 // Los 110 clientes reales de la hoja CEN-ORI (decisión #46). El sistema sale
@@ -462,6 +545,7 @@ async function main() {
   await seedDepartamentoYPuesto();
   await seedEstadoTelemetria();
   await seedInsumoProductoServicio();
+  await seedGerenciasRequirientes();
   await seedClientes();
   // Después de los clientes: les asigna su rama.
   await seedSubSistemas();
