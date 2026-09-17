@@ -83,6 +83,29 @@ cierre diario.
 Análisis Operacional. Los dos últimos **ni siquiera están diseñados**: no existe
 la planilla ni la especificación de origen.
 
+**Fase 2 comprometida — asistente de consulta con RAG local.** No está
+construido y no debe construirse todavía: la regla vigente es no agregar el
+contenedor de Ollama ni código de RAG hasta que la fase arranque formalmente,
+porque primero se retira el Excel. Pero **no es una idea suelta, es una
+dirección comprometida y la arquitectura ya la contempla**: `pgvector` está
+habilitado desde la primera migración con ese propósito explícito, y Ollama está
+previsto en el mismo stack de despliegue. El modelo corre **local, no contra un
+servicio en la nube**, por tres razones que se sostienen juntas: el corpus son
+documentos internos de PDVSA y no puede salir del perímetro de la empresa; la
+sala de control opera 24 horas y un asistente que muere con el enlace a internet
+no sirve ahí; y el almacén vectorial es la misma Postgres que ya existe, sin un
+segundo motor que sincronizar.
+
+Distinción de alcance que el trabajo futuro **no debe borrar**: los datos
+operacionales son estructurados y numéricos, y preguntarles algo es una consulta
+SQL, no recuperación semántica. El RAG aporta sobre el corpus **no
+estructurado** — el manual oficial de sistemas de transporte, los
+procedimientos, y sobre todo el histórico de novedades operativas, que crece
+todos los días y hoy no es consultable más allá de filtrar por fecha y origen.
+**Sus casos de uso concretos siguen sin confirmar** con el área, igual que el
+modelo, la segmentación del corpus, el control de acceso sobre lo que el
+asistente recupera, y cómo se evalúa que responde bien.
+
 **Ya no queda un bloqueante conocido para retirar el Excel.** El último eran
 las transferencias fuera del sistema (`ICO Morón`, `APORTE A EYP`), modeladas
 el 2026-09-16 (decisión #79). Antes de eso SICOG reportaba 8 MMPCED de menos en
@@ -90,8 +113,12 @@ el transportado, porque el workbook las cuenta y el sistema las ignoraba.
 
 **Restricciones técnicas confirmadas:**
 
-- **Tema oscuro fijo**, sin modo claro. Es una decisión para la sala de control,
-  no una omisión.
+- **Dos temas, con el oscuro de predeterminado.** El oscuro responde a la sala
+  de control, donde la pantalla no se apaga en doce horas, y sigue siendo lo que
+  se sirve si nadie elige. El claro se agregó el 2026-09-17 a pedido del owner
+  —se usa de día, la preferencia es personal, y los PDF de gráficas y datos se
+  leen mejor en blanco— y la elección vive en el navegador de cada equipo, no en
+  la cuenta: depende del monitor y de la luz que le da, no de quién se sienta.
 - Identidad visual actual: la paleta del prototipo cargada como tokens de
   shadcn/ui sobre Tailwind, en Next.js App Router.
 - Una sola base PostgreSQL para los cuatro dominios, **sin mezclarlos**: sólo
@@ -103,9 +130,17 @@ el transportado, porque el workbook las cuenta y el sistema las ignoraba.
   culpar al disco: el aviso de Next sobre "slow filesystem" apuntaba al lugar
   equivocado.
 
+**Una novedad operativa mal cargada se corrige, no se borra.** Confirmado el
+2026-09-17. El dominio es auditable y el modelo no tiene campo de baja, así que
+la corrección es el único camino y eso es deliberado, no una funcionalidad que
+falte. El único recurso de Despacho con borrado físico sigue siendo `CONTACTO`:
+un teléfono viejo no es un dato operativo histórico, es ruido en una lista que
+se consulta con apuro.
+
 **Facts de producto todavía sin decidir:** si la grilla de Balance Diario
-necesita subtotales por sistema o región; si las novedades mal cargadas se
-borran o sólo se corrigen.
+necesita subtotales por sistema o región. Es justo el tipo de detalle que sólo
+aparece con la pantalla en uso real, así que se deja abierto a propósito en vez
+de resolverlo por anticipado.
 
 ## Brand Commitments
 

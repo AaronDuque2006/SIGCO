@@ -96,7 +96,7 @@ components:
     backgroundColor: "{colors.guardia-superficie}"
     textColor: "{colors.tinta}"
     rounded: "{rounded.lg}"
-    padding: "1rem"
+    padding: "0.625rem 0.75rem"
   celda-volumen:
     backgroundColor: "transparent"
     textColor: "{colors.tinta}"
@@ -118,8 +118,11 @@ el sistema existe para que eso se pueda hacer sin cansar y sin equivocarse. Nada
 compite con los números, nada parpadea sin motivo, nada pide atención que no se
 ganó.
 
-De ahí sale todo lo demás. El tema es oscuro y **fijo**, sin modo claro: no es
-una preferencia estética sino la condición de una sala que no apaga la pantalla.
+De ahí sale todo lo demás. El tema **predeterminado es oscuro**: no es una
+preferencia estética sino la condición de una sala que no apaga la pantalla.
+Desde el 2026-09-17 existe además un tema claro para el día, la preferencia
+personal y los PDF (decisión #81) — con su paleta medida aparte, porque una
+validación de contraste no se hereda de una superficie a la otra.
 La densidad es alta —controles de 32px, celdas de seis píxeles de alto— porque
 la altura de pantalla le pertenece a la grilla, no al respiro. El color es casi
 inexistente: un solo azul con identidad, tres colores reservados para estado, y
@@ -132,7 +135,7 @@ hace por costumbre, acá se hace por decisión o no se hace.
 
 **Key Characteristics:**
 
-- Oscuro fijo, sin modo claro, por la sala de control
+- Oscuro de predeterminado por la sala de control; claro disponible para el día
 - Un único acento con identidad; el resto del color es estado
 - Cifras siempre monoespaciadas y de ancho tabular
 - Profundidad por tono y filete de un píxel, no por sombra
@@ -390,6 +393,18 @@ dice.
   de carga espera a que lleguen todas las consultas de la vista, para que el
   layout no salte tres veces.
 - **Do** usar el rojo, el ámbar y el verde **sólo** para estado.
+- **Do** mantener las tarjetas de cifra **compactas** (`0.625rem 0.75rem`, no
+  `1rem`). Pedido del owner el 2026-09-17, y el motivo se generaliza: en las
+  pantallas de digitación el alto es de la grilla, y cada píxel que gasta el
+  resumen es una fila de datos que no se ve. Por lo mismo la serie corta de una
+  cifra va como curva **dentro** de su tarjeta y no como una banda aparte: una
+  franja propia se llevaba filas de digitación.
+- **Do** pintar la condición del sistema de transporte con el semáforo completo:
+  **Empacado en verde, Desempacado en rojo**, en Balance Diario y en Reportes por
+  igual. Confirmado por el owner el 2026-09-17. Se probó con el acento azul
+  —razonando que el desempaque es frecuente y no una alarma— y **se descartó**:
+  el empaque es la condición operativa que el área quiere ver de lejos, y que
+  ocurra seguido no la vuelve neutra. No volver a neutralizarla.
 
 ### Don't:
 
@@ -404,5 +419,9 @@ dice.
   trazo `1.75` en línea y `2` en marcas sueltas.
 - **Don't** poner sombra decorativa. Si hace falta profundidad, se apila tono.
 - **Don't** usar el borde translúcido de shadcn sobre estas superficies.
-- **Don't** introducir un modo claro sin volver a discutir la decisión: el oscuro
-  fijo responde a la sala de control, no a un gusto.
+- **Don't** tratar el claro como el tema principal ni mover el predeterminado: el
+  oscuro es la condición de la sala de control, y el claro existe para el día,
+  la preferencia personal y los PDF (decisión #81).
+- **Don't** agregar un color a una paleta de gráficas sin correr
+  `scripts/validar-paleta.mjs` **contra las dos superficies**. Una comprobación
+  hecha sobre `#101828` no dice nada sobre blanco.
