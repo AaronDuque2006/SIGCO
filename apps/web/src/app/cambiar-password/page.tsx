@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MensajeDeCampo } from "@/components/mensaje-de-campo";
+import { SelectorTemaFlotante } from "@/components/selector-tema";
 import { EncabezadoVista } from "@/components/encabezado-vista";
 import { useCambiarPassword, useSesion } from "@/lib/sesion";
 
@@ -55,6 +56,7 @@ export default function CambiarPasswordPage() {
 
   return (
     <main className="flex min-h-[100dvh] items-center justify-center p-6">
+      <SelectorTemaFlotante />
       <div className="w-full max-w-sm">
         <div className="mb-8">
           <EncabezadoVista titulo={forzado ? "Cambie su contraseña" : "Cambiar contraseña"}>

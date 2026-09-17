@@ -64,3 +64,20 @@ export function SelectorTema() {
     </Button>
   );
 }
+
+/**
+ * El mismo selector, para las pantallas que no llevan encabezado.
+ *
+ * Login y cambio de contraseña son tarjetas centradas sin cabecera, así que sin
+ * esto quien entra de día a un equipo nuevo se come el tema oscuro hasta
+ * autenticarse — justo el caso que el tema claro venía a resolver. Va fijo en
+ * la esquina para no tocar la composición centrada, que es lo único que esas
+ * dos pantallas tienen.
+ */
+export function SelectorTemaFlotante() {
+  return (
+    <div className="fixed top-4 right-4 z-10">
+      <SelectorTema />
+    </div>
+  );
+}
