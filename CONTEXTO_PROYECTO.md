@@ -946,6 +946,7 @@ Esto le da sentido al catálogo de tres estados de la decisión #29, que hasta a
 | GET | `/gerencias-requirientes?departamentoId` | Igual. 16 filas sembradas para Mantenimiento (§14.5). |
 | POST · PATCH | `/gerencias-requirientes` · `/:id` | Supervisor+. |
 | GET | `/regiones-mtto` | Las 6 de Mantenimiento, reutilizadas (decisión #19). **Sólo lectura**: se siembran, y son de Mantenimiento, no de este módulo. |
+| GET | `/registros/responsables?departamentoId` | A nombre de quién se puede registrar en ese departamento: `id`, `nombre` y `puesto`. Existe porque `/api/usuarios` es **exclusivo del superadmin** (decisión #11) y un Supervisor tiene que poder asignarle trabajo a su gente sin serlo. Expone lo mismo que la bitácora ya muestra en cada fila, y deja fuera las cuentas bloqueadas. **Va antes que `/registros/:id`** en el router. Sin paginar. |
 | GET | `/registros` | Filtros: `departamentoId`, `usuarioId`, `cadena`, `desde`, `hasta`, `productoServicioId`, `insumoId`, `gerenciaRequirienteId`, `regionId`, `soloNacional`, `estatus`, `q` (sobre `detalle`). Paginado, más recientes primero. |
 | POST | `/registros` | No Analista. `usuarioId` opcional: si falta, es quien tiene la sesión. |
 | GET · PATCH | `/registros/:id` | **Sin `DELETE`**: es una bitácora de horas-hombre que alimenta indicadores. Un registro que no va se corrige. |

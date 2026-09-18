@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { z } from "zod";
 import {
   bigIntIdParamSchema,
   createActividadRegistroSchema,
@@ -6,7 +7,7 @@ import {
   updateActividadRegistroSchema,
 } from "@sicog/shared-validators";
 import { usuarioActual } from "../../../shared/auth.middleware.js";
-import { parseOrThrow } from "../../../shared/http.js";
+import { parseOrThrow, singlePage } from "../../../shared/http.js";
 import { registroActividadService as servicio } from "../services/registro.service.js";
 
 export async function listar(req: Request, res: Response): Promise<void> {
@@ -28,4 +29,13 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
   const { id } = parseOrThrow(bigIntIdParamSchema, req.params);
   const datos = parseOrThrow(updateActividadRegistroSchema, req.body);
   res.json(await servicio.actualizar(usuarioActual(req).id, BigInt(id), datos));
+}
+
+const responsablesQuerySchema = z.object({
+  departamentoId: z.coerce.number().int().positive(),
+});
+
+export async function responsables(req: Request, res: Response): Promise<void> {
+  const { departamentoId } = parseOrThrow(responsablesQuerySchema, req.query);
+  res.json(singlePage(await servicio.responsables(departamentoId)));
 }

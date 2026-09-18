@@ -23,8 +23,8 @@ export const DOMINIOS: Dominio[] = [
   },
   {
     nombre: "Mantenimiento",
-    descripcion: "Estaciones, telemetría y actividades de mantenimiento.",
-    ruta: null,
+    descripcion: "Actividades y horas-hombre. Estaciones y telemetría, en desarrollo.",
+    ruta: "/mantenimiento",
   },
   {
     nombre: "Análisis Operacional",

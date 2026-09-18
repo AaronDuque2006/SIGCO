@@ -38,6 +38,7 @@ export function evaluarCelda(
   texto: string,
   valor: number | null,
   permiteNegativo = false,
+  maxDecimales = 4,
 ): ResultadoCelda {
   // Se acepta la coma decimal: es lo que teclea la gente acá.
   const limpio = texto.trim().replace(",", ".");
@@ -56,10 +57,11 @@ export function evaluarCelda(
     return { tipo: "rechazar", mensaje: "No puede ser negativo" };
   }
 
-  // La columna es Decimal(14,4): más posiciones las redondea Postgres sin
-  // avisar, que es la misma sorpresa silenciosa que todo esto evita.
-  if ((limpio.split(".")[1] ?? "").length > 4) {
-    return { tipo: "rechazar", mensaje: "Máximo 4 decimales" };
+  // Los volúmenes son `Decimal(14,4)` y las horas-hombre `Decimal(10,2)`: más
+  // posiciones las redondea Postgres sin avisar, que es la misma sorpresa
+  // silenciosa que todo esto evita.
+  if ((limpio.split(".")[1] ?? "").length > maxDecimales) {
+    return { tipo: "rechazar", mensaje: `Máximo ${maxDecimales} decimales` };
   }
 
   return numero === valor ? { tipo: "nada" } : { tipo: "guardar", numero };
@@ -108,6 +110,7 @@ export function CeldaVolumen({
   etiqueta,
   editable,
   permiteNegativo = false,
+  maxDecimales = 4,
   guardando,
   error,
   onGuardar,
@@ -118,6 +121,8 @@ export function CeldaVolumen({
   editable: boolean;
   /** Cuando es `true` se admite el signo: el valor codifica una dirección. */
   permiteNegativo?: boolean;
+  /** Los que admite la columna de la base. */
+  maxDecimales?: number;
   guardando: boolean;
   error: string | null;
   onGuardar: (volumen: number) => void;
@@ -174,7 +179,7 @@ export function CeldaVolumen({
   }
 
   const confirmar = () => {
-    const resultado = evaluarCelda(texto, valor, permiteNegativo);
+    const resultado = evaluarCelda(texto, valor, permiteNegativo, maxDecimales);
     if (resultado.tipo === "rechazar") {
       setErrorLocal(resultado.mensaje);
       return;
@@ -210,7 +215,7 @@ export function CeldaVolumen({
             // Se evalúa antes de moverse: si lo tecleado no sirve, el foco se
             // queda donde está. Irse dejando el aviso atrás sería descartar en
             // silencio con un cartel que nadie va a mirar.
-            const resultado = evaluarCelda(texto, valor, permiteNegativo);
+            const resultado = evaluarCelda(texto, valor, permiteNegativo, maxDecimales);
             if (resultado.tipo === "rechazar") {
               setErrorLocal(resultado.mensaje);
               return;

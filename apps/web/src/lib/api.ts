@@ -36,6 +36,10 @@ const leerError = async (res: Response): Promise<ApiError> => {
 interface Opciones {
   metodo?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   cuerpo?: unknown;
+  /** Cabeceras extra. Hoy sólo la `Idempotency-Key` que exige el POST de
+   *  registros de actividad, que es el único del sistema sin una clave
+   *  natural que lo proteja de un reintento. */
+  cabeceras?: Record<string, string>;
   // El refresh y el login no reintentan: si el refresh da 401 es que la sesión
   // murió de verdad, y reintentarlo sería un bucle.
   reintentar?: boolean;
@@ -45,7 +49,10 @@ const pedir = async (ruta: string, opciones: Opciones = {}): Promise<Response> =
   fetch(`${BASE}/api${ruta}`, {
     method: opciones.metodo ?? "GET",
     credentials: "include",
-    headers: opciones.cuerpo === undefined ? {} : { "Content-Type": "application/json" },
+    headers: {
+      ...(opciones.cuerpo === undefined ? {} : { "Content-Type": "application/json" }),
+      ...opciones.cabeceras,
+    },
     body: opciones.cuerpo === undefined ? undefined : JSON.stringify(opciones.cuerpo),
   });
 

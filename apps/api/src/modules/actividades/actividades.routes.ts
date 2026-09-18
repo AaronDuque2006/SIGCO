@@ -89,6 +89,9 @@ router.get("/regiones-mtto", asyncHandler(catalogo.listarRegiones));
 // ---------------------------------------------------------------------------
 
 router.get("/registros", asyncHandler(registro.listar));
+// **Va antes que `/registros/:id`**, que si no se la traga: mismo tropiezo que
+// §13.1 tuvo con `/usuarios/catalogos`.
+router.get("/registros/responsables", asyncHandler(registro.responsables));
 router.get("/registros/:id", asyncHandler(registro.obtener));
 
 // `Idempotency-Key` es **obligatoria** acá: es el único POST del sistema sin

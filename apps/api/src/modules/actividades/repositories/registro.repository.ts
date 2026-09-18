@@ -1,5 +1,5 @@
 import { Prisma } from "@sicog/db";
-import type { ActividadRegistroDto } from "@sicog/shared-types";
+import type { ActividadRegistroDto, ResponsableDto } from "@sicog/shared-types";
 import type { ListActividadRegistrosQuery } from "@sicog/shared-validators";
 import { prisma } from "../../../shared/prisma-client.js";
 import { traducirEscritura } from "../../../shared/prisma-errores.js";
@@ -30,6 +30,8 @@ export interface IRegistroActividadRepository {
   departamentoDeGerencia(id: number): Promise<number | null>;
   /** Toda la cadena de supervisión **hacia abajo**, incluida la persona. */
   cadenaHaciaAbajo(usuarioId: number): Promise<number[]>;
+  /** A nombre de quién se puede registrar en un departamento. */
+  responsables(departamentoId: number): Promise<ResponsableDto[]>;
 }
 
 const select = {
@@ -239,6 +241,24 @@ export class PrismaRegistroActividadRepository implements IRegistroActividadRepo
    *
    * Parametrizado, nunca concatenado (§3).
    */
+  /**
+   * Quiénes pueden ser responsables de una actividad del departamento.
+   *
+   * Existe porque `/api/usuarios` es exclusivo del superadmin (decisión #11) y
+   * un Supervisor tiene que poder asignarle trabajo a su gente sin serlo. Sólo
+   * expone id, nombre y puesto — nada que la pantalla no muestre ya en cada
+   * fila de la bitácora— y deja fuera las cuentas bloqueadas, que no pueden
+   * recibir una asignación.
+   */
+  async responsables(departamentoId: number): Promise<ResponsableDto[]> {
+    const filas = await prisma.usuario.findMany({
+      where: { departamentoId, bloqueado: false },
+      select: { id: true, nombre: true, puesto: { select: { nombre: true } } },
+      orderBy: { nombre: "asc" },
+    });
+    return filas.map((f) => ({ id: f.id, nombre: f.nombre, puesto: f.puesto.nombre }));
+  }
+
   async cadenaHaciaAbajo(usuarioId: number): Promise<number[]> {
     const filas = await prisma.$queryRaw<{ id: number }[]>`
       WITH RECURSIVE cadena AS (

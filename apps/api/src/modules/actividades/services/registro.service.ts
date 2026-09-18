@@ -1,4 +1,4 @@
-import type { ActividadRegistroDto, Paginated } from "@sicog/shared-types";
+import type { ActividadRegistroDto, Paginated, ResponsableDto } from "@sicog/shared-types";
 import type {
   CreateActividadRegistroInput,
   ListActividadRegistrosQuery,
@@ -40,6 +40,10 @@ export class RegistroActividadService {
     }
     const { filas, total } = await this.repo.listar(filtros);
     return paginate(filas, total, filtros.page, filtros.pageSize);
+  }
+
+  responsables(departamentoId: number): Promise<ResponsableDto[]> {
+    return this.repo.responsables(departamentoId);
   }
 
   async obtener(id: bigint): Promise<ActividadRegistroDto> {

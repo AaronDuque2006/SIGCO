@@ -29,6 +29,19 @@ export interface GerenciaRequirienteDto {
   activo: boolean;
 }
 
+/**
+ * A nombre de quién se puede registrar una actividad.
+ *
+ * Es una lista propia del módulo y no `/api/usuarios`, que es exclusivo del
+ * superadmin (decisión #11): un Supervisor tiene que poder asignarle trabajo a
+ * su gente sin serlo. Expone lo mismo que la bitácora ya muestra en cada fila.
+ */
+export interface ResponsableDto {
+  id: number;
+  nombre: string;
+  puesto: string;
+}
+
 /** Las 6 de Mantenimiento, reutilizadas por este módulo (decisión #19). */
 export interface RegionMttoDto {
   id: number;
