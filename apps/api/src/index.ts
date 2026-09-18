@@ -3,6 +3,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
+import actividadesRoutes from "./modules/actividades/actividades.routes.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import despachoRoutes from "./modules/despacho/despacho.routes.js";
 import usuariosRoutes from "./modules/usuarios/usuarios.routes.js";
@@ -26,6 +27,7 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/actividades", actividadesRoutes);
 app.use("/api/despacho", despachoRoutes);
 app.use("/api/usuarios", usuariosRoutes);
 

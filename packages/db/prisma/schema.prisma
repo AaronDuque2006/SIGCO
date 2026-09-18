@@ -536,6 +536,7 @@ model Usuario {
   novedadesOperativa       NovedadOperativa[]
   reportesTelemetria       ReporteTelemetriaEstacion[]
   actividadesRegistro      ActividadRegistro[]
+  clavesIdempotencia       ClaveIdempotencia[]
   sesionesRefresh          SesionRefresh[]
   logsLogin                LogLogin[]
   logsIntentoNoAutorizado  LogIntentoNoAutorizado[]
@@ -566,6 +567,7 @@ model Insumo {
   departamento      Departamento       @relation(fields: [departamentoId], references: [id])
   productosServicio ProductoServicio[]
 
+  @@unique([departamentoId, nombre])
   @@map("insumos")
 }
 
@@ -580,6 +582,7 @@ model ProductoServicio {
   actividadesRegistro ActividadRegistro[]
   actividadesMeta     ActividadMeta[]
 
+  @@unique([insumoId, nombre])
   @@map("productos_servicio")
 }
 
@@ -592,6 +595,7 @@ model GerenciaRequiriente {
   departamento        Departamento        @relation(fields: [departamentoId], references: [id])
   actividadesRegistro ActividadRegistro[]
 
+  @@unique([departamentoId, nombre])
   @@map("gerencias_requiriente")
 }
 
@@ -631,6 +635,44 @@ model ActividadMeta {
 
   @@unique([productoServicioId, anio, mes])
   @@map("actividades_meta")
+}
+
+// Idempotencia de los POST que no tienen una clave natural.
+//
+// En Despacho no hizo falta: todos los POST estan protegidos por un @@unique
+// del propio dato (cliente+fecha+corte, fuente+fecha...), asi que un reintento
+// choca con el constraint y devuelve 409. `ACTIVIDAD_REGISTRO` no tiene una
+// clave natural -- dos asignaciones identicas de la misma tarea a la misma
+// persona son legitimas-- y sus horas alimentan indicadores de gestion, asi
+// que un duplicado silencioso infla un numero que alguien va a reportar.
+//
+// El caso que esto cierra y ningun boton deshabilitado cierra: el POST entro,
+// la respuesta se perdio en un timeout, y el navegador no sabe si reintentar.
+model ClaveIdempotencia {
+  id             BigInt   @id @default(autoincrement())
+  clave          String
+  usuarioId      Int      @map("usuario_id")
+  // sha256 de metodo + ruta + cuerpo. Reusar una clave con otro cuerpo es un
+  // bug del cliente y tiene que fallar fuerte, no devolver la primera
+  // respuesta a una peticion distinta.
+  huellaPeticion String   @map("huella_peticion")
+  // EN_CURSO mientras la peticion original corre; COMPLETADA con su respuesta
+  // guardada. Un duplicado en vuelo recibe 409: dejarlo pasar porque el
+  // primero "parece trabado" es justo cuando duplicar cuesta mas caro.
+  estado         String
+  estadoHttp     Int?     @map("estado_http")
+  respuesta      Json?
+  creadoEn       DateTime @default(now()) @map("creado_en")
+  expiraEn       DateTime @map("expira_en")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  // El unico ES el mecanismo: se intenta insertar y se traduce la violacion,
+  // en vez de consultar-y-despues-insertar, que es una carrera entre dos
+  // reintentos simultaneos.
+  @@unique([clave, usuarioId])
+  @@index([expiraEn])
+  @@map("claves_idempotencia")
 }
 
 // ===== SEGURIDAD (§3 - agregadas explícitamente, no dibujadas en el ERD original) =====
