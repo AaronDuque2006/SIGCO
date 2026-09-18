@@ -198,6 +198,11 @@ export const celdaMetaSchema = z.object({
  * nadie terminó de escribir.
  */
 export const reemplazarMetasSchema = z.object({
+  // El departamento viaja explícito y no se deduce de las celdas: es lo que
+  // deja que la puerta de "Supervisor+ del departamento dueño" viva en el
+  // middleware, donde hay contexto HTTP para dejar registro del 403. El
+  // Service verifica después que todas las celdas le pertenezcan.
+  departamentoId: z.number().int().positive(),
   celdas: z.array(celdaMetaSchema).min(1).max(1200),
 });
 

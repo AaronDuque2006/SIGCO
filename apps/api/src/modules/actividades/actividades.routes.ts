@@ -4,8 +4,10 @@ import { requireAuth, requirePasswordVigente } from "../../shared/auth.middlewar
 import { asyncHandler } from "../../shared/http.js";
 import { requireIdempotencia } from "../../shared/idempotencia.js";
 import * as catalogo from "./controllers/catalogo.controller.js";
+import * as meta from "./controllers/meta.controller.js";
 import * as registro from "./controllers/registro.controller.js";
 import { catalogoActividadesRepository as repo } from "./repositories/catalogo.repository.js";
+import { metaActividadRepository } from "./repositories/meta.repository.js";
 import { requireSupervisorDelDepartamento } from "./actividades.middleware.js";
 
 const router: RouterType = Router();
@@ -95,5 +97,29 @@ router.get("/registros/:id", asyncHandler(registro.obtener));
 router.post("/registros", asyncHandler(requireIdempotencia), asyncHandler(registro.crear));
 
 router.patch("/registros/:id", asyncHandler(registro.actualizar));
+
+// ---------------------------------------------------------------------------
+// El plan anual (decisión #30) y los dos reportes del §14.4. Consultar, como
+// todo lo demás, lo puede hacer cualquiera; cargar el plan es Supervisor+ del
+// departamento dueño.
+// ---------------------------------------------------------------------------
+
+router.get("/metas", asyncHandler(meta.matriz));
+router.put(
+  "/metas/:anio",
+  requireSupervisorDelDepartamento(delCuerpo("departamentoId")),
+  asyncHandler(meta.reemplazarAnio),
+);
+router.patch(
+  "/metas/:id",
+  requireSupervisorDelDepartamento(async (req: Request) => {
+    const parseo = z.coerce.bigint().safeParse(req.params.id);
+    return parseo.success ? metaActividadRepository.departamentoDeCelda(parseo.data) : null;
+  }),
+  asyncHandler(meta.actualizarCelda),
+);
+
+router.get("/reportes/plan-vs-real", asyncHandler(meta.planVsReal));
+router.get("/reportes/participacion", asyncHandler(meta.participacion));
 
 export default router;
