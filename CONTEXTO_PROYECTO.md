@@ -744,6 +744,25 @@ anterior:
 3. **Calidad de Gas y Análisis Operacional**, que siguen sin diseñar porque no
    existe planilla de origen para ninguno.
 
+**Para retomar en otra máquina o después de un rato**, además de los comandos
+del arranque en frío de `CLAUDE.md`:
+
+```bash
+docker compose up -d                          # Postgres
+pnpm --filter @sicog/db run seed              # catálogos (aditivo, idempotente)
+pnpm --filter api run sembrar-demo            # la semana de demostración (#86)
+./scripts/dev.sh                              # API en :4000 y web en :3000
+```
+
+El sembrado de demostración **borra los datos operativos de Despacho antes de
+escribir**, y su generador va con semilla fija: correrlo de nuevo deja
+exactamente los mismos números, así que un ensayo no cambia lo que se va a
+mostrar. `-- --limpiar` lo deshace sin sembrar.
+
+Lo que **no viaja en el clon** y hay que traer aparte sigue siendo
+`archivos-fuente/` y `.env` — y desde el 17, también las skills instaladas, que
+son con las que se trabajó (ver pendientes menores).
+
 Preguntas abiertas que sólo se contestan usando el sistema:
 
 - ¿Hacen falta **subtotales por sistema o región** en la grilla de Balance
@@ -763,14 +782,16 @@ Preguntas abiertas que sólo se contestan usando el sistema:
 - Revisar con el Supervisor de Mantenimiento los dos valores de `ESTADO_TELEMETRIA` que se infirieron por simetría (§9.4 #9).
 - El Manual DAO se contradice sobre el nombre del 7º sistema: "Transcaribeño" (índice) vs "Transoceánico" (diapositivas internas). Se sembró como Transcaribeño (decisión #16).
 - El sector `Empresa Mixta` quedó con 0 clientes tras la decisión #47 — corresponde desactivarlo (soft-delete) si no se le encuentra uso.
-- Decidir si los aportes y transferencias entre sistemas (`APORTE A EYP`, `TRANSFERENCIA ICO-NURGAS`), excluidos del catálogo `CLIENTE` por la decisión #46, necesitan modelarse de otra forma.
 - Limpiar periódicamente las filas vencidas o revocadas de `SESION_REFRESH` (§12.3); podría ir en el mismo job del cierre diario.
 - **Cargar una lista real de contraseñas filtradas** en vez de la lista curada (§13.3). Subió de prioridad con la decisión #58: con el mínimo en 6 caracteres, la lista de bloqueo es la defensa principal y no un complemento.
 - Tener **al menos dos superadmins** desde el arranque: no hay recuperación técnica si el único pierde el acceso, y no se construyó una a propósito (§12.3).
 - **La cadena de supervisión está vacía.** Ninguna cuenta tiene `supervisorId`, porque el formulario de alta manda `null` fijo y el campo para asignarlo recién existe desde la decisión #80. Mientras siga así, el filtro "De mi gente" de Actividades devuelve lo mismo que "A mi nombre", y la decisión #25 —un superior ve toda la cadena hacia abajo— no tiene datos sobre los que operar. Se carga desde `/usuarios` cuando existan las cuentas reales del área.
 - Migrar la configuración del seed de `package.json#prisma` a `prisma.config.ts` antes de Prisma 7 (hoy sólo emite un warning).
 - Dominios C (Calidad de Gas) y D (Análisis Operacional) siguen sin diseñar: falta el Excel/especificación de cada uno (§9.1).
-- **La máquina de desarrollo se queda sin memoria.** Medido el 2026-09-15: 3,6 GiB de RAM y 512 MiB de swap, los dos agotados con la API y el web levantados (`next-server` solo son ~470 MB). Con el swap lleno, compilar una página pasó de 8 segundos a más de 4 minutos. El aviso de Next sobre "slow filesystem" apunta al lugar equivocado: el disco es un ext4 local con 192 GB libres. Mientras tanto conviene no dejar los dos servidores levantados entre sesiones. El owner espera una laptop con más capacidad.
+- **`.impeccable/design.json` quedó desactualizado** respecto de `DESIGN.md`, que se tocó varias veces entre el 17 y el 18. Se refresca con `/impeccable document`; el hook de la skill lo avisa en cada edición de UI.
+- **Las skills instaladas no están commiteadas** (`.claude/skills/`, `.claude/agents/`, `.agents/`, `.codex/`, y `.impeccable/critique/`). Es decisión del owner si entran al repo: sin ellas, un clon nuevo no puede correr `/impeccable` ni `api-and-interface-design`, que es como se trabajó desde el 17.
+- **El `C45` del workbook excluye `C37` (ENTREGA ICO MORÓN) de su propio total**, sin motivo aparente, y SICOG **no replicó la anomalía** (nota de la decisión #74). Sólo la puede contestar alguien del área.
+- **Decidir si la Fase 2 RAG entra en el alcance del trabajo de grado** o queda como trabajo futuro (`CONTEXTO_TEG.md` §8.7 y §11). Es la decisión de mayor impacto sobre el título y los objetivos, y depende de tiempo y hardware.
 - El prototipo visual del repo hermano sigue sin reflejar los cambios de diseño (§8).
 
 ---

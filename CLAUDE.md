@@ -90,4 +90,12 @@ pnpm --filter @sicog/db migrate:dev               # migraciones
 pnpm --filter @sicog/db run seed                  # catálogos (aditivo, idempotente)
 pnpm --filter api run dev                         # API en :4000
 pnpm --filter <paquete> run typecheck             # tsc --noEmit
+
+pnpm --filter api run sembrar-demo                # semana de demostración de Despacho
+pnpm --filter api run sembrar-demo -- --limpiar   # y cómo deshacerla
 ```
+
+`sembrar-demo` **borra los datos operativos de Despacho antes de escribir**, usa
+cifras plausibles y no reales (decision #86), y corre el job de cierre real en
+vez de escribir `CIERRE_PROMEDIO` a mano. Su generador va con semilla fija, así
+que repetirlo da exactamente los mismos números.
