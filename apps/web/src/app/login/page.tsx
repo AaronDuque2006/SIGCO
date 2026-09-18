@@ -42,8 +42,8 @@ export default function LoginPage() {
     <main className="flex min-h-[100dvh] items-center justify-center p-6">
       <FondoCursor />
       <SelectorTemaFlotante />
-      <div className="relative z-10 w-full max-w-sm">
-        <div className="mb-8 text-center">
+      <div className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-card p-6 sm:p-8">
+        <div className="mb-6 text-center">
           <h1 className="text-xl font-semibold tracking-tight">SICOG</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Control Operacional de Gas
