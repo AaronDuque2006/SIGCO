@@ -131,10 +131,14 @@ export function Bitacora({ departamento, base }: { departamento: string; base: s
             onChange={(e) => filtrar(() => setResponsable(e.target.value))}
           >
             <option value="">Todos</option>
-            <option value="mios">Sólo los míos</option>
+            {/* Nombran el dato y no el pronombre: una actividad está *a nombre
+                de* alguien, que es lo que dice la columna Responsable de la
+                tabla. "Sólo los míos" y "Mi equipo" obligaban a preguntar qué
+                querían decir. */}
+            <option value="mios">A mi nombre</option>
             {/* La cadena completa hacia abajo, no un nivel (decisión #25). A un
                 Analista no se le ofrece: no tiene gente debajo. */}
-            {puedeCrear ? <option value="equipo">Mi equipo</option> : null}
+            {puedeCrear ? <option value="equipo">De mi gente</option> : null}
             {(responsables.data ?? [])
               .filter((r) => r.id !== sesion?.id)
               .map((r) => (
