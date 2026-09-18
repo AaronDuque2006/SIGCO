@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
     MESES,
+  esSupervisorOSuperior,
   puedeEditarDepartamento,
   useDepartamentoId,
   useMatrizMetas,
@@ -39,7 +40,12 @@ export function PlanAnual({ departamento, base }: { departamento: string; base: 
 
   const matriz = useMatrizMetas(anio, departamentoId);
   const guardar = useReemplazarMetas(anio);
-  const puedeEditar = puedeEditarDepartamento(sesion, departamento) && sesion?.puesto !== "Analista";
+  // **Supervisor o superior**, no "cualquiera menos el Analista" (decisión
+  // #30: el plan lo carga el Supervisor de cada departamento, una vez al año).
+  // La diferencia no es cosmética: un Ingeniero habría llenado los doce meses
+  // y recién al guardar se habría comido el 403 del backend.
+  const puedeEditar =
+    puedeEditarDepartamento(sesion, departamento) && esSupervisorOSuperior(sesion);
 
   // Borrador local: la matriz se edita entera antes de enviarla.
   const [borrador, setBorrador] = useState<Record<string, string>>({});
@@ -92,6 +98,18 @@ export function PlanAnual({ departamento, base }: { departamento: string; base: 
       </EncabezadoVista>
 
       <AvisoSoloConsulta sesion={sesion} departamento={departamento} />
+
+      {/* Cien celdas apagadas sin explicación son indistinguibles de una
+          pantalla rota: fue exactamente lo que pasó con la grilla de Despacho
+          y por eso existe `AvisoSoloConsulta`. Acá el motivo es otro —el
+          departamento es el suyo, lo que falta es el rango— así que se dice
+          aparte. */}
+      {puedeEditarDepartamento(sesion, departamento) && !puedeEditar ? (
+        <p className="mt-3 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+          El plan anual lo carga el Supervisor del departamento hacia arriba. Puede
+          consultarlo, pero no modificarlo.
+        </p>
+      ) : null}
 
       <div className="mt-4 flex flex-wrap items-end gap-3">
         <div className="space-y-1.5">
