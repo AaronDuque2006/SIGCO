@@ -4,7 +4,7 @@ import Link from "next/link";
 import { CONTENEDOR } from "@/components/contenedor";
 import { Encabezado } from "@/components/encabezado";
 import { GuardiaSesion } from "@/components/guardia-sesion";
-import { DOMINIOS, type Dominio } from "@/lib/dominios";
+import { DEPARTAMENTOS, type Departamento } from "@/lib/departamentos";
 import { useSesion } from "@/lib/sesion";
 import { EncabezadoVista } from "@/components/encabezado-vista";
 
@@ -17,7 +17,7 @@ export default function HubPage() {
 }
 
 /**
- * Punto de llegada después de autenticarse: los cuatro dominios del sistema.
+ * Punto de llegada después de autenticarse: los cuatro departamentos.
  *
  * Se muestran los cuatro a todo el mundo a propósito, y es la traducción visual
  * de la decisión #22: cualquiera puede **consultar** los datos de cualquier
@@ -33,17 +33,17 @@ function Hub() {
       <Encabezado />
       <main className={`${CONTENEDOR} p-4`}>
         <div className="mt-4">
-          <EncabezadoVista titulo="Dominios">
+          <EncabezadoVista titulo="Departamentos">
             Puede consultar los cuatro. Edita sólo el que le corresponde.
           </EncabezadoVista>
         </div>
 
         <ul className="mt-6 grid gap-3 sm:grid-cols-2">
-          {DOMINIOS.map((dominio) => (
-            <li key={dominio.nombre}>
-              <CardDominio
-                dominio={dominio}
-                puedeEditar={sesion.departamentosQueEdita.includes(dominio.nombre)}
+          {DEPARTAMENTOS.map((departamento) => (
+            <li key={departamento.nombre}>
+              <CardDepartamento
+                departamento={departamento}
+                puedeEditar={sesion.departamentosQueEdita.includes(departamento.nombre)}
               />
             </li>
           ))}
@@ -53,12 +53,12 @@ function Hub() {
   );
 }
 
-function CardDominio({ dominio, puedeEditar }: { dominio: Dominio; puedeEditar: boolean }) {
+function CardDepartamento({ departamento, puedeEditar }: { departamento: Departamento; puedeEditar: boolean }) {
   const contenido = (
     <>
       <div className="flex items-start justify-between gap-3">
-        <h2 className="font-medium">{dominio.nombre}</h2>
-        {dominio.ruta === null ? (
+        <h2 className="font-medium">{departamento.nombre}</h2>
+        {departamento.ruta === null ? (
           <Etiqueta tono="neutro">En desarrollo</Etiqueta>
         ) : (
           <Etiqueta tono={puedeEditar ? "ok" : "neutro"}>
@@ -66,14 +66,14 @@ function CardDominio({ dominio, puedeEditar }: { dominio: Dominio; puedeEditar: 
           </Etiqueta>
         )}
       </div>
-      <p className="mt-1.5 text-sm text-muted-foreground">{dominio.descripcion}</p>
+      <p className="mt-1.5 text-sm text-muted-foreground">{departamento.descripcion}</p>
     </>
   );
 
-  // Un dominio sin construir no es un enlace ni un botón deshabilitado: no es
+  // Un departamento sin construir no es un enlace ni un botón deshabilitado: no es
   // un control. Se muestra atenuado y fuera del recorrido del teclado, para que
   // un lector de pantalla tampoco lo anuncie como algo accionable.
-  if (dominio.ruta === null) {
+  if (departamento.ruta === null) {
     return (
       <div className="h-full rounded-lg border border-border bg-card p-4 opacity-55">
         {contenido}
@@ -83,7 +83,7 @@ function CardDominio({ dominio, puedeEditar }: { dominio: Dominio; puedeEditar: 
 
   return (
     <Link
-      href={dominio.ruta}
+      href={departamento.ruta}
       className="block h-full rounded-lg border border-border bg-card p-4 transition-colors hover:border-ring hover:bg-panel-raised focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
     >
       {contenido}
