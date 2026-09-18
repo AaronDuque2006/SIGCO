@@ -60,7 +60,12 @@ export default function CambiarPasswordPage() {
     <main className="flex min-h-[100dvh] items-center justify-center p-6">
       <FondoCursor />
       <SelectorTemaFlotante />
-      <div className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-card p-6 sm:p-8">
+      {/* `data-panel-sobre-fondo`: la retícula del fondo se apaga al acercarse
+          a este elemento, para que no se corte seco contra su borde. */}
+      <div
+        data-panel-sobre-fondo
+        className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-card p-6 sm:p-8"
+      >
         <div className="mb-6">
           <EncabezadoVista titulo={forzado ? "Cambie su contraseña" : "Cambiar contraseña"}>
             {forzado

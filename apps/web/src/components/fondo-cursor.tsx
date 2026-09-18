@@ -62,6 +62,20 @@ const AJUSTES: Ajustes = {
   maxOpacity: 0.5,
 };
 
+/**
+ * Cuánto se extiende la penumbra alrededor de la tarjeta, en píxeles.
+ *
+ * La tarjeta es opaca y ya tapa lo que hay debajo, pero sin esto la retícula se
+ * encendía hasta el filo y ahí se cortaba seco — un borde duro que delataba que
+ * son dos capas. Con la penumbra el fondo se apaga *acercándose* a la tarjeta,
+ * así que el corte deja de existir.
+ */
+const PENUMBRA = 110;
+
+/** Distancia de un punto al rectángulo; 0 si cae adentro. */
+const distanciaAlPanel = (x: number, y: number, r: DOMRect): number =>
+  Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom));
+
 export function FondoCursor() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -87,6 +101,10 @@ export function FondoCursor() {
     let corriendo = false;
     let ultimoCuadro = 0;
     let rgb: [number, number, number] = [59, 130, 246];
+    // El panel que la retícula tiene que respetar. Se busca perezosamente: el
+    // canvas y la tarjeta montan en el mismo commit, pero depender del orden
+    // sería frágil.
+    let panel: HTMLElement | null = null;
 
     const leerColor = (): void => {
       const valor = getComputedStyle(document.documentElement).getPropertyValue("--primary");
@@ -144,6 +162,9 @@ export function FondoCursor() {
       const medio = AJUSTES.cellSize / 2;
       let algoVisible = false;
 
+      panel ??= document.querySelector<HTMLElement>("[data-panel-sobre-fondo]");
+      const rectaPanel = panel?.getBoundingClientRect() ?? null;
+
       for (let i = 0; i < alfas.length; i++) {
         let a = alfas[i];
         if (a <= 0) continue;
@@ -155,8 +176,20 @@ export function FondoCursor() {
         algoVisible = true;
 
         const [cx, cy] = centro(i);
+
+        // La penumbra se aplica **al pintar** y no sobre `alfas`: si se
+        // horneara en el estado, mover la ventana dejaría celdas apagadas
+        // para siempre en donde antes estaba la tarjeta.
+        let visible = a;
+        if (rectaPanel !== null) {
+          const d = distanciaAlPanel(cx, cy, rectaPanel);
+          if (d <= 0) continue;
+          if (d < PENUMBRA) visible = a * SUAVIZADO(d / PENUMBRA);
+        }
+        if (visible <= 0.002) continue;
+
         const degradado = ctx.createRadialGradient(cx, cy, medio * 0.1, cx, cy, AJUSTES.cellSize);
-        degradado.addColorStop(0, `rgba(${cr}, ${cg}, ${cb}, ${a})`);
+        degradado.addColorStop(0, `rgba(${cr}, ${cg}, ${cb}, ${visible})`);
         degradado.addColorStop(1, `rgba(${cr}, ${cg}, ${cb}, 0)`);
 
         ctx.beginPath();
