@@ -12,6 +12,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CampoPassword } from "@/components/campo-password";
+import { FondoCursor } from "@/components/fondo-cursor";
 import { MensajeDeCampo } from "@/components/mensaje-de-campo";
 import { SelectorTemaFlotante } from "@/components/selector-tema";
 import { EncabezadoVista } from "@/components/encabezado-vista";
@@ -56,8 +58,9 @@ export default function CambiarPasswordPage() {
 
   return (
     <main className="flex min-h-[100dvh] items-center justify-center p-6">
+      <FondoCursor />
       <SelectorTemaFlotante />
-      <div className="w-full max-w-sm">
+      <div className="relative z-10 w-full max-w-sm">
         <div className="mb-8">
           <EncabezadoVista titulo={forzado ? "Cambie su contraseña" : "Cambiar contraseña"}>
             {forzado
@@ -71,12 +74,11 @@ export default function CambiarPasswordPage() {
             <Label htmlFor="passwordActual">
               {forzado ? "Contraseña temporal" : "Contraseña actual"}
             </Label>
-            <Input
+            <CampoPassword
               id="passwordActual"
-              type="password"
               autoComplete="current-password"
               autoFocus
-              aria-invalid={form.formState.errors.passwordActual !== undefined}
+              invalido={form.formState.errors.passwordActual !== undefined}
               {...form.register("passwordActual")}
             />
             <MensajeDeCampo texto={form.formState.errors.passwordActual?.message} />
@@ -84,12 +86,11 @@ export default function CambiarPasswordPage() {
 
           <div className="space-y-2">
             <Label htmlFor="passwordNueva">Contraseña nueva</Label>
-            <Input
+            <CampoPassword
               id="passwordNueva"
-              type="password"
               autoComplete="new-password"
               aria-describedby="ayuda-password"
-              aria-invalid={form.formState.errors.passwordNueva !== undefined}
+              invalido={form.formState.errors.passwordNueva !== undefined}
               {...form.register("passwordNueva")}
             />
             <p id="ayuda-password" className="text-xs text-muted-foreground">
@@ -102,11 +103,10 @@ export default function CambiarPasswordPage() {
 
           <div className="space-y-2">
             <Label htmlFor="confirmacion">Repita la contraseña nueva</Label>
-            <Input
+            <CampoPassword
               id="confirmacion"
-              type="password"
               autoComplete="new-password"
-              aria-invalid={form.formState.errors.confirmacion !== undefined}
+              invalido={form.formState.errors.confirmacion !== undefined}
               {...form.register("confirmacion")}
             />
             <MensajeDeCampo texto={form.formState.errors.confirmacion?.message} />

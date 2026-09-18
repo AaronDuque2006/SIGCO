@@ -9,6 +9,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CampoPassword } from "@/components/campo-password";
+import { FondoCursor } from "@/components/fondo-cursor";
 import { MensajeDeCampo } from "@/components/mensaje-de-campo";
 import { SelectorTemaFlotante } from "@/components/selector-tema";
 import { useLogin, useSesion } from "@/lib/sesion";
@@ -38,8 +40,9 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-[100dvh] items-center justify-center p-6">
+      <FondoCursor />
       <SelectorTemaFlotante />
-      <div className="w-full max-w-sm">
+      <div className="relative z-10 w-full max-w-sm">
         <div className="mb-8 text-center">
           <h1 className="text-xl font-semibold tracking-tight">SICOG</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -63,11 +66,10 @@ export default function LoginPage() {
 
           <div className="space-y-2">
             <Label htmlFor="password">Contraseña</Label>
-            <Input
+            <CampoPassword
               id="password"
-              type="password"
               autoComplete="current-password"
-              aria-invalid={form.formState.errors.password !== undefined}
+              invalido={form.formState.errors.password !== undefined}
               {...form.register("password")}
             />
             <MensajeDeCampo texto={form.formState.errors.password?.message} />
