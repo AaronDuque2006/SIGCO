@@ -608,7 +608,11 @@ model ActividadRegistro {
   fechaDesde            DateTime @map("fecha_desde") @db.Date
   fechaHasta            DateTime @map("fecha_hasta") @db.Date
   cantidad              Int
-  hh                    Decimal  @db.Decimal(10, 2)
+  // Nullable desde la decision #83: una tarea recien asignada (RECIBIDO)
+  // todavia no tiene horas, y `null` dice "no se sabe" mientras que un cero
+  // afirmaria que tomo cero horas. El workbook no lo contemplaba porque no
+  // tiene flujo de asignacion: todas sus filas ya estan ejecutadas.
+  hh                    Decimal? @db.Decimal(10, 2)
   gerenciaRequirienteId Int      @map("gerencia_requiriente_id")
   // Catálogo cerrado de 3 (RECIBIDO, EN PROCESO, FINALIZADO) - ERD lo declara `string`, se respeta tal cual.
   estatus               String

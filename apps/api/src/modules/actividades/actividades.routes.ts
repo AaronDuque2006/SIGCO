@@ -2,7 +2,9 @@ import { Router, type Request, type Router as RouterType } from "express";
 import { z } from "zod";
 import { requireAuth, requirePasswordVigente } from "../../shared/auth.middleware.js";
 import { asyncHandler } from "../../shared/http.js";
+import { requireIdempotencia } from "../../shared/idempotencia.js";
 import * as catalogo from "./controllers/catalogo.controller.js";
+import * as registro from "./controllers/registro.controller.js";
 import { catalogoActividadesRepository as repo } from "./repositories/catalogo.repository.js";
 import { requireSupervisorDelDepartamento } from "./actividades.middleware.js";
 
@@ -76,5 +78,22 @@ router.patch(
 
 // Sólo lectura: son de Mantenimiento y este módulo las reutiliza (decisión #19).
 router.get("/regiones-mtto", asyncHandler(catalogo.listarRegiones));
+
+// ---------------------------------------------------------------------------
+// Registros de actividad. Leer lo puede cualquiera; crear, todos menos el
+// Analista, que recibe la asignación y la completa (decisión #83). Quién puede
+// qué lo resuelve el Service, que necesita ver la fila y el departamento
+// dueño: no es algo que un middleware pueda decidir mirando la ruta.
+// ---------------------------------------------------------------------------
+
+router.get("/registros", asyncHandler(registro.listar));
+router.get("/registros/:id", asyncHandler(registro.obtener));
+
+// `Idempotency-Key` es **obligatoria** acá: es el único POST del sistema sin
+// una clave natural que lo proteja, y sus horas alimentan indicadores
+// (decisión #82).
+router.post("/registros", asyncHandler(requireIdempotencia), asyncHandler(registro.crear));
+
+router.patch("/registros/:id", asyncHandler(registro.actualizar));
 
 export default router;

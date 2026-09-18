@@ -382,6 +382,13 @@ ctrl-operacional-gas/
     - **Un duplicado en vuelo recibe `409`.** Se descartó esperar el resultado y se descartó dejarlo pasar: dejar entrar al segundo porque el primero "parece trabado" es exactamente cuando duplicar cuesta más caro.
     - **Retención de 24 horas.** El único camino de re-entrega acá es el reintento de un navegador — no hay cola ni dead-letter que pueda reponer la misma intención una semana después. Si alguna vez se encola este `POST`, la retención tiene que pasar a cubrir ese camino.
 
+
+83. **Una tarea asignada y sin empezar no cuenta en el REAL, y sus horas son `null` hasta que alguien las trabaje.** Confirmado por el owner el 2026-09-18, al aparecer que el flujo de asignación de la #14.2 choca con una regla leída del workbook.
+    - **`RECIBIDO` es la única excepción a "el estatus no filtra el REAL"** (§14.4). Esa regla se leyó de un archivo donde **`RECIBIDO` no aparece ni una vez**, porque el Excel no tiene flujo de asignación: no dice nada sobre él. Contar una tarea recién asignada sumaría su `cantidad` al mes en que se estima que termina, y el reporte afirmaría que se hizo trabajo que nadie empezó. `EN PROCESO` sigue contando, que es lo que el workbook sí prueba.
+    - **`ACTIVIDAD_REGISTRO.hh` pasa a ser nullable** (migración `20260918130000`). `null` dice "todavía no se sabe"; un cero afirmaría que la tarea tomó cero horas, y las dos cosas son distintas cuando el promedio de horas por actividad sea un indicador. El workbook no lo contemplaba porque todas sus filas ya están ejecutadas.
+    - **Sobre quién crea**: el Analista no crea registros (§14.2) y su `PATCH` sólo alcanza a las filas **a su nombre** — completa, no reasigna. Cualquier otro puesto corrige lo de su departamento. Además el producto/servicio y la gerencia requiriente tienen que ser **del mismo departamento**: si no, una actividad de Mantenimiento podría imputarse contra una gerencia ajena y el reporte por departamento dejaría de cerrar.
+    - **Registrar a nombre de otro exige que esa persona sea del mismo departamento.** Imputarle horas a alguien de otro departamento le descuadraría su propio reporte sin que nadie de allá se entere.
+
 ---
 
 ## 7. ERD consolidado (vigente)

@@ -3,10 +3,12 @@ import type { TipoCorte } from "@sicog/shared-types";
 import { ConflictError } from "../../../shared/errors.js";
 import { prisma } from "../../../shared/prisma-client.js";
 
-// La columna es @db.Date. Se ancla todo a UTC para que "2026-09-10" vuelva
-// como "2026-09-10" sin corrimiento por zona horaria del servidor.
-export const fechaToDate = (fecha: string): Date => new Date(`${fecha}T00:00:00.000Z`);
-export const dateToFecha = (fecha: Date): string => fecha.toISOString().slice(0, 10);
+import { dateToFecha, fechaToDate } from "../../../shared/fechas.js";
+
+// Se reexportan: vivían acá y media docena de repositorios de Despacho las
+// importan desde este archivo. Mudarlas a `shared/` no tiene por qué obligar a
+// tocarlos a todos.
+export { dateToFecha, fechaToDate };
 
 export interface FilaGrid {
   cliente: {
