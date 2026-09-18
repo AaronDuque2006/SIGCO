@@ -418,6 +418,13 @@ dice.
 - **Don't** meter una segunda familia de iconos. La del proyecto es Tabler, con
   trazo `1.75` en línea y `2` en marcas sueltas.
 - **Don't** poner sombra decorativa. Si hace falta profundidad, se apila tono.
+  Cuando la tarjeta de autenticación tuvo que tapar el fondo animado, la
+  respuesta fue darle su superficie —no un `box-shadow`, que además habría
+  dejado la retícula visible debajo del formulario igual.
+- **Don't** llevar el fondo animado de `/login` y `/cambiar-password` a ninguna
+  pantalla operativa (decisión #85). Esas dos son la puerta y ahí el carácter no
+  compite con ningún número; una grilla de digitación es exactamente lo
+  contrario.
 - **Don't** usar el borde translúcido de shadcn sobre estas superficies.
 - **Don't** tratar el claro como el tema principal ni mover el predeterminado: el
   oscuro es la condición de la sala de control, y el claro existe para el día,

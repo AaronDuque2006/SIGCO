@@ -79,9 +79,17 @@ contactos, catálogos, ABM de clientes y fuentes, el reporte Balance Nación, el
 de consumo por sectores, la serie de recibido contra transportado, y el job de
 cierre diario.
 
-**No construido:** los módulos de Mantenimiento, Actividades, Calidad de Gas y
-Análisis Operacional. Los dos últimos **ni siquiera están diseñados**: no existe
-la planilla ni la especificación de origen.
+**Construido el 2026-09-18 — Actividades y Horas-Hombre**, el módulo
+transversal: bitácora con flujo de asignación (el supervisor asigna, quien
+ejecuta completa), plan anual, y los dos reportes. Va como **una sección por
+departamento** (decisión #84). Hoy sólo Mantenimiento tiene catálogo sembrado,
+porque es el único con planilla de origen; en los otros tres lo carga el
+Supervisor desde el ABM.
+
+**No construido:** la telemetría y las estaciones de Mantenimiento, que están
+modeladas y cerradas desde el principio. Calidad de Gas y Análisis Operacional
+**ni siquiera están diseñados**: no existe la planilla ni la especificación de
+origen.
 
 **Fase 2 comprometida — asistente de consulta con RAG local.** No está
 construido y no debe construirse todavía: la regla vigente es no agregar el

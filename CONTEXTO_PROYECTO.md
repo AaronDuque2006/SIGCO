@@ -389,6 +389,25 @@ ctrl-operacional-gas/
     - **Sobre quién crea**: el Analista no crea registros (§14.2) y su `PATCH` sólo alcanza a las filas **a su nombre** — completa, no reasigna. Cualquier otro puesto corrige lo de su departamento. Además el producto/servicio y la gerencia requiriente tienen que ser **del mismo departamento**: si no, una actividad de Mantenimiento podría imputarse contra una gerencia ajena y el reporte por departamento dejaría de cerrar.
     - **Registrar a nombre de otro exige que esa persona sea del mismo departamento.** Imputarle horas a alguien de otro departamento le descuadraría su propio reporte sin que nadie de allá se entere.
 
+
+84. **Actividades entra como una sección por departamento, con sub-navegación propia.** Confirmado por el owner el 2026-09-18, después de que un analista de Despacho buscara sus actividades desde Despacho y no las encontrara: el módulo sólo existía bajo Mantenimiento. La decisión #9 siempre dijo que era transversal, "un botón/sección por departamento", así que la expectativa era correcta y el recorte anterior no.
+    - **Una entrada en el menú lateral, no cuatro.** Las cuatro vistas —bitácora, plan anual, reportes, catálogos— viven en una sub-navegación dentro de la sección. Con cuatro entradas el menú de Despacho quedaba en **diez**, y la crítica de diseño del 2026-09-17 ya había marcado que sus seis estaban por encima de lo que alguien sostiene de un vistazo. El menú lateral dice en qué sección estoy; la sub-navegación, qué miro dentro de ella.
+    - **Las pantallas se parametrizaron, no se copiaron.** El mismo componente sirve a los cuatro departamentos, con un envoltorio fino por ruta. Duplicarlas habría reintroducido la deriva entre pantallas que la crítica encontró en todo lo demás.
+    - **El catálogo de Despacho arranca vacío y lo carga su Supervisor** desde el ABM de la propia sección. No hay planilla de origen como la de Mantenimiento (§9.2), y el owner confirmó que la estructura es la misma.
+    - **Apareció un bug que el catálogo vacío iba a destapar sí o sí**: `useDepartamentoId` deducía el id del departamento **a partir de sus insumos**, así que un departamento sin catálogo sembrado resolvía a `null` y la pantalla entera se quedaba sin datos. Ahora sale de `GET /actividades/departamentos`, que el módulo necesitaba igual porque `/api/usuarios/catalogos` es del superadmin (decisión #11).
+    - **`GET /registros/responsables` existe por la misma razón**: `/api/usuarios` es exclusivo del superadmin, y un Supervisor tiene que poder asignarle trabajo a su gente sin serlo. Expone `id`, `nombre` y `puesto` — lo mismo que la bitácora ya imprime en cada fila.
+
+85. **Las dos pantallas de autenticación llevan fondo animado; ninguna pantalla operativa lo lleva.** Pedido del owner el 2026-09-18 (`CursorGrid` de React Bits). Es una excepción explícita al principio de `DESIGN.md` de que "nada parpadea sin motivo y nada pide atención que no se ganó": login y cambio de contraseña **son la puerta, no el instrumento**, y ahí el carácter no compite con ningún número. El componente lo dice en su propio encabezado para que nadie lo lleve a una grilla de digitación.
+    - **Tres cambios sobre el original.** Escucha en `window` y no en su contenedor —el original obliga a que ese contenedor reciba eventos, y acá vive detrás del formulario— de modo que la capa entera es `pointer-events: none` y el formulario funciona intacto. El color se lee de `--primary` del `<html>` y se relee al cambiar `data-theme`, así acompaña al claro y al oscuro en vez de quedar pegado a un hex. Y con `prefers-reduced-motion` no dibuja nada.
+    - **La tarjeta lo ocluye apilando tono, no con una sombra.** La lectura literal del pedido era un `box-shadow`, pero `DESIGN.md` lo prohíbe —la profundidad acá se da apilando superficie— y además una sombra habría dejado la retícula visible debajo del formulario igual. La tarjeta se marca con `data-panel-sobre-fondo` y el fondo se atenúa en los 110px que la rodean, para que no se corte seco contra el borde.
+    - **La contraseña se puede ver, campo por campo.** Importa porque la temporal la **genera el sistema** (`carro-8602`, decisión #58) y se transcribe de un papel, que es donde la gente se equivoca — y el error vuelve como "credenciales inválidas", que no distingue un tipeo de una contraseña ajena. Un interruptor único para los tres campos del cambio dejaría las tres a la vista de quien pase por detrás. El botón queda **fuera del orden de tabulación**: quien llena el formulario con el teclado va de la contraseña al botón de enviar.
+
+86. **Los datos de demostración son plausibles, no reales.** Confirmado por el owner el 2026-09-18 para poder mostrar el sistema sin poner volúmenes operativos de PDVSA en una pantalla. `apps/api/src/scripts/sembrar-demo.ts` siembra una semana de Despacho y se deshace con `--limpiar`.
+    - **Las magnitudes están calibradas contra el reparto real de los 111 clientes** para que el total nacional caiga en el orden de los 1.800 MMPCED que declara `PRODUCT.md`. La primera corrida dio ~5.000, casi el triple: un total fuera de escala lo nota en la primera mirada cualquiera que conozca la operación, y ahí se pierde la demostración.
+    - **Los `CIERRE_PROMEDIO` no los escribe el script**: corre el **job de cierre real** sobre los días pasados, que es el único que puede escribirlos (decisión #42). Lo que se muestra es lo que el sistema calculó.
+    - **El recibido apunta al transportado completo**, no sólo a la suma de clientes. Apuntar a los clientes dejaba el recibido corto por construcción —el transportado incluye quema y transferencias (decisiones #74 y #79)— y salían seis días desempacados de siete: una tarjeta de condición que nunca cambia y una gráfica plana.
+    - **El generador va con semilla fija**, así que la demostración no cambia entre el ensayo y la función.
+
 ---
 
 ## 7. ERD consolidado (vigente)
@@ -696,47 +715,48 @@ erDiagram
 
 ### Por acá arranca la próxima sesión
 
-**Estado al cierre del 2026-09-17.** Despacho está completo y **no queda
-bloqueante conocido para retirar el Excel** (decisión #79 cerró el último).
-Todo lo que la sesión anterior dejó como próximo paso está hecho: la edición de
-usuarios (#80), la pasada de UI con `impeccable` (crítica 27/40, sus arreglos y
-el tema claro, #81) y el bloque de transferencias revisado en navegador.
+**Estado al cierre del 2026-09-18.** Despacho está completo y **el módulo de
+Actividades también**: API, pantallas y una semana de datos de demostración
+sembrada.
 
-**El módulo de Actividades está empezado, no construido.** Lo que existe:
+**Lo que se construyó en esta sesión**, sobre el contrato §14 escrito el día
+anterior:
 
-- **El contrato, §14**, escrito después de auditar `ACTIVIDADES MDC FINAL V4.xls`.
-  La auditoría corrigió dos premisas del propio contexto y sacó dos reglas que
-  no estaban en ninguna parte — leer §14.4 y §14.6 **antes** de escribir código,
-  porque cambian números.
-- **Los schemas y DTOs** en `packages/shared-validators/src/actividades.ts` y
-  `packages/shared-types/src/actividades.ts`, compilando.
-- **El seed**, que era el bloqueante real: `GERENCIA_REQUIRIENTE` estaba en cero
-  filas con un FK obligatorio, así que no se podía registrar ni una actividad.
-  Hoy hay 16 gerencias, 10 insumos y 24 productos/servicio.
+- **La API completa** (§14.3): catálogos con su ABM, `/registros` con
+  idempotencia y el flujo de asignación, `/metas` con carga anual
+  transaccional, y los dos reportes del §14.4. Todo verificado contra la base
+  real, no sólo contra el compilador.
+- **Las pantallas**, como **una sección por departamento** (decisión #84).
+  Mantenimiento y Despacho ya la tienen; el catálogo de Despacho arranca vacío
+  y lo carga su Supervisor.
+- **Fondo animado y ver-contraseña** en login y cambio de contraseña
+  (decisión #85).
+- **Una semana de datos de demostración** de Despacho (decisión #86), con los
+  cierres calculados por el job real.
 
 **Lo que sigue, en orden:**
 
-1. **La API de Actividades**: Repository → Service → Controller para los
-   catálogos, `/registros` y `/metas`, más los dos reportes del §14.4. Nada de
-   esto existe todavía — no hay un solo archivo en `apps/api/src/modules/actividades/`.
-2. **Las pantallas** del módulo, detrás del card de Mantenimiento del hub, que
-   sigue en "En desarrollo".
-3. **Decidir cómo se carga el plan anual** (grilla entera contra celda por
-   celda). El owner lo dejó explícitamente para cuando se vea la pantalla; el
-   contrato expone los dos endpoints para no forzarlo antes.
+1. **Telemetría y estaciones de Mantenimiento**, que está modelada y cerrada
+   desde el principio y no tiene ni API ni pantallas. Es lo único que le falta
+   a ese dominio: aparece atenuado en su menú.
+2. **El despliegue**, que sigue sin ocurrir. Si la presentación deriva en que
+   el área lo use, esto deja de ser opcional.
+3. **Calidad de Gas y Análisis Operacional**, que siguen sin diseñar porque no
+   existe planilla de origen para ninguno.
 
 Preguntas abiertas que sólo se contestan usando el sistema:
 
 - ¿Hacen falta **subtotales por sistema o región** en la grilla de Balance
   Diario? (decisión #60).
 - ¿**Pegar una columna desde Excel** en las grillas de digitación? Es la única
-  recomendación de la crítica de diseño que no se implementó: los analistas
-  vienen de un workbook donde pegaban la columna entera, pero hace falta
+  recomendación de la crítica de diseño que no se implementó, y necesita
   confirmar con el área el formato y qué pasa si lo pegado no calza con el
   filtro activo.
-- **Los dos huecos del §14.7**: `ACTIVIDAD_REGISTRO` no tiene tabla de historial
-  y no se guarda quién asignó una tarea. Las dos se arreglan con una migración,
-  y las dos son cambios a un modelo cerrado.
+- **Los dos huecos del §14.7**, que pesan más desde que el flujo de asignación
+  está construido: `ACTIVIDAD_REGISTRO` **no tiene tabla de historial** —un
+  supervisor puede corregir las horas que cargó un analista y no queda rastro,
+  y esas horas alimentan indicadores— y **no se guarda quién asignó** una
+  tarea. Los dos se arreglan con una migración chica sobre un modelo cerrado.
 
 ### Pendientes menores, no bloqueantes
 
