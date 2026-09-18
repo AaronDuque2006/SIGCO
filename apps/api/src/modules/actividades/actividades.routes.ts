@@ -80,6 +80,9 @@ router.patch(
 
 // Sólo lectura: son de Mantenimiento y este módulo las reutiliza (decisión #19).
 router.get("/regiones-mtto", asyncHandler(catalogo.listarRegiones));
+// Los cuatro departamentos. El módulo es transversal (decisión #9) y necesita
+// resolver el id de cada uno sin depender de que ya tenga catálogo cargado.
+router.get("/departamentos", asyncHandler(catalogo.listarDepartamentos));
 
 // ---------------------------------------------------------------------------
 // Registros de actividad. Leer lo puede cualquiera; crear, todos menos el

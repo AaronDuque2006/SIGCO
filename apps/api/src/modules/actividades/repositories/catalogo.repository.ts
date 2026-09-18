@@ -2,6 +2,7 @@ import { Prisma } from "@sicog/db";
 import type {
   GerenciaRequirienteDto,
   InsumoDto,
+  OpcionCatalogoDto,
   ProductoServicioDto,
   RegionMttoDto,
 } from "@sicog/shared-types";
@@ -45,6 +46,11 @@ export interface ICatalogoActividadesRepository {
   departamentoDeGerencia(id: number): Promise<number | null>;
 
   listarRegiones(): Promise<RegionMttoDto[]>;
+  /** Los cuatro departamentos. El módulo los necesita como catálogo propio
+   *  porque `/api/usuarios/catalogos` es del superadmin (decisión #11), y
+   *  porque el id no se puede deducir de los insumos cuando un departamento
+   *  todavía no tiene catálogo cargado. */
+  listarDepartamentos(): Promise<OpcionCatalogoDto[]>;
 }
 
 const insumoSelect = {
@@ -235,6 +241,13 @@ export class PrismaCatalogoActividadesRepository implements ICatalogoActividades
       select: { departamentoId: true },
     });
     return f?.departamentoId ?? null;
+  }
+
+  async listarDepartamentos(): Promise<OpcionCatalogoDto[]> {
+    return prisma.departamento.findMany({
+      select: { id: true, nombre: true },
+      orderBy: { nombre: "asc" },
+    });
   }
 
   // Sólo lectura: las 6 regiones de Mantenimiento se siembran y este módulo

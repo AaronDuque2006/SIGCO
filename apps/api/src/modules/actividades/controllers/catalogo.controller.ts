@@ -66,3 +66,7 @@ export async function actualizarGerencia(req: Request, res: Response): Promise<v
 export async function listarRegiones(_req: Request, res: Response): Promise<void> {
   res.json(singlePage(await servicio.listarRegiones()));
 }
+
+export async function listarDepartamentos(_req: Request, res: Response): Promise<void> {
+  res.json(singlePage(await servicio.listarDepartamentos()));
+}

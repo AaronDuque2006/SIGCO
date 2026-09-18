@@ -5,6 +5,7 @@ import type {
   GerenciaRequirienteDto,
   InsumoDto,
   MatrizMetasDto,
+  OpcionCatalogoDto,
   Paginated,
   ParticipacionDto,
   PlanVsRealDto,
@@ -30,9 +31,17 @@ import { api, ApiError } from "./api";
  * tres departamentos comparten la estructura y no tienen planilla de origen.
  */
 export const DEPARTAMENTO_MANTENIMIENTO = "Mantenimiento";
+export const DEPARTAMENTO_DESPACHO = "Despacho";
 
-export const puedeEditarMantenimiento = (sesion: UsuarioSesionDto | null): boolean =>
-  sesion?.departamentosQueEdita.includes(DEPARTAMENTO_MANTENIMIENTO) === true;
+export const puedeEditarDepartamento = (
+  sesion: UsuarioSesionDto | null,
+  departamento: string,
+): boolean => sesion?.departamentosQueEdita.includes(departamento) === true;
+
+/** Sólo Supervisor hacia arriba gobierna los catálogos (decisión #31) y carga
+ *  el plan anual (decisión #30). La puerta real es el 403 del backend. */
+export const esSupervisorOSuperior = (sesion: UsuarioSesionDto | null): boolean =>
+  sesion !== null && ["Gerente", "Superintendente", "Supervisor"].includes(sesion.puesto);
 
 /** El único puesto que no crea registros: recibe asignaciones (decisión #83). */
 export const puedeCrearRegistros = (sesion: UsuarioSesionDto | null): boolean =>
@@ -42,11 +51,21 @@ export const puedeCrearRegistros = (sesion: UsuarioSesionDto | null): boolean =>
 // Catálogos
 // ---------------------------------------------------------------------------
 
-/** El id del departamento, que los endpoints piden como número. Sale de los
- *  catálogos ya cargados en vez de cablearse: depende del orden del seed. */
+/**
+ * El id del departamento, que los endpoints piden como número.
+ *
+ * Sale de su propio catálogo y **no de los insumos**, que es de donde salía
+ * antes: un departamento sin catálogo cargado —que es el caso de Despacho, y
+ * el de los otros dos— no tiene ni un insumo del que deducirlo, así que la
+ * pantalla entera se quedaba sin id y sin datos.
+ */
 export function useDepartamentoId(nombre: string) {
-  const insumos = useInsumos();
-  return insumos.data?.find((i) => i.departamento.nombre === nombre)?.departamento.id ?? null;
+  const deptos = useQuery<OpcionCatalogoDto[], ApiError>({
+    queryKey: ["actividades", "departamentos"],
+    queryFn: () => lista<OpcionCatalogoDto>("/actividades/departamentos"),
+    staleTime: Infinity,
+  });
+  return deptos.data?.find((d) => d.nombre === nombre)?.id ?? null;
 }
 
 const lista = <T,>(ruta: string) => api<Paginated<T>>(ruta).then((r) => r.data);

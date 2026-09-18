@@ -10,6 +10,7 @@ import {
   IconChartBar,
   IconFlame,
   IconGauge,
+  IconClipboardList,
   IconPhone,
   IconTable,
 } from "@tabler/icons-react";
@@ -70,6 +71,16 @@ const VISTAS: Vista[] = [
     descripcion: "Balance nación y consumo",
     disponible: true,
     Icono: IconChartBar,
+  },
+  // El módulo transversal (decisión #9). Entra como **una** entrada y no como
+  // cuatro: sus sub-vistas viven en la sub-navegación de la propia sección,
+  // porque diez entradas en este menú no las sostiene nadie de un vistazo.
+  {
+    ruta: "/despacho/actividades",
+    nombre: "Actividades",
+    descripcion: "Bitácora y horas-hombre",
+    disponible: true,
+    Icono: IconClipboardList,
   },
 ];
 

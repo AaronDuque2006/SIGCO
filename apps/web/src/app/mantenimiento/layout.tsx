@@ -5,13 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Encabezado } from "@/components/encabezado";
 import { GuardiaSesion } from "@/components/guardia-sesion";
-import {
-  IconAntenna,
-  IconChartBar,
-  IconClipboardList,
-  IconListDetails,
-  IconTargetArrow,
-} from "@tabler/icons-react";
+import { IconAntenna, IconClipboardList } from "@tabler/icons-react";
 
 interface Vista {
   ruta: string;
@@ -31,30 +25,9 @@ const VISTAS: Vista[] = [
   {
     ruta: "/mantenimiento",
     nombre: "Actividades",
-    descripcion: "Bitácora y horas-hombre",
+    descripcion: "Bitácora, plan y reportes",
     disponible: true,
     Icono: IconClipboardList,
-  },
-  {
-    ruta: "/mantenimiento/plan",
-    nombre: "Plan anual",
-    descripcion: "Metas por mes",
-    disponible: true,
-    Icono: IconTargetArrow,
-  },
-  {
-    ruta: "/mantenimiento/reportes",
-    nombre: "Reportes",
-    descripcion: "Plan contra real",
-    disponible: true,
-    Icono: IconChartBar,
-  },
-  {
-    ruta: "/mantenimiento/catalogos",
-    nombre: "Catálogos",
-    descripcion: "Insumos, productos y gerencias",
-    disponible: true,
-    Icono: IconListDetails,
   },
   // Lo que el dominio va a tener y todavía no: se muestra atenuado y fuera del
   // recorrido del teclado, igual que los dominios sin construir del hub.

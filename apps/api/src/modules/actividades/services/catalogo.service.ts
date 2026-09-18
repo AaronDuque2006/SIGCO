@@ -1,6 +1,7 @@
 import type {
   GerenciaRequirienteDto,
   InsumoDto,
+  OpcionCatalogoDto,
   ProductoServicioDto,
   RegionMttoDto,
 } from "@sicog/shared-types";
@@ -70,6 +71,10 @@ export class CatalogoActividadesService {
 
   listarRegiones(): Promise<RegionMttoDto[]> {
     return this.repo.listarRegiones();
+  }
+
+  listarDepartamentos(): Promise<OpcionCatalogoDto[]> {
+    return this.repo.listarDepartamentos();
   }
 }
 
