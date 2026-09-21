@@ -154,7 +154,7 @@ ctrl-operacional-gas/
 25. En el módulo de Actividades, un superior ve **toda la cadena hacia abajo** (no solo un nivel) — confirmado.
 26. `USUARIO.rol` (obsoleto) se **reemplaza por completo** por `puesto_id` + `departamento_id` — confirmado.
 27. `DEPARTAMENTO`, `PUESTO`, `SUPERINTENDENCIA_DEPARTAMENTO` (tabla puente superintendente↔departamento) ya modeladas y cerradas — ver ERD sección 7.
-28. **Rediseño de `REPORTE_TELEMETRIA_ESTACION`**: 4 dimensiones independientes vía FK a `ESTADO_TELEMETRIA` (Comunicación, Eléctrico, Instrumentación, Caseta) en vez de un solo enum. `SISTEMA DE CONTROL LOCAL` → dimensión `INSTRUMENTACION` (se refiere al PLC). `AFECTACION POR HURTO` → valor dentro de `ELECTRICO`. "Esperando reporte" **no se guarda** — se calcula por ausencia de fila en la semana. `detalle_medicion` y `observacion` quedan como texto libre.
+28. ~~**Rediseño de `REPORTE_TELEMETRIA_ESTACION`**: 4 dimensiones independientes vía FK a `ESTADO_TELEMETRIA`~~ **Reemplazada por la decisión #87 el 2026-09-21.** Se deja escrita porque el razonamiento importa: la #28 leyó la hoja `REPORTE SEMANAL` de `DISPON_SISUGAS_Semana_35.xls` y dedujo bien las cuatro dimensiones, pero esa hoja **cubre 10 estaciones de 251** y es una lista aparte de candidatas a reactivación. El trabajo semanal del área vive en otras dos hojas y tiene otra forma.
 29. `ESTATUS` de `ACTIVIDAD_REGISTRO`: catálogo cerrado de 3 — **RECIBIDO → EN PROCESO → FINALIZADO**.
 30. `ACTIVIDAD_META` (plan anual de horas-hombre): la carga el **Supervisor** de cada departamento, **una vez al año** (una fila por `producto_servicio_id` + mes).
 31. **Gobernanza de catálogos "de negocio"** (`INSUMO`, `PRODUCTO_SERVICIO`, `ESTADO_TELEMETRIA`, `GERENCIA_REQUIRIENTE`, `ESTATUS` de Actividades, y `NOVEDAD_OPERATIVA.tipo` como candidato futuro): administrados por **Supervisor de su propio departamento hacia arriba** (Supervisor, Superintendente, Gerente) — nunca Superadmin (no conoce el dominio) ni cualquier Analista (riesgo de duplicados, ya visto en los Excel reales con "OPERATIVA" vs "OPERATIVO"). **Soft-delete** (`activo boolean`), nunca borrado físico, para no romper reportes históricos.
@@ -408,6 +408,21 @@ ctrl-operacional-gas/
     - **El recibido apunta al transportado completo**, no sólo a la suma de clientes. Apuntar a los clientes dejaba el recibido corto por construcción —el transportado incluye quema y transferencias (decisiones #74 y #79)— y salían seis días desempacados de siete: una tarjeta de condición que nunca cambia y una gráfica plana.
     - **El generador va con semilla fija**, así que la demostración no cambia entre el ensayo y la función.
 
+87. **La telemetría de Mantenimiento se modela como una bitácora de fallas, no como un parte semanal por estación.** Reemplaza la decisión #28, confirmada por el owner el 2026-09-21 después de auditar los dos archivos fuente. `REPORTE_TELEMETRIA_ESTACION` y `ESTADO_TELEMETRIA` desaparecen; entran `FALLA_ESTACION` (una fila por interrupción, con `desde`, `resuelta_en` y su causa) y `CAUSA_FALLA`. Migración `20260921120000_telemetria_como_bitacora_de_fallas`; no había una sola fila que migrar.
+    - **Qué encontró la auditoría.** La hoja `REPORTE SEMANAL`, de la que salió la #28, tiene **10 estaciones** y está rotulada como las que "ameritan poca inversión y pueden ser reactivadas con esfuerzo propio". Lo que el área publica sale de otras dos hojas: `ESTACIONES OPERATIVA` (las 47 que comunican esa semana) y `OBSERVACION` (las **201** en falla, con `Desde | Nodo | Estación | Causa | Observación`). 201 + 47 = 248, que es el total de la propia hoja, y el reparto por causa —hurto 139, eléctrico 27, comunicación 20, esperando reporte 10, control local 5— suma exactamente 201.
+    - **Por qué la forma vieja no servía.** Las fechas de inicio arrancan en **2009**: son interrupciones que llevan años abiertas y que el área anota **una sola vez**, cuando empiezan. Con una fila por estación y semana, sostener "CARRIZAL lleva caída desde 2017 por hurto" exigía escribir 248 filas semanales repitiendo el mismo dato para siempre. Con la bitácora, la disponibilidad de cualquier fecha es una consulta sobre el rango.
+    - **"Esperando reporte" sí se guarda**, al contrario de lo que decía la #28: es una de las cinco causas, con 10 casos en la semana auditada.
+    - **Una estación tiene a lo sumo una falla abierta.** Índice único parcial escrito a mano (`WHERE resuelta_en IS NULL`), porque Prisma no lo expresa declarativamente — mismo caso que el `CHECK` de la migración `20260910150000`. Es lo que hace que "operativa o en falla" tenga una sola respuesta.
+    - **El día en que una falla se resuelve, la estación ya cuenta como disponible.** La falla cubre `[desde, resuelta_en)`, no `[desde, resuelta_en]`. Se decidió el 2026-09-21 al encontrar el síntoma: con el intervalo cerrado, resolver una falla con fecha de hoy la dejaba cubriendo hoy, así que **el botón "Resolver hoy" no movía ni el inventario ni el indicador hasta el día siguiente** y parecía que no hacía nada. El día del regreso es un día de servicio, no de interrupción. `diasCaida` **sigue contando inclusive** —una falla que empezó y terminó el mismo día duró un día— porque responde otra pregunta: cuánto estuvo caída, no si hoy lo está.
+    - **El corte transporte/distribución se resuelve contra el inventario**, no contra las marcas de la hoja semanal, que trae las dos columnas marcadas en 46 de 47 filas. Verificado: clasificando las 47 operativas con el `tipo_red` del inventario sale el 28/19 que publica la hoja del año.
+
+88. **`ESTACION.tipo_red` pasa a ser opcional.** 3 de las 247 estaciones del inventario real (EL PILAR, MUELLE CARAICO y K88) no están marcadas ni como transporte ni como distribución, y las tres están en falla, o sea que **cuentan en el total de la disponibilidad**. Clasificarlas a dedo movería un indicador que el área publica, así que el modelo admite el hueco y la pantalla lo dice: transporte + distribución + sin clasificar = total.
+
+89. **El inventario de Mantenimiento entra al seed, y sus fallas entran por un script aparte.** El catálogo —20 áreas operacionales, 16 tipos de instrumento, 247 estaciones y sus 4.518 instrumentos— va en `seed.ts` como cualquier otro catálogo, generado por `tools/generar-estaciones.js`. Las 201 fallas van en `sembrar-fallas-mtto.ts`, separadas porque son datos operativos y no catálogo.
+    - **Acá los datos de demostración sí son reales**, al revés que en Despacho (decisión #86). El archivo publica un **estado de infraestructura** —qué estación está caída y por qué—, no volúmenes de gas entregados a clientes, así que no hay nada sensible que proteger y sí mucho que ganar: el módulo se muestra con el 19,8% real contra la meta de 95%, que es el problema que el área tiene.
+    - **Del inventario se descartan 4 filas duplicadas**: cuatro estaciones de Altagracia aparecen dos veces, la segunda con el nodo repetido como nombre (`N31`…`N34`). Mismo criterio con que la #14.5 descartó la segunda variante de `GUARDIA`. **`COCHE` en cambio no se descarta**: son dos estaciones reales distintas, en Margarita y en El Cují, con nodos distintos — por eso la clave única es `nodo` y no `nombre`.
+    - **Los dos archivos fuente derivaron entre sí.** El reporte semanal nombra 4 nodos que el inventario no tiene (`LQU`, `JMV`, `IAL`, `REZ`) y cuenta 248 estaciones contra las 247 del inventario deduplicado. Por eso el tablero reproduce exacto tres de las seis regiones y las otras tres quedan a una estación de distancia. **Es la discrepancia real entre dos planillas que nadie concilia**, no un error de carga: exactamente el tipo de cosa que el sistema existe para eliminar.
+
 ---
 
 ## 7. ERD consolidado (vigente)
@@ -441,9 +456,9 @@ erDiagram
   AREA_MTTO ||--o{ ESTACION : agrupa
   ESTACION ||--o{ ESTACION_INSTRUMENTO : tiene
   TIPO_INSTRUMENTO ||--o{ ESTACION_INSTRUMENTO : clasifica
-  ESTACION ||--o{ REPORTE_TELEMETRIA_ESTACION : genera
-  USUARIO ||--o{ REPORTE_TELEMETRIA_ESTACION : digita
-  ESTADO_TELEMETRIA ||--o{ REPORTE_TELEMETRIA_ESTACION : "clasifica (x4 FKs)"
+  ESTACION ||--o{ FALLA_ESTACION : registra
+  USUARIO ||--o{ FALLA_ESTACION : digita
+  CAUSA_FALLA ||--o{ FALLA_ESTACION : clasifica
 
   %% ===== DOMINIO E: ACTIVIDADES / HORAS-HOMBRE (transversal, sin relación funcional con A/B) =====
   DEPARTAMENTO ||--o{ INSUMO : clasifica
@@ -551,25 +566,21 @@ erDiagram
     string nombre
     string nodo UK
     string tipo_enlace_com "catálogo cerrado real: IP PDVSA, SATELITAL, SERIAL PDVSA"
-    enum tipo_red "T | D" }
+    enum tipo_red "T | D | NULL (3 de 247 sin clasificar en el inventario real)" }
   TIPO_INSTRUMENTO { int id PK
     string nombre }
   ESTACION_INSTRUMENTO { int id PK
     int estacion_id FK
     int tipo_instrumento_id FK
     int cantidad }
-  ESTADO_TELEMETRIA { int id PK
-    enum dimension "COMUNICACION | ELECTRICO | INSTRUMENTACION | CASETA (estructural, fijo)"
-    string nombre "catálogo editable por Supervisor+ de Mantenimiento"
+  CAUSA_FALLA { int id PK
+    string nombre UK "5 reales: hurto, suministro eléctrico, enlace de comunicación, sistema de control local, esperando reporte"
     boolean activo }
-  REPORTE_TELEMETRIA_ESTACION { bigint id PK
+  FALLA_ESTACION { bigint id PK
     int estacion_id FK
-    date fecha_reporte
-    int estado_comunicacion_id FK
-    int estado_electrico_id FK
-    int estado_instrumentacion_id FK
-    int estado_caseta_id FK
-    text detalle_medicion
+    int causa_falla_id FK
+    date desde "inicio de la interrupción; las hay de 2009"
+    date resuelta_en "NULL = sigue abierta; única parcial: una abierta por estación"
     text observacion
     int usuario_id FK }
 
@@ -736,13 +747,47 @@ anterior:
 
 **Lo que sigue, en orden:**
 
-1. **Telemetría y estaciones de Mantenimiento**, que está modelada y cerrada
-   desde el principio y no tiene ni API ni pantallas. Es lo único que le falta
-   a ese dominio: aparece atenuado en su menú.
+1. ~~**Telemetría y estaciones de Mantenimiento**~~ **Hecha el 2026-09-21** —
+   ver el bloque de abajo y el §15.
 2. **El despliegue**, que sigue sin ocurrir. Si la presentación deriva en que
    el área lo use, esto deja de ser opcional.
 3. **Calidad de Gas y Análisis Operacional**, que siguen sin diseñar porque no
    existe planilla de origen para ninguno.
+
+### Estado al cierre del 2026-09-21 — Telemetría
+
+**Mantenimiento quedó completo**: la auditoría de los dos archivos fuente
+reemplazó la decisión #28 por la **#87** (bitácora de fallas en vez de parte
+semanal por estación), y sobre ese modelo se construyó la API entera y sus tres
+pantallas.
+
+- **El modelo cambió**: `REPORTE_TELEMETRIA_ESTACION` y `ESTADO_TELEMETRIA`
+  salieron; entraron `FALLA_ESTACION` y `CAUSA_FALLA`, con un índice único
+  parcial que garantiza una sola falla abierta por estación. Migración
+  `20260921120000`. No había ni una fila que migrar.
+- **El inventario entró al seed** (decisión #89): 20 áreas, 16 tipos de
+  instrumento, 247 estaciones y 4.518 instrumentos, generados desde el
+  workbook por `tools/generar-estaciones.js`. Antes de esto el dominio no tenía
+  ni una estación sobre la cual reportar — el mismo hueco que el §14.5 encontró
+  con `GERENCIA_REQUIRIENTE`.
+- **La API completa** (§15), verificada con **38 comprobaciones de
+  comportamiento** contra la base real: catálogos, filtros, RBAC en sus dos
+  niveles, las reglas de la bitácora y los dos reportes.
+- **Las tres pantallas** tras la sub-navegación de Telemetría: Disponibilidad
+  (el tablero), Estaciones (el inventario con su detalle de instrumentos) y
+  Bitácora de fallas (con el alta y la resolución). Revisadas en un navegador
+  real.
+- **Las 201 fallas reales del reporte** se cargan con
+  `pnpm --filter api run sembrar-fallas-mtto`, que deja el sistema mostrando el
+  **19,8% de disponibilidad contra la meta de 95%** — que es el problema que el
+  área realmente tiene.
+
+**Lo que el tablero reproduce y lo que no.** Centro-Occidente, Occidente y
+Este-Oriente salen **idénticas** al cuadro publicado, y el corte de transporte
+da 28 igual que el archivo. Las otras tres regiones quedan a una estación de
+distancia porque **las dos planillas fuente derivaron entre sí**: el reporte
+semanal nombra 4 nodos que el inventario no tiene y cuenta 248 estaciones
+contra 247. No es un error de carga (ver decisión #89).
 
 **Para retomar en otra máquina o después de un rato**, además de los comandos
 del arranque en frío de `CLAUDE.md`:
@@ -779,7 +824,9 @@ Preguntas abiertas que sólo se contestan usando el sistema:
 
 ### Pendientes menores, no bloqueantes
 
-- Revisar con el Supervisor de Mantenimiento los dos valores de `ESTADO_TELEMETRIA` que se infirieron por simetría (§9.4 #9).
+- ~~Revisar con el Supervisor de Mantenimiento los dos valores de `ESTADO_TELEMETRIA` que se infirieron por simetría~~ **Sin objeto**: el catálogo desapareció con la decisión #87. Las 5 causas de falla que lo reemplazan **no se infirieron**, salen contadas del archivo y suman exactamente las 201 que publica.
+- **Preguntarle al área por los 4 nodos huérfanos** (`LQU`, `JMV`, `IAL`, `REZ`), que el reporte semanal nombra y el inventario no tiene (§15.5). Es lo que separa al tablero de reproducir el cuadro publicado exacto en las seis regiones.
+- **Las 3 estaciones sin clasificar T/D** (EL PILAR, MUELLE CARAICO, K88) esperan que alguien del área diga cuál es (decisión #88). Mientras tanto cuentan en el total y en ningún corte.
 - El Manual DAO se contradice sobre el nombre del 7º sistema: "Transcaribeño" (índice) vs "Transoceánico" (diapositivas internas). Se sembró como Transcaribeño (decisión #16).
 - El sector `Empresa Mixta` quedó con 0 clientes tras la decisión #47 — corresponde desactivarlo (soft-delete) si no se le encuentra uso.
 - Limpiar periódicamente las filas vencidas o revocadas de `SESION_REFRESH` (§12.3); podría ir en el mismo job del cierre diario.
@@ -991,7 +1038,8 @@ Esto le da sentido al catálogo de tres estados de la decisión #29, que hasta a
 | GET | `/registros/responsables?departamentoId` | A nombre de quién se puede registrar en ese departamento: `id`, `nombre` y `puesto`. Existe porque `/api/usuarios` es **exclusivo del superadmin** (decisión #11) y un Supervisor tiene que poder asignarle trabajo a su gente sin serlo. Expone lo mismo que la bitácora ya muestra en cada fila, y deja fuera las cuentas bloqueadas. **Va antes que `/registros/:id`** en el router. Sin paginar. |
 | GET | `/registros` | Filtros: `departamentoId`, `usuarioId`, `cadena`, `desde`, `hasta`, `productoServicioId`, `insumoId`, `gerenciaRequirienteId`, `regionId`, `soloNacional`, `estatus`, `q` (sobre `detalle`). Paginado, más recientes primero. |
 | POST | `/registros` | No Analista. `usuarioId` opcional: si falta, es quien tiene la sesión. |
-| GET · PATCH | `/registros/:id` | **Sin `DELETE`**: es una bitácora de horas-hombre que alimenta indicadores. Un registro que no va se corrige. |
+| GET · PATCH | `/registros/:id` | **Sin `DELETE`**: es una bitácora de horas-hombre que alimenta indicadores. Un registro que no va se corrige. Cada corrección va en la misma transacción que su fila de historial (§14.7). |
+| GET | `/registros/:id/historial` | Paginado, más nuevo primero. Foto de **todos** los campos corregibles antes de cada corrección (§14.7, decisión #3). |
 | GET | `/metas?anio&departamentoId` | La matriz del plan: una fila por producto/servicio con sus doce meses. Sin paginar — son 32 filas. |
 | PUT | `/metas/:anio` | Carga del año entero en una transacción. Supervisor+ (decisión #30). |
 | PATCH | `/metas/:id` | Una celda suelta. Existe para no forzar la forma de la pantalla antes de verla. |
@@ -1048,8 +1096,131 @@ Se reproduce **calculada**, no tecleada: en el workbook esa hoja no está enlaza
 
 ### 14.7 Abierto en este contrato
 
-- **`ACTIVIDAD_REGISTRO` no tiene tabla de historial**, a diferencia de las lecturas de Despacho. Corregir las horas de un registro ya cargado no deja rastro de quién lo hizo ni de cuál era el valor anterior, y estas horas alimentan indicadores de gestión. Si el área necesita esa trazabilidad es una tabla nueva y una migración; **no se agrega sin confirmarlo**, porque la decisión #3 se tomó para Despacho y nadie la extendió a este módulo.
-- **No se guarda quién asignó una tarea.** El modelo tiene un solo `usuarioId`, que es el responsable. Cuando un supervisor crea la fila a nombre de un analista, su propia identidad no queda en ninguna parte. Mismo trato: es una columna nueva, se confirma antes.
+- ~~**`ACTIVIDAD_REGISTRO` no tiene tabla de historial**~~, a diferencia de las lecturas de Despacho. **Resuelto el 2026-09-21**, confirmado junto con el mismo hueco en Mantenimiento (§15.5): `ActividadRegistroHistorial` guarda una foto de **todos** los campos corregibles del `PATCH` (no sólo `hh`) justo antes de cada corrección, en la misma transacción que la corrección (decisión #3, extendida). `GET /actividades/registros/:id/historial` lo expone paginado, y `ActividadRegistroDto.correcciones` trae el largo del historial.
+- **No se guarda quién asignó una tarea.** El modelo tiene un solo `usuarioId`, que es el responsable. Cuando un supervisor crea la fila a nombre de un analista, su propia identidad no queda en ninguna parte. **Sigue sin resolverse** (no estaba dentro del alcance confirmado el 2026-09-21, que fue sólo el historial): es una columna nueva, se confirma antes.
 - **Si un `FINALIZADO` se puede seguir editando** — y si el supervisor puede corregir una fila que el analista ya completó — no está decidido. Por ahora se permite, que es el comportamiento del Excel.
 - **Los otros tres departamentos no tienen catálogo.** Despacho, Calidad de Gas y Análisis Operacional comparten la estructura y necesitan sus propios `INSUMO`/`PRODUCTO_SERVICIO`/`GERENCIA_REQUIRIENTE`, que **no existen en ninguna planilla**. El módulo arranca usable sólo para Mantenimiento; el ABM está listo para que cada Supervisor cargue los suyos.
 - **Cómo se carga el plan anual** (grilla entera contra celda por celda) se decide al diseñar la pantalla, a pedido del owner. El contrato expone los dos endpoints para no forzar la decisión antes de verla en uso.
+
+---
+
+## 15. Contrato de la API — Módulo Mantenimiento / Telemetría
+
+Mismo enfoque contract-first del §11 y §14. Schemas en
+`packages/shared-validators/src/mantenimiento.ts`, DTOs en
+`packages/shared-types/src/mantenimiento.ts`. Diseñado el 2026-09-21 **después
+de auditar `INVENTARIO ESTACIONES.xls` y `DISPON_SISUGAS_Semana_35.xls`**, que
+reemplazaron la decisión #28 por la #87.
+
+### 15.1 Convenciones transversales
+
+- **Prefijo**: `/api/mantenimiento`. Mismo formato de error, misma validación
+  sólo en el borde, misma representación en el cable que el §11.
+- **El estado de una estación no se almacena**: se deriva de si tiene una falla
+  abierta que cubra la fecha consultada. No hay ningún campo `estado` que
+  alguien pueda dejar desactualizado.
+- **Paginación obligatoria** en `/estaciones` y `/fallas`. Los catálogos no se
+  paginan.
+
+### 15.2 Quién puede qué
+
+Dos puertas distintas, y la diferencia importa:
+
+- **Anotar y resolver fallas: cualquiera de Mantenimiento.** Es la operación
+  del día a día, así que la puerta es la misma que Despacho pone sobre sus
+  lecturas (`requireDepartamento`). No exige Supervisor.
+- **El inventario y el catálogo de causas: Supervisor+ de Mantenimiento**, las
+  dos condiciones encadenadas como en la decisión #67. Cambian el universo
+  sobre el que se calcula el indicador: agregar una estación mueve el
+  denominador de la disponibilidad que el área publica.
+- **Consultar lo puede hacer cualquiera**, de cualquier departamento
+  (decisión #22).
+
+### 15.3 Rutas
+
+| Método | Ruta | Notas |
+|---|---|---|
+| GET | `/areas?regionId` | Las 20 áreas operacionales, con su región y su conteo de estaciones. |
+| GET | `/tipos-instrumento` | Los 16 tipos ISA del inventario. |
+| GET | `/causas-falla` | Las 5 causas. Devuelve **también las inactivas**, con su bandera: las fallas históricas las nombran (decisión #31). |
+| POST · PATCH | `/causas-falla` · `/causas-falla/:id` | Supervisor+ de Mantenimiento. Soft-delete con `{ activo: false }`; sin `DELETE`. |
+| GET | `/estaciones` | Filtros: `regionId`, `areaId`, `tipoRed`, `tipoEnlaceCom`, `estado`, `causaFallaId`, `desde`/`hasta`, `q` (nodo o nombre). Paginado. |
+| POST | `/estaciones` | Supervisor+. |
+| GET · PATCH | `/estaciones/:id` | El detalle trae los instrumentos y la falla abierta. `PATCH` es Supervisor+. |
+| PUT | `/estaciones/:id/instrumentos` | Reemplaza el juego completo. Es `PUT` y no un `PATCH` por instrumento porque en el inventario real la fila se revisa entera cuando alguien va a la estación. |
+| GET | `/fallas` | Filtros: `estacionId`, `regionId`, `areaId`, `causaFallaId`, `tipoRed`, `soloAbiertas`, `desde`, `hasta`, `q` (nodo o nombre). **El rango filtra por solapamiento, no por contención**: una falla abierta en 2018 es parte de lo que pasa en 2026. Las abiertas primero, y dentro de ellas las más viejas arriba. |
+| POST | `/fallas` | Abre una falla. Departamento Mantenimiento. |
+| GET · PATCH | `/fallas/:id` | Corregir causa, fecha de inicio u observación. Cada corrección va en la misma transacción que su fila de historial (§15.5). |
+| GET | `/fallas/:id/historial` | Paginado, más nuevo primero. Foto de `causaFalla`/`desde`/`observacion` antes de cada corrección (§15.5, decisión #3). |
+| PUT | `/fallas/:id/resolver` | `{ resueltaEn }`. Es lo que devuelve la estación al conteo de disponibles. Guarda también quién resolvió (§15.5). |
+| GET | `/reportes/disponibilidad?fecha` | §15.4. Sin `fecha`, hoy. |
+| GET | `/reportes/serie-disponibilidad?anio` | §15.4. |
+
+**Sin `DELETE` en ninguna de las dos tablas.** Una estación que sale de
+servicio es una falla, no una fila que se borra. Una falla que no va se
+corrige, y una que terminó se resuelve: borrarla perdería el tiempo de caída,
+que es justamente el dato de gestión.
+
+**Las rutas de `/reportes` van antes que `/estaciones/:id` y `/fallas/:id`** en
+el router, mismo tropiezo que el §13.1 con `/usuarios/catalogos`.
+
+**`desde`/`hasta` significan lo mismo en los dos listados: filtran por
+solapamiento con el rango**, no por cuándo empezó la falla. Una falla abierta
+en 2018 aparece al pedir 2026, en `/estaciones` igual que en `/fallas`, porque
+sigue siendo parte de lo que pasa hoy — esconderla daría un conteo que no es
+el del área. (La primera versión de `/estaciones` sólo miraba la fecha de
+inicio de la falla vigente hoy, y eso dejaba afuera estaciones que llevaban
+meses o años caídas si no habían "empezado" dentro del rango pedido; se
+corrigió para que las dos rutas respondan la misma pregunta de la misma
+manera.) En `/estaciones`, una estación operativa no tiene fecha que
+comparar, así que usar el rango implica pedir las que estuvieron en falla en
+algún momento del período — la pantalla lo dice en una línea para que el
+conteo no sorprenda.
+
+### 15.4 Los reportes, tal como los calcula el archivo
+
+**Disponibilidad a una fecha.** Una estación está disponible si no tiene
+ninguna falla que cubra esa fecha (`desde <= fecha` y `resuelta_en` nula o
+posterior). Devuelve el total, el corte por tipo de red, el cuadro por región,
+el cuadro por área y el histograma de causas — las tres salidas que el archivo
+publica, pero **calculadas desde una sola fuente**. En el workbook cada una
+vive en una hoja distinta que nadie enlaza, así que pueden discrepar entre sí
+sin que nadie lo note (mismo hallazgo que el §14.4 sobre la participación).
+
+**Serie semanal contra la meta.** Las 52 semanas del año, evaluadas sobre el
+lunes de cada una, con `metaPorcentaje: 95` — el `NIVEL ÓPTIMO` del archivo,
+constante en las 52 semanas, por eso viaja como número y no como catálogo. Se
+resuelve con **una** consulta de las fallas que tocan el año y el cruce en
+memoria: preguntar semana por semana serían 52 viajes a la base para un gráfico.
+
+**Un porcentaje sin denominador viaja `null`**, no cero: mismo criterio que el
+REAL/PLAN del §14.4.
+
+### 15.5 Abierto en este contrato
+
+- ~~**`FALLA_ESTACION` no tiene tabla de historial.**~~ **Resuelto el
+  2026-09-21**: `FallaEstacionHistorial` guarda una foto de `causaFallaId`,
+  `desde` y `observacion` justo antes de cada `PATCH /fallas/:id`, en la misma
+  transacción que la corrección (mismo patrón que `LecturaBalanceHistorial`,
+  decisión #3, extendida por fin a este módulo). `GET /fallas/:id/historial`
+  lo expone paginado, y `FallaEstacionDto.correcciones` trae el largo del
+  historial para que la pantalla marque sólo las filas corregidas.
+- ~~**No se registra quién resolvió una falla**, sólo quién la abrió.~~
+  **Resuelto el 2026-09-21**: `FallaEstacion.usuarioResolvioId` (nullable,
+  `null` en las fallas resueltas antes de esta columna) se llena en
+  `PUT /fallas/:id/resolver` y viaja como `FallaEstacionDto.resueltaPor`.
+- **Reabrir no está modelado como tal.** Si una estación vuelve a caerse se
+  anota una falla nueva, que es lo correcto, pero nada vincula la segunda con
+  la primera ni permite preguntar "cuántas veces se cayó esta estación por la
+  misma causa". **Confirmado con el owner (2026-09-21): sigue sin hacerse**,
+  "hoy alcanza"; si el área lo pide es una columna.
+- **Los 4 nodos que el reporte semanal nombra y el inventario no tiene**
+  (`LQU`, `JMV`, `IAL`, `REZ`) quedan fuera. **Confirmado con el owner
+  (2026-09-21): sigue pendiente**, sólo alguien del área puede decir si son
+  estaciones nuevas que faltan en el inventario o nodos dados de baja que el
+  reporte arrastra.
+- **La ventana de "esperando reporte"**. Es una causa de falla como las otras,
+  pero conceptualmente significa "no sabemos": una estación que lleva 10 días
+  sin reportar no es lo mismo que una hurtada. **Confirmado con el owner
+  (2026-09-21): sigue sin distinguirse** — hoy cuenta igual que las demás
+  causas en el indicador, que es lo que hace el archivo.

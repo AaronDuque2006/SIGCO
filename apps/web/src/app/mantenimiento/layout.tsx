@@ -29,13 +29,11 @@ const VISTAS: Vista[] = [
     disponible: true,
     Icono: IconClipboardList,
   },
-  // Lo que el dominio va a tener y todavía no: se muestra atenuado y fuera del
-  // recorrido del teclado, igual que los dominios sin construir del hub.
   {
     ruta: "/mantenimiento/telemetria",
     nombre: "Telemetría",
-    descripcion: "Estaciones T&D",
-    disponible: false,
+    descripcion: "Estaciones y fallas",
+    disponible: true,
     Icono: IconAntenna,
   },
 ];
@@ -64,6 +62,12 @@ export default function MantenimientoLayout({ children }: LayoutProps<"/mantenim
 function MenuLateral() {
   const ruta = usePathname();
 
+  // La sección activa es la ruta más específica que cubre a la actual: si no,
+  // "/mantenimiento" competiría con "/mantenimiento/telemetria" y ninguna de
+  // las sub-vistas encendería su entrada.
+  const activa = VISTAS.filter((v) => v.disponible && (ruta === v.ruta || ruta.startsWith(`${v.ruta}/`)))
+    .sort((a, b) => b.ruta.length - a.ruta.length)[0]?.ruta;
+
   return (
     // En pantalla angosta el menú deja de ser lateral y pasa a ser una fila que
     // se desplaza: un panel fijo a la izquierda se comería el ancho que la
@@ -72,7 +76,7 @@ function MenuLateral() {
       <ul className="flex gap-2 overflow-x-auto md:flex-col md:overflow-visible">
         {VISTAS.map((vista) => (
           <li key={vista.ruta} className="shrink-0 md:shrink">
-            <EntradaMenu vista={vista} activa={ruta === vista.ruta} />
+            <EntradaMenu vista={vista} activa={activa === vista.ruta} />
           </li>
         ))}
       </ul>

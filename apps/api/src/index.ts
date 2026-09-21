@@ -6,6 +6,7 @@ import helmet from "helmet";
 import actividadesRoutes from "./modules/actividades/actividades.routes.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import despachoRoutes from "./modules/despacho/despacho.routes.js";
+import mantenimientoRoutes from "./modules/mantenimiento/mantenimiento.routes.js";
 import usuariosRoutes from "./modules/usuarios/usuarios.routes.js";
 import { env } from "./shared/env.js";
 import { errorHandler, notFoundHandler } from "./shared/http.js";
@@ -29,6 +30,7 @@ app.get("/health", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/actividades", actividadesRoutes);
 app.use("/api/despacho", despachoRoutes);
+app.use("/api/mantenimiento", mantenimientoRoutes);
 app.use("/api/usuarios", usuariosRoutes);
 
 app.use(notFoundHandler);

@@ -247,11 +247,20 @@ export function GraficaBarras({
   titulo,
   datos,
   total,
+  formatear = formatearVolumen,
+  vacio = "Sin datos ese día.",
 }: {
   titulo: string;
   datos: BarraDato[];
   /** Para el porcentaje del rótulo. Si es 0, no se muestra participación. */
   total: number;
+  /** Cómo se escribe el valor del rótulo. Por omisión, volúmenes con dos
+   *  decimales, que es lo que pide Despacho. Telemetría cuenta estaciones, que
+   *  son enteras: un "139,00" ahí diría que el número tiene una precisión que
+   *  no tiene. */
+  formatear?: (valor: number) => string;
+  /** Qué decir cuando no hay ni una barra. Depende de qué se esté graficando. */
+  vacio?: string;
 }) {
   const idTitulo = useId();
   // La escala se mide en valor absoluto: desde que una agrupación puede incluir
@@ -268,7 +277,7 @@ export function GraficaBarras({
       </figcaption>
 
       {datos.length === 0 ? (
-        <p className="mt-3 text-sm text-muted-foreground">Sin datos ese día.</p>
+        <p className="mt-3 text-sm text-muted-foreground">{vacio}</p>
       ) : (
         <ul className="mt-3 space-y-2" aria-labelledby={idTitulo}>
           {datos.map((d) => {
@@ -298,7 +307,7 @@ export function GraficaBarras({
                   />
                 </span>
                 <span className="font-mono text-xs tabular-nums">
-                  {formatearVolumen(d.valor)}
+                  {formatear(d.valor)}
                   {parte !== null ? (
                     <span className="ml-2 text-muted-foreground">{parte.toFixed(1)}%</span>
                   ) : null}

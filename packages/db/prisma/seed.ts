@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { CLIENTES_SEED } from "./clientes.seed.js";
+import { AREAS_SEED, ESTACIONES_SEED, TIPOS_INSTRUMENTO_SEED } from "./estaciones.seed.js";
 
 const prisma = new PrismaClient();
 
@@ -145,28 +146,113 @@ async function seedDepartamentoYPuesto() {
   }
 }
 
-// Valores reales confirmados en DISPON_SISUGAS_Semana_35.xls (hoja "REPORTE
-// SEMANAL"), con typos corregidos (decisión de esta sesión: normalizar
-// OPERATIVO/OPERATIVA y variantes descriptivas a un solo valor por estado).
-// ACTIVO (comunicación) y "EN FALLA" (eléctrico/instrumentación) no aparecen
-// literalmente en el archivo (que solo lista estaciones CON problemas), se
-// infirieron por simetría con las demás dimensiones - revisar con el
-// Supervisor de Mantenimiento antes de dar por cerrado el catálogo.
-async function seedEstadoTelemetria() {
-  if ((await prisma.estadoTelemetria.count()) > 0) return;
-  const valores: { dimension: "COMUNICACION" | "ELECTRICO" | "INSTRUMENTACION" | "CASETA"; nombre: string }[] = [
-    { dimension: "COMUNICACION", nombre: "Activo" },
-    { dimension: "COMUNICACION", nombre: "En falla" },
-    { dimension: "COMUNICACION", nombre: "Fuera de servicio" },
-    { dimension: "ELECTRICO", nombre: "Activo" },
-    { dimension: "ELECTRICO", nombre: "En falla" },
-    { dimension: "ELECTRICO", nombre: "Hurtado" },
-    { dimension: "INSTRUMENTACION", nombre: "Activo" },
-    { dimension: "INSTRUMENTACION", nombre: "En falla" },
-    { dimension: "CASETA", nombre: "Operativo" },
-    { dimension: "CASETA", nombre: "Necesita mantenimiento" },
+// Las 5 causas de falla del reporte semanal real (DISPON_SISUGAS_Semana_35.xls,
+// hoja "OBSERVACION"). Las cantidades de la semana 35 -hurto 139, eléctrico 27,
+// comunicación 20, esperando reporte 10, control local 5- suman exactamente las
+// 201 estaciones en falla que publica la hoja "DATOS Y GRAFICAS".
+async function seedCausaFalla() {
+  const nombres = [
+    "Afectación por hurto",
+    "Suministro eléctrico",
+    "Enlace de comunicación",
+    "Sistema de control local",
+    "Esperando reporte",
   ];
-  await prisma.estadoTelemetria.createMany({ data: valores });
+  await insertarFaltantes(
+    nombres,
+    (n) => n,
+    async () => (await prisma.causaFalla.findMany({ select: { nombre: true } })).map((c) => c.nombre),
+    (nuevas) => prisma.causaFalla.createMany({ data: nuevas.map((nombre) => ({ nombre })) }),
+  );
+}
+
+// Inventario real de Mantenimiento: 20 áreas operacionales, 16 tipos de
+// instrumento y 247 estaciones con sus cantidades, generado desde
+// "INVENTARIO ESTACIONES.xls" por tools/generar-estaciones.js.
+async function seedAreasEstacionesEInstrumentos() {
+  const regiones = new Map(
+    (await prisma.regionMtto.findMany({ select: { id: true, nombre: true } })).map((r) => [r.nombre, r.id]),
+  );
+
+  await insertarFaltantes(
+    AREAS_SEED,
+    (a) => `${a.region}|${a.nombre}`,
+    async () =>
+      (await prisma.areaMtto.findMany({ select: { nombre: true, region: { select: { nombre: true } } } })).map(
+        (a) => `${a.region.nombre}|${a.nombre}`,
+      ),
+    (nuevas) =>
+      prisma.areaMtto.createMany({
+        data: nuevas.map((a) => {
+          const regionId = regiones.get(a.region);
+          if (!regionId) throw new Error(`falta la región de mantenimiento "${a.region}"`);
+          return { nombre: a.nombre, regionId };
+        }),
+      }),
+  );
+
+  await insertarFaltantes(
+    TIPOS_INSTRUMENTO_SEED,
+    (n) => n,
+    async () => (await prisma.tipoInstrumento.findMany({ select: { nombre: true } })).map((t) => t.nombre),
+    (nuevos) => prisma.tipoInstrumento.createMany({ data: nuevos.map((nombre) => ({ nombre })) }),
+  );
+
+  const areas = new Map(
+    (
+      await prisma.areaMtto.findMany({ select: { id: true, nombre: true, region: { select: { nombre: true } } } })
+    ).map((a) => [`${a.region.nombre}|${a.nombre}`, a.id]),
+  );
+
+  await insertarFaltantes(
+    ESTACIONES_SEED,
+    (e) => e.nodo,
+    async () => (await prisma.estacion.findMany({ select: { nodo: true } })).map((e) => e.nodo),
+    (nuevas) =>
+      prisma.estacion.createMany({
+        data: nuevas.map((e) => {
+          const areaId = areas.get(`${e.region}|${e.area}`);
+          if (!areaId) throw new Error(`falta el área "${e.area}" de ${e.region}`);
+          return {
+            nodo: e.nodo,
+            nombre: e.nombre,
+            areaId,
+            tipoEnlaceCom: e.tipoEnlaceCom,
+            tipoRed: e.tipoRed,
+          };
+        }),
+      }),
+  );
+
+  const estaciones = new Map(
+    (await prisma.estacion.findMany({ select: { id: true, nodo: true } })).map((e) => [e.nodo, e.id]),
+  );
+  const tipos = new Map(
+    (await prisma.tipoInstrumento.findMany({ select: { id: true, nombre: true } })).map((t) => [t.nombre, t.id]),
+  );
+  const deseados = ESTACIONES_SEED.flatMap((e) =>
+    Object.entries(e.instrumentos).map(([tipo, cantidad]) => ({ nodo: e.nodo, tipo, cantidad })),
+  );
+
+  await insertarFaltantes(
+    deseados,
+    (i) => `${i.nodo}|${i.tipo}`,
+    async () =>
+      (
+        await prisma.estacionInstrumento.findMany({
+          select: { estacion: { select: { nodo: true } }, tipoInstrumento: { select: { nombre: true } } },
+        })
+      ).map((i) => `${i.estacion.nodo}|${i.tipoInstrumento.nombre}`),
+    (nuevos) =>
+      prisma.estacionInstrumento.createMany({
+        data: nuevos.map((i) => {
+          const estacionId = estaciones.get(i.nodo);
+          const tipoInstrumentoId = tipos.get(i.tipo);
+          if (!estacionId || !tipoInstrumentoId) throw new Error(`no resuelve ${i.nodo}|${i.tipo}`);
+          return { estacionId, tipoInstrumentoId, cantidad: i.cantidad };
+        }),
+      }),
+  );
 }
 
 // INSUMO/PRODUCTO_SERVICIO de Mantenimiento, de ACTIVIDADES MDC FINAL V4.xls
@@ -543,7 +629,8 @@ async function main() {
   await seedRegionMtto();
   await seedSectorCliente();
   await seedDepartamentoYPuesto();
-  await seedEstadoTelemetria();
+  await seedCausaFalla();
+  await seedAreasEstacionesEInstrumentos();
   await seedInsumoProductoServicio();
   await seedGerenciasRequirientes();
   await seedClientes();

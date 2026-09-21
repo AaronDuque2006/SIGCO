@@ -8,7 +8,8 @@
     "start": "node dist/index.js",
     "typecheck": "pnpm -w run contratos && tsc --noEmit",
     "crear-superadmin": "pnpm -w run contratos && dotenv -e ../../.env -- tsx src/scripts/crear-superadmin.ts",
-    "sembrar-demo": "pnpm -w run contratos && dotenv -e ../../.env -- tsx src/scripts/sembrar-demo.ts"
+    "sembrar-demo": "pnpm -w run contratos && dotenv -e ../../.env -- tsx src/scripts/sembrar-demo.ts",
+    "sembrar-fallas-mtto": "pnpm -w run contratos && dotenv -e ../../.env -- tsx src/scripts/sembrar-fallas-mtto.ts"
   },
   "dependencies": {
     "@sicog/db": "workspace:*",

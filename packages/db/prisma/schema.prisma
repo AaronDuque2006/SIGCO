@@ -40,11 +40,11 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider   = "postgresql"
   // Postgres local en Docker (decisión #40) - misma URL para runtime y
   // migraciones (ver .env y docker-compose.yml).
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
   extensions = [vector]
 }
 
@@ -64,15 +64,6 @@ enum TipoRed {
   @@map("tipo_red")
 }
 
-enum DimensionTelemetria {
-  COMUNICACION
-  ELECTRICO
-  INSTRUMENTACION
-  CASETA
-
-  @@map("dimension_telemetria")
-}
-
 // ===== DOMINIO A: DESPACHO =====
 
 model RegionOperativa {
@@ -88,9 +79,9 @@ model Sistema {
   id     Int    @id @default(autoincrement())
   nombre String
 
-  fuentes     Fuente[]
-  clientes    Cliente[]
-  subSistemas SubSistema[]
+  fuentes             Fuente[]
+  clientes            Cliente[]
+  subSistemas         SubSistema[]
   puntosTransferencia PuntoTransferencia[]
 
   @@map("sistemas")
@@ -120,17 +111,17 @@ model SubSistema {
 }
 
 model Cliente {
-  id        Int    @id @default(autoincrement())
-  regionId  Int    @map("region_id")
-  sistemaId Int    @map("sistema_id")
-  sectorId  Int    @map("sector_id")
+  id           Int    @id @default(autoincrement())
+  regionId     Int    @map("region_id")
+  sistemaId    Int    @map("sistema_id")
+  sectorId     Int    @map("sector_id")
   // Nullable: no todo sistema esta subdividido. Nulo significa "este cliente
   // cuelga directo de su sistema" (decision #78).
-  subSistemaId Int? @map("sub_sistema_id")
+  subSistemaId Int?   @map("sub_sistema_id")
   // Unico a nivel nacional: el nombre es como el area identifica al cliente, y
   // la grilla diaria es una fila por cliente - dos filas iguales no se podrian
   // distinguir al digitar. Los 111 clientes reales ya cumplen.
-  nombre    String @unique
+  nombre       String @unique
 
   region             RegionOperativa    @relation(fields: [regionId], references: [id])
   sistema            Sistema            @relation(fields: [sistemaId], references: [id])
@@ -197,8 +188,8 @@ model PuntoTransferencia {
   // workbook resuelve exactamente asi (FUENTES!Q31).
   bidireccional Boolean @default(false)
 
-  sistema    Sistema                 @relation(fields: [sistemaId], references: [id])
-  subSistema SubSistema?             @relation(fields: [subSistemaId], references: [id])
+  sistema    Sistema                @relation(fields: [sistemaId], references: [id])
+  subSistema SubSistema?            @relation(fields: [subSistemaId], references: [id])
   lecturas   LecturaTransferencia[]
 
   @@unique([sistemaId, nombre])
@@ -392,19 +383,22 @@ model AreaMtto {
 }
 
 model Estacion {
-  id            Int     @id @default(autoincrement())
-  areaId        Int     @map("area_id")
+  id            Int      @id @default(autoincrement())
+  areaId        Int      @map("area_id")
   nombre        String
-  nodo          String  @unique
+  nodo          String   @unique
   // Catálogo cerrado real: "IP PDVSA" | "SATELITAL" | "SERIAL PDVSA".
   // El ERD lo declara `string` (no enum), se respeta tal cual; validar la
   // lista cerrada en shared-validators (zod) del lado de la aplicación.
-  tipoEnlaceCom String  @map("tipo_enlace_com")
-  tipoRed       TipoRed @map("tipo_red")
+  tipoEnlaceCom String   @map("tipo_enlace_com")
+  // Opcional: 3 de las 247 estaciones del inventario real no están clasificadas
+  // ni como transporte ni como distribución, y sí cuentan en el total de la
+  // disponibilidad semanal. Clasificarlas a dedo movería el indicador.
+  tipoRed       TipoRed? @map("tipo_red")
 
-  area               AreaMtto                    @relation(fields: [areaId], references: [id])
-  instrumentos       EstacionInstrumento[]
-  reportesTelemetria ReporteTelemetriaEstacion[]
+  area         AreaMtto              @relation(fields: [areaId], references: [id])
+  instrumentos EstacionInstrumento[]
+  fallas       FallaEstacion[]
 
   @@map("estaciones")
 }
@@ -430,41 +424,64 @@ model EstacionInstrumento {
   @@map("estaciones_instrumento")
 }
 
-model EstadoTelemetria {
-  id        Int                 @id @default(autoincrement())
-  dimension DimensionTelemetria
-  nombre    String
-  activo    Boolean             @default(true)
+model CausaFalla {
+  id     Int     @id @default(autoincrement())
+  nombre String  @unique
+  activo Boolean @default(true)
 
-  reportesComunicacion    ReporteTelemetriaEstacion[] @relation("EstadoComunicacion")
-  reportesElectrico       ReporteTelemetriaEstacion[] @relation("EstadoElectrico")
-  reportesInstrumentacion ReporteTelemetriaEstacion[] @relation("EstadoInstrumentacion")
-  reportesCaseta          ReporteTelemetriaEstacion[] @relation("EstadoCaseta")
+  fallas FallaEstacion[]
 
-  @@map("estados_telemetria")
+  @@map("causas_falla")
 }
 
-model ReporteTelemetriaEstacion {
-  id                      BigInt   @id @default(autoincrement())
-  estacionId              Int      @map("estacion_id")
-  fechaReporte            DateTime @map("fecha_reporte") @db.Date
-  estadoComunicacionId    Int      @map("estado_comunicacion_id")
-  estadoElectricoId       Int      @map("estado_electrico_id")
-  estadoInstrumentacionId Int      @map("estado_instrumentacion_id")
-  estadoCasetaId          Int      @map("estado_caseta_id")
-  detalleMedicion         String?  @map("detalle_medicion")
-  observacion             String?
-  usuarioId               Int      @map("usuario_id")
+// Una fila por interrupción, no una por estación y semana: en el archivo real
+// las fallas llevan años abiertas (la más vieja arranca en 2011) y el área las
+// anota una sola vez, cuando empiezan. La disponibilidad de cualquier fecha es
+// una consulta sobre este rango, no un dato que alguien digite.
+model FallaEstacion {
+  id                BigInt    @id @default(autoincrement())
+  estacionId        Int       @map("estacion_id")
+  causaFallaId      Int       @map("causa_falla_id")
+  desde             DateTime  @db.Date
+  resueltaEn        DateTime? @map("resuelta_en") @db.Date
+  observacion       String?
+  usuarioId         Int       @map("usuario_id")
+  // Quien la resolvió, distinto de quien la abrió (§15.5, decisión pendiente
+  // resuelta el 2026-09-21). Nullable porque una falla abierta no tiene
+  // resolutor todavía, y las fallas ya resueltas antes de esta columna no
+  // tienen cómo saberlo.
+  usuarioResolvioId Int?      @map("usuario_resolvio_id")
 
-  estacion              Estacion         @relation(fields: [estacionId], references: [id])
-  estadoComunicacion    EstadoTelemetria @relation("EstadoComunicacion", fields: [estadoComunicacionId], references: [id])
-  estadoElectrico       EstadoTelemetria @relation("EstadoElectrico", fields: [estadoElectricoId], references: [id])
-  estadoInstrumentacion EstadoTelemetria @relation("EstadoInstrumentacion", fields: [estadoInstrumentacionId], references: [id])
-  estadoCaseta          EstadoTelemetria @relation("EstadoCaseta", fields: [estadoCasetaId], references: [id])
-  usuario               Usuario          @relation(fields: [usuarioId], references: [id])
+  estacion        Estacion                 @relation(fields: [estacionId], references: [id])
+  causaFalla      CausaFalla               @relation(fields: [causaFallaId], references: [id])
+  usuario         Usuario                  @relation("FallaEstacionAbiertaPor", fields: [usuarioId], references: [id])
+  usuarioResolvio Usuario?                 @relation("FallaEstacionResueltaPor", fields: [usuarioResolvioId], references: [id])
+  historial       FallaEstacionHistorial[]
 
-  @@unique([estacionId, fechaReporte])
-  @@map("reportes_telemetria_estacion")
+  @@index([estacionId, desde])
+  @@index([desde])
+  @@index([resueltaEn])
+  @@map("fallas_estacion")
+}
+
+// Corregir `desde` cambia el tiempo de caída, un indicador de gestión, y no
+// dejaba rastro (§15.5, mismo hueco que la decisión #3 dejó sin extender a
+// este módulo). Guarda una foto de los tres campos corregibles antes de cada
+// PATCH, no sólo el que cambió: es más simple que declarar qué campo fue y
+// evita un historial que no explica el resto del estado en ese momento.
+model FallaEstacionHistorial {
+  id              BigInt   @id @default(autoincrement())
+  fallaId         BigInt   @map("falla_id")
+  causaFallaIdAnt Int      @map("causa_falla_id_ant")
+  desdeAnt        DateTime @map("desde_ant") @db.Date
+  observacionAnt  String?  @map("observacion_ant")
+  usuarioId       Int      @map("usuario_id")
+  modificadoEn    DateTime @default(now()) @map("modificado_en")
+
+  falla   FallaEstacion @relation(fields: [fallaId], references: [id], onDelete: Cascade)
+  usuario Usuario       @relation(fields: [usuarioId], references: [id])
+
+  @@map("fallas_estacion_historial")
 }
 
 // ===== AUTORIZACIÓN =====
@@ -503,7 +520,7 @@ model Usuario {
   // datos operativos. Va aparte de PUESTO porque PUESTO es el organigrama
   // real de PDVSA (decision #23) y la decision #31 deja al superadmin
   // explicitamente fuera del negocio ("no conoce el dominio").
-  esSuperadmin   Boolean @default(false) @map("es_superadmin")
+  esSuperadmin Boolean @default(false) @map("es_superadmin")
 
   // Contrasena temporal: mientras `debeCambiarPassword` este en true la
   // sesion solo puede cambiar la contrasena; `passwordExpiraEn` es la
@@ -524,22 +541,25 @@ model Usuario {
   supervisor   Usuario?      @relation("Supervision", fields: [supervisorId], references: [id], onDelete: SetNull)
   subordinados Usuario[]     @relation("Supervision")
 
-  superintendencias        SuperintendenciaDepartamento[]
-  lecturasBalance          LecturaBalance[]
-  lecturasBalanceHistorial LecturaBalanceHistorial[]
-  lecturasFuente           LecturaFuente[]
-  lecturasFuenteHistorial  LecturaFuenteHistorial[]
-  quemasNacional           QuemaNacional[]
-  quemasNacionalHistorial  QuemaNacionalHistorial[]
-  lecturasTransferencia    LecturaTransferencia[]
+  superintendencias              SuperintendenciaDepartamento[]
+  lecturasBalance                LecturaBalance[]
+  lecturasBalanceHistorial       LecturaBalanceHistorial[]
+  lecturasFuente                 LecturaFuente[]
+  lecturasFuenteHistorial        LecturaFuenteHistorial[]
+  quemasNacional                 QuemaNacional[]
+  quemasNacionalHistorial        QuemaNacionalHistorial[]
+  lecturasTransferencia          LecturaTransferencia[]
   lecturasTransferenciaHistorial LecturaTransferenciaHistorial[]
-  novedadesOperativa       NovedadOperativa[]
-  reportesTelemetria       ReporteTelemetriaEstacion[]
-  actividadesRegistro      ActividadRegistro[]
-  clavesIdempotencia       ClaveIdempotencia[]
-  sesionesRefresh          SesionRefresh[]
-  logsLogin                LogLogin[]
-  logsIntentoNoAutorizado  LogIntentoNoAutorizado[]
+  novedadesOperativa             NovedadOperativa[]
+  fallasEstacionAbiertas         FallaEstacion[]                 @relation("FallaEstacionAbiertaPor")
+  fallasEstacionResueltas        FallaEstacion[]                 @relation("FallaEstacionResueltaPor")
+  fallasEstacionHistorial        FallaEstacionHistorial[]
+  actividadesRegistro            ActividadRegistro[]
+  actividadesRegistroHistorial   ActividadRegistroHistorial[]
+  clavesIdempotencia             ClaveIdempotencia[]
+  sesionesRefresh                SesionRefresh[]
+  logsLogin                      LogLogin[]
+  logsIntentoNoAutorizado        LogIntentoNoAutorizado[]
 
   @@map("usuarios")
 }
@@ -618,13 +638,43 @@ model ActividadRegistro {
   estatus               String
   detalle               String?
 
-  productoServicio    ProductoServicio    @relation(fields: [productoServicioId], references: [id])
-  usuario             Usuario             @relation(fields: [usuarioId], references: [id])
-  region              RegionMtto?         @relation(fields: [regionId], references: [id])
-  gerenciaRequiriente GerenciaRequiriente @relation(fields: [gerenciaRequirienteId], references: [id])
+  productoServicio    ProductoServicio             @relation(fields: [productoServicioId], references: [id])
+  usuario             Usuario                      @relation(fields: [usuarioId], references: [id])
+  region              RegionMtto?                  @relation(fields: [regionId], references: [id])
+  gerenciaRequiriente GerenciaRequiriente          @relation(fields: [gerenciaRequirienteId], references: [id])
+  historial           ActividadRegistroHistorial[]
 
   @@index([fechaDesde, fechaHasta])
   @@map("actividades_registro")
+}
+
+// Corregir las horas de un registro ya cargado no dejaba rastro de quién lo
+// hizo ni de cuál era el valor anterior, y esas horas alimentan indicadores
+// de gestión (§14.7, mismo hueco que la decisión #3 dejó sin extender a este
+// módulo). Guarda una foto de todos los campos corregibles del PATCH, no sólo
+// el que cambió — mismo criterio que `FallaEstacionHistorial`. Los ids "Ant"
+// son valores planos, no relaciones: son una foto de lo que fue, no una
+// referencia viva que deba seguir existiendo.
+model ActividadRegistroHistorial {
+  id                       BigInt   @id @default(autoincrement())
+  registroId               BigInt   @map("registro_id")
+  productoServicioIdAnt    Int      @map("producto_servicio_id_ant")
+  gerenciaRequirienteIdAnt Int      @map("gerencia_requiriente_id_ant")
+  regionIdAnt              Int?     @map("region_id_ant")
+  usuarioIdAnt             Int      @map("usuario_id_ant")
+  fechaDesdeAnt            DateTime @map("fecha_desde_ant") @db.Date
+  fechaHastaAnt            DateTime @map("fecha_hasta_ant") @db.Date
+  cantidadAnt              Int      @map("cantidad_ant")
+  hhAnt                    Decimal? @map("hh_ant") @db.Decimal(10, 2)
+  estatusAnt               String   @map("estatus_ant")
+  detalleAnt               String?  @map("detalle_ant")
+  usuarioId                Int      @map("usuario_id")
+  modificadoEn             DateTime @default(now()) @map("modificado_en")
+
+  registro ActividadRegistro @relation(fields: [registroId], references: [id], onDelete: Cascade)
+  usuario  Usuario           @relation(fields: [usuarioId], references: [id])
+
+  @@map("actividades_registro_historial")
 }
 
 model ActividadMeta {
