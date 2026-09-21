@@ -4,6 +4,7 @@ import {
   bigIntIdParamSchema,
   createActividadRegistroSchema,
   listActividadRegistrosQuerySchema,
+  paginationQuerySchema,
   updateActividadRegistroSchema,
 } from "@sicog/shared-validators";
 import { usuarioActual } from "../../../shared/auth.middleware.js";
@@ -29,6 +30,12 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
   const { id } = parseOrThrow(bigIntIdParamSchema, req.params);
   const datos = parseOrThrow(updateActividadRegistroSchema, req.body);
   res.json(await servicio.actualizar(usuarioActual(req).id, BigInt(id), datos));
+}
+
+export async function listarHistorial(req: Request, res: Response): Promise<void> {
+  const { id } = parseOrThrow(bigIntIdParamSchema, req.params);
+  const { page, pageSize } = parseOrThrow(paginationQuerySchema, req.query);
+  res.json(await servicio.obtenerHistorial(BigInt(id), page, pageSize));
 }
 
 const responsablesQuerySchema = z.object({

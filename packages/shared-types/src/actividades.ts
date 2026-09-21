@@ -68,6 +68,28 @@ export interface ActividadRegistroDto {
   hh: number | null;
   estatus: EstatusActividad;
   detalle: string | null;
+  /** Cuántas veces se corrigió este registro — el largo del historial (§14.7).
+   *  Mismo criterio que `FallaEstacionDto.correcciones`. */
+  correcciones: number;
+}
+
+/** Una entrada del historial de correcciones de un registro: la foto de todos
+ *  los campos corregibles justo antes del PATCH que los cambió. */
+export interface ActividadRegistroHistorialEntryDto {
+  id: string;
+  productoServicioIdAnt: number;
+  gerenciaRequirienteIdAnt: number;
+  regionIdAnt: number | null;
+  usuarioIdAnt: number;
+  fechaDesdeAnt: string;
+  fechaHastaAnt: string;
+  cantidadAnt: number;
+  hhAnt: number | null;
+  estatusAnt: EstatusActividad;
+  detalleAnt: string | null;
+  usuarioId: number;
+  usuarioNombre: string;
+  modificadoEn: string;
 }
 
 // ===========================================================================

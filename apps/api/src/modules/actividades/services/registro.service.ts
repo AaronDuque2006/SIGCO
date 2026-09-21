@@ -1,4 +1,9 @@
-import type { ActividadRegistroDto, Paginated, ResponsableDto } from "@sicog/shared-types";
+import type {
+  ActividadRegistroDto,
+  ActividadRegistroHistorialEntryDto,
+  Paginated,
+  ResponsableDto,
+} from "@sicog/shared-types";
 import type {
   CreateActividadRegistroInput,
   ListActividadRegistrosQuery,
@@ -131,7 +136,20 @@ export class RegistroActividadService {
       );
     }
 
-    return this.repo.actualizar(id, datos);
+    return this.repo.actualizar(id, datos, actorId);
+  }
+
+  async obtenerHistorial(
+    id: bigint,
+    page: number,
+    pageSize: number,
+  ): Promise<Paginated<ActividadRegistroHistorialEntryDto>> {
+    await this.obtener(id);
+    const [filas, totalItems] = await Promise.all([
+      this.repo.listHistorial(id, (page - 1) * pageSize, pageSize),
+      this.repo.countHistorial(id),
+    ]);
+    return paginate(filas, totalItems, page, pageSize);
   }
 
   private async cargarActor(id: number): Promise<Actor> {

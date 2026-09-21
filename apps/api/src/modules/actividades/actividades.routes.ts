@@ -96,6 +96,7 @@ router.get("/registros", asyncHandler(registro.listar));
 // §13.1 tuvo con `/usuarios/catalogos`.
 router.get("/registros/responsables", asyncHandler(registro.responsables));
 router.get("/registros/:id", asyncHandler(registro.obtener));
+router.get("/registros/:id/historial", asyncHandler(registro.listarHistorial));
 
 // `Idempotency-Key` es **obligatoria** acá: es el único POST del sistema sin
 // una clave natural que lo proteja, y sus horas alimentan indicadores

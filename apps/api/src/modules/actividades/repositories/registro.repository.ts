@@ -1,5 +1,9 @@
 import { Prisma } from "@sicog/db";
-import type { ActividadRegistroDto, ResponsableDto } from "@sicog/shared-types";
+import type {
+  ActividadRegistroDto,
+  ActividadRegistroHistorialEntryDto,
+  ResponsableDto,
+} from "@sicog/shared-types";
 import type { ListActividadRegistrosQuery } from "@sicog/shared-validators";
 import { prisma } from "../../../shared/prisma-client.js";
 import { traducirEscritura } from "../../../shared/prisma-errores.js";
@@ -24,7 +28,11 @@ export interface IRegistroActividadRepository {
   ): Promise<{ filas: ActividadRegistroDto[]; total: number }>;
   obtener(id: bigint): Promise<ActividadRegistroDto | null>;
   crear(datos: DatosRegistro): Promise<ActividadRegistroDto>;
-  actualizar(id: bigint, datos: Partial<DatosRegistro>): Promise<ActividadRegistroDto>;
+  actualizar(
+    id: bigint,
+    datos: Partial<DatosRegistro>,
+    usuarioId: number,
+  ): Promise<ActividadRegistroDto>;
   /** El departamento dueño de un producto/servicio, vía su insumo. */
   departamentoDeProducto(id: number): Promise<number | null>;
   departamentoDeGerencia(id: number): Promise<number | null>;
@@ -32,6 +40,12 @@ export interface IRegistroActividadRepository {
   cadenaHaciaAbajo(usuarioId: number): Promise<number[]>;
   /** A nombre de quién se puede registrar en un departamento. */
   responsables(departamentoId: number): Promise<ResponsableDto[]>;
+  listHistorial(
+    registroId: bigint,
+    skip: number,
+    take: number,
+  ): Promise<ActividadRegistroHistorialEntryDto[]>;
+  countHistorial(registroId: bigint): Promise<number>;
 }
 
 const select = {
@@ -68,6 +82,7 @@ const select = {
   },
   region: { select: { id: true, nombre: true } },
   usuario: { select: { id: true, nombre: true, puesto: { select: { nombre: true } } } },
+  _count: { select: { historial: true } },
 } as const;
 
 type Fila = Prisma.ActividadRegistroGetPayload<{ select: typeof select }>;
@@ -102,6 +117,7 @@ const aDto = (f: Fila): ActividadRegistroDto => ({
   hh: f.hh === null ? null : Number(f.hh),
   estatus: f.estatus as ActividadRegistroDto["estatus"],
   detalle: f.detalle,
+  correcciones: f._count.historial,
 });
 
 const aDatosPrisma = (d: Partial<DatosRegistro>): Prisma.ActividadRegistroUncheckedUpdateInput => ({
@@ -198,20 +214,100 @@ export class PrismaRegistroActividadRepository implements IRegistroActividadRepo
     }
   }
 
-  async actualizar(id: bigint, datos: Partial<DatosRegistro>): Promise<ActividadRegistroDto> {
+  // Corrección y bitácora en una sola transacción: si falla el historial no
+  // puede quedar el registro cambiado sin rastro (§14.7, mismo criterio que
+  // `LecturaBalanceRepository.corregir`, decisión #3).
+  async actualizar(
+    id: bigint,
+    datos: Partial<DatosRegistro>,
+    usuarioId: number,
+  ): Promise<ActividadRegistroDto> {
     try {
-      const f = await prisma.actividadRegistro.update({
-        where: { id },
-        data: aDatosPrisma(datos),
-        select,
+      return await prisma.$transaction(async (tx) => {
+        const actual = await tx.actividadRegistro.findUniqueOrThrow({ where: { id } });
+        await tx.actividadRegistroHistorial.create({
+          data: {
+            registroId: id,
+            productoServicioIdAnt: actual.productoServicioId,
+            gerenciaRequirienteIdAnt: actual.gerenciaRequirienteId,
+            regionIdAnt: actual.regionId,
+            usuarioIdAnt: actual.usuarioId,
+            fechaDesdeAnt: actual.fechaDesde,
+            fechaHastaAnt: actual.fechaHasta,
+            cantidadAnt: actual.cantidad,
+            hhAnt: actual.hh,
+            estatusAnt: actual.estatus,
+            detalleAnt: actual.detalle,
+            usuarioId,
+          },
+        });
+        const f = await tx.actividadRegistro.update({
+          where: { id },
+          data: aDatosPrisma(datos),
+          select,
+        });
+        return aDto(f);
       });
-      return aDto(f);
     } catch (err) {
       throw traducirEscritura(err, {
         repetido: "Ya existe ese registro",
         noExiste: "No existe el registro, o alguna de sus referencias",
       });
     }
+  }
+
+  listHistorial(
+    registroId: bigint,
+    skip: number,
+    take: number,
+  ): Promise<ActividadRegistroHistorialEntryDto[]> {
+    return prisma.actividadRegistroHistorial
+      .findMany({
+        where: { registroId },
+        select: {
+          id: true,
+          productoServicioIdAnt: true,
+          gerenciaRequirienteIdAnt: true,
+          regionIdAnt: true,
+          usuarioIdAnt: true,
+          fechaDesdeAnt: true,
+          fechaHastaAnt: true,
+          cantidadAnt: true,
+          hhAnt: true,
+          estatusAnt: true,
+          detalleAnt: true,
+          usuarioId: true,
+          usuario: { select: { nombre: true } },
+          modificadoEn: true,
+        },
+        orderBy: { modificadoEn: "desc" },
+        skip,
+        take,
+      })
+      .then((filas) =>
+        filas.map(
+          (h): ActividadRegistroHistorialEntryDto => ({
+            id: h.id.toString(),
+            productoServicioIdAnt: h.productoServicioIdAnt,
+            gerenciaRequirienteIdAnt: h.gerenciaRequirienteIdAnt,
+            regionIdAnt: h.regionIdAnt,
+            usuarioIdAnt: h.usuarioIdAnt,
+            fechaDesdeAnt: dateToFecha(h.fechaDesdeAnt),
+            fechaHastaAnt: dateToFecha(h.fechaHastaAnt),
+            cantidadAnt: h.cantidadAnt,
+            hhAnt: h.hhAnt === null ? null : Number(h.hhAnt),
+            estatusAnt: h.estatusAnt as ActividadRegistroHistorialEntryDto["estatusAnt"],
+            detalleAnt: h.detalleAnt,
+            usuarioId: h.usuarioId,
+            usuarioNombre: h.usuario.nombre,
+            modificadoEn: h.modificadoEn.toISOString(),
+          }),
+        ),
+      );
+  }
+
+  countHistorial(registroId: bigint): Promise<number> {
+    return prisma.actividadRegistroHistorial.count({ where: { registroId } });
   }
 
   async departamentoDeProducto(id: number): Promise<number | null> {
