@@ -33,6 +33,9 @@ async function seedSistemaYFuente() {
 
   const fuentes: { nombre: string; sistemaId: number }[] = [
     // Manual DAO: "Extracción San Joaquín" / "Criogénico San Joaquín" -> este sistema.
+    // Estas dos, más Santa Bárbara Tren A/B y C, Jusepín y El Tablazo LGN1/2
+    // (marcadas más abajo), son las plantas que procesan gas — PROCESA_GAS
+    // en FUENTES (decisión pendiente de numerar).
     { nombre: "San Joaquín Tren A y B", sistemaId: anacoJosePLC },
     { nombre: "San Joaquín Tren C", sistemaId: anacoJosePLC },
     // RECAT SJ / SJB FI FII: no aparecen con ese nombre exacto en el manual,
@@ -88,7 +91,25 @@ async function seedSistemaYFuente() {
       ),
     (nuevas) => prisma.fuente.createMany({ data: nuevas }),
   );
+
+  // `PROCESA_GAS` no lo cubre `insertarFaltantes` (sólo inserta filas nuevas):
+  // se marca aparte, y se repite en cada corrida porque es barato y así una
+  // fuente creada antes de esta decisión también queda al día.
+  await prisma.fuente.updateMany({
+    where: { nombre: { in: [...PLANTAS_QUE_PROCESAN] } },
+    data: { procesaGas: true },
+  });
 }
+
+const PLANTAS_QUE_PROCESAN = [
+  "San Joaquín Tren A y B",
+  "San Joaquín Tren C",
+  "Santa Bárbara Tren A y B",
+  "Santa Bárbara Tren C",
+  "Jusepín",
+  "El Tablazo LGN1",
+  "El Tablazo LGN2",
+] as const;
 
 // Inserta sólo lo que todavía no está. Permite ampliar un catálogo sin borrar
 // la base ni duplicar filas al re-correr el seed.

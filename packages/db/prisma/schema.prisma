@@ -159,6 +159,12 @@ model Fuente {
   // catalogo real ya trae el sistema en el nombre cuando hace falta
   // distinguir (decision #39). Las 31 fuentes reales ya cumplen.
   nombre    String @unique
+  // Plantas que procesan gas (San Joaquín, Santa Bárbara, Jusepín, El
+  // Tablazo LGN1/LGN2 — decisión pendiente de numerar): tienen un dato de
+  // "procesado" además del volumen que entra al balance. El resto de las
+  // fuentes (entregas directas, empresas mixtas) no procesan nada, sólo
+  // entregan, y no muestran ese campo.
+  procesaGas Boolean @default(false) @map("procesa_gas")
 
   sistema            Sistema            @relation(fields: [sistemaId], references: [id])
   lecturasFuente     LecturaFuente[]
@@ -237,11 +243,26 @@ model LecturaBalance {
   fecha         DateTime  @db.Date
   tipoCorte     TipoCorte @map("tipo_corte")
   volumenMmpced Decimal   @map("volumen_mmpced") @db.Decimal(14, 4)
+  // Hora real de la lectura en planta, no la de digitación: el dato llega
+  // desfasado y el analista quiere dejar constancia de cuándo ocurrió la
+  // medición. Nullable y sin CIERRE_PROMEDIO (decisión pendiente de numerar) —
+  // una media no tiene una sola hora.
+  horaLectura   DateTime? @map("hora_lectura") @db.Time
   usuarioId     Int       @map("usuario_id")
+  // El valor vigente también se puede corregir en el lugar desde la
+  // cuadrícula del historial, sin generar una corrección (misma decisión
+  // pendiente de numerar que `LecturaBalanceHistorial.editadoPorId`). A
+  // diferencia del PATCH normal, ese camino **no** baja el valor viejo al
+  // historial: justamente para que un número mal tecleado no entre en la
+  // media del CIERRE_PROMEDIO. `usuarioId` sigue siendo quien lo fijó; esto
+  // es quién lo retocó después.
+  editadoPorId  Int?      @map("editado_por_id")
+  editadoEn     DateTime? @map("editado_en")
 
-  cliente   Cliente                   @relation(fields: [clienteId], references: [id])
-  usuario   Usuario                   @relation(fields: [usuarioId], references: [id])
-  historial LecturaBalanceHistorial[]
+  cliente    Cliente                   @relation(fields: [clienteId], references: [id])
+  usuario    Usuario                   @relation("LecturaBalanceDigitadaPor", fields: [usuarioId], references: [id])
+  editadoPor Usuario?                  @relation("LecturaBalanceEditadaPor", fields: [editadoPorId], references: [id])
+  historial  LecturaBalanceHistorial[]
 
   @@unique([clienteId, fecha, tipoCorte])
   @@index([fecha])
@@ -249,24 +270,40 @@ model LecturaBalance {
 }
 
 model LecturaBalanceHistorial {
-  id               BigInt   @id @default(autoincrement())
-  lecturaId        BigInt   @map("lectura_id")
-  volumenMmpcedAnt Decimal  @map("volumen_mmpced_ant") @db.Decimal(14, 4)
-  usuarioId        Int      @map("usuario_id")
-  modificadoEn     DateTime @default(now()) @map("modificado_en")
+  id               BigInt    @id @default(autoincrement())
+  lecturaId        BigInt    @map("lectura_id")
+  volumenMmpcedAnt Decimal   @map("volumen_mmpced_ant") @db.Decimal(14, 4)
+  horaLecturaAnt   DateTime? @map("hora_lectura_ant") @db.Time
+  // Un valor del historial se puede corregir después (decisión pendiente de
+  // numerar): si el analista tecleó 500 por error, ese 500 entraba igual en
+  // la media del CIERRE_PROMEDIO (decisión #34) aunque lo hubiera corregido
+  // enseguida. Editarlo **pisa** el número original, así que esto amplía la
+  // decisión #3: el historial deja de ser inmutable y a cambio guarda quién
+  // lo retocó y cuándo, que es el rastro que queda.
+  editadoPorId     Int?      @map("editado_por_id")
+  editadoEn        DateTime? @map("editado_en")
+  usuarioId        Int       @map("usuario_id")
+  modificadoEn     DateTime  @default(now()) @map("modificado_en")
 
-  lectura LecturaBalance @relation(fields: [lecturaId], references: [id], onDelete: Cascade)
-  usuario Usuario        @relation(fields: [usuarioId], references: [id])
+  lectura    LecturaBalance @relation(fields: [lecturaId], references: [id], onDelete: Cascade)
+  usuario    Usuario        @relation("LecturaBalanceHistorialCorrigio", fields: [usuarioId], references: [id])
+  editadoPor Usuario?       @relation("LecturaBalanceHistorialEditadoPor", fields: [editadoPorId], references: [id])
 
   @@map("lecturas_balance_historial")
 }
 
 model LecturaFuente {
-  id            BigInt   @id @default(autoincrement())
-  fuenteId      Int      @map("fuente_id")
-  fecha         DateTime @db.Date
-  volumenMmpced Decimal  @map("volumen_mmpced") @db.Decimal(14, 4)
-  usuarioId     Int      @map("usuario_id")
+  id            BigInt    @id @default(autoincrement())
+  fuenteId      Int       @map("fuente_id")
+  fecha         DateTime  @db.Date
+  volumenMmpced Decimal   @map("volumen_mmpced") @db.Decimal(14, 4)
+  horaLectura   DateTime? @map("hora_lectura") @db.Time
+  usuarioId     Int       @map("usuario_id")
+  // Sólo para fuentes con `procesaGas`. Informativo: no entra en ningún
+  // cálculo del balance (recibido sigue siendo `volumenMmpced`, decisiones
+  // #62/#74) — el owner lo pidió igual porque el área lo registra en el
+  // workbook real y perderlo sería un retroceso frente al Excel.
+  procesado     Decimal?  @db.Decimal(14, 4)
 
   fuente    Fuente                   @relation(fields: [fuenteId], references: [id])
   usuario   Usuario                  @relation(fields: [usuarioId], references: [id])
@@ -278,11 +315,13 @@ model LecturaFuente {
 }
 
 model LecturaFuenteHistorial {
-  id               BigInt   @id @default(autoincrement())
-  lecturaFuenteId  BigInt   @map("lectura_fuente_id")
-  volumenMmpcedAnt Decimal  @map("volumen_mmpced_ant") @db.Decimal(14, 4)
-  usuarioId        Int      @map("usuario_id")
-  modificadoEn     DateTime @default(now()) @map("modificado_en")
+  id               BigInt    @id @default(autoincrement())
+  lecturaFuenteId  BigInt    @map("lectura_fuente_id")
+  volumenMmpcedAnt Decimal   @map("volumen_mmpced_ant") @db.Decimal(14, 4)
+  horaLecturaAnt   DateTime? @map("hora_lectura_ant") @db.Time
+  procesadoAnt     Decimal?  @map("procesado_ant") @db.Decimal(14, 4)
+  usuarioId        Int       @map("usuario_id")
+  modificadoEn     DateTime  @default(now()) @map("modificado_en")
 
   lecturaFuente LecturaFuente @relation(fields: [lecturaFuenteId], references: [id], onDelete: Cascade)
   usuario       Usuario       @relation(fields: [usuarioId], references: [id])
@@ -291,14 +330,19 @@ model LecturaFuenteHistorial {
 }
 
 model QuemaNacional {
-  id        BigInt    @id @default(autoincrement())
-  fecha     DateTime  @db.Date
-  tipoCorte TipoCorte @map("tipo_corte")
-  mmpced    Decimal   @db.Decimal(14, 4)
-  usuarioId Int       @map("usuario_id")
+  id           BigInt    @id @default(autoincrement())
+  fecha        DateTime  @db.Date
+  tipoCorte    TipoCorte @map("tipo_corte")
+  mmpced       Decimal   @db.Decimal(14, 4)
+  horaLectura  DateTime? @map("hora_lectura") @db.Time
+  usuarioId    Int       @map("usuario_id")
+  // Ver `LecturaBalance.editadoPorId`.
+  editadoPorId Int?      @map("editado_por_id")
+  editadoEn    DateTime? @map("editado_en")
 
-  usuario   Usuario                  @relation(fields: [usuarioId], references: [id])
-  historial QuemaNacionalHistorial[]
+  usuario    Usuario                  @relation("QuemaNacionalDigitadaPor", fields: [usuarioId], references: [id])
+  editadoPor Usuario?                 @relation("QuemaNacionalEditadaPor", fields: [editadoPorId], references: [id])
+  historial  QuemaNacionalHistorial[]
 
   @@unique([fecha, tipoCorte])
   @@map("quemas_nacional")
@@ -310,14 +354,19 @@ model QuemaNacional {
 // QuemaNacional (arriba), calculado como media simple de este historial + el
 // valor final vigente del día.
 model QuemaNacionalHistorial {
-  id              BigInt   @id @default(autoincrement())
-  quemaNacionalId BigInt   @map("quema_nacional_id")
-  mmpcedAnt       Decimal  @map("mmpced_ant") @db.Decimal(14, 4)
-  usuarioId       Int      @map("usuario_id")
-  modificadoEn    DateTime @default(now()) @map("modificado_en")
+  id              BigInt    @id @default(autoincrement())
+  quemaNacionalId BigInt    @map("quema_nacional_id")
+  mmpcedAnt       Decimal   @map("mmpced_ant") @db.Decimal(14, 4)
+  horaLecturaAnt  DateTime? @map("hora_lectura_ant") @db.Time
+  // Mismo criterio que `LecturaBalanceHistorial.editadoPorId`.
+  editadoPorId    Int?      @map("editado_por_id")
+  editadoEn       DateTime? @map("editado_en")
+  usuarioId       Int       @map("usuario_id")
+  modificadoEn    DateTime  @default(now()) @map("modificado_en")
 
   quemaNacional QuemaNacional @relation(fields: [quemaNacionalId], references: [id], onDelete: Cascade)
-  usuario       Usuario       @relation(fields: [usuarioId], references: [id])
+  usuario       Usuario       @relation("QuemaNacionalHistorialCorrigio", fields: [usuarioId], references: [id])
+  editadoPor    Usuario?      @relation("QuemaNacionalHistorialEditadoPor", fields: [editadoPorId], references: [id])
 
   @@map("quemas_nacional_historial")
 }
@@ -541,25 +590,29 @@ model Usuario {
   supervisor   Usuario?      @relation("Supervision", fields: [supervisorId], references: [id], onDelete: SetNull)
   subordinados Usuario[]     @relation("Supervision")
 
-  superintendencias              SuperintendenciaDepartamento[]
-  lecturasBalance                LecturaBalance[]
-  lecturasBalanceHistorial       LecturaBalanceHistorial[]
-  lecturasFuente                 LecturaFuente[]
-  lecturasFuenteHistorial        LecturaFuenteHistorial[]
-  quemasNacional                 QuemaNacional[]
-  quemasNacionalHistorial        QuemaNacionalHistorial[]
-  lecturasTransferencia          LecturaTransferencia[]
-  lecturasTransferenciaHistorial LecturaTransferenciaHistorial[]
-  novedadesOperativa             NovedadOperativa[]
-  fallasEstacionAbiertas         FallaEstacion[]                 @relation("FallaEstacionAbiertaPor")
-  fallasEstacionResueltas        FallaEstacion[]                 @relation("FallaEstacionResueltaPor")
-  fallasEstacionHistorial        FallaEstacionHistorial[]
-  actividadesRegistro            ActividadRegistro[]
-  actividadesRegistroHistorial   ActividadRegistroHistorial[]
-  clavesIdempotencia             ClaveIdempotencia[]
-  sesionesRefresh                SesionRefresh[]
-  logsLogin                      LogLogin[]
-  logsIntentoNoAutorizado        LogIntentoNoAutorizado[]
+  superintendencias               SuperintendenciaDepartamento[]
+  lecturasBalance                 LecturaBalance[]                @relation("LecturaBalanceDigitadaPor")
+  lecturasBalanceEditadas         LecturaBalance[]                @relation("LecturaBalanceEditadaPor")
+  lecturasBalanceHistorial        LecturaBalanceHistorial[]       @relation("LecturaBalanceHistorialCorrigio")
+  lecturasBalanceHistorialEditado LecturaBalanceHistorial[]       @relation("LecturaBalanceHistorialEditadoPor")
+  lecturasFuente                  LecturaFuente[]
+  lecturasFuenteHistorial         LecturaFuenteHistorial[]
+  quemasNacional                  QuemaNacional[]                 @relation("QuemaNacionalDigitadaPor")
+  quemasNacionalEditadas          QuemaNacional[]                 @relation("QuemaNacionalEditadaPor")
+  quemasNacionalHistorial         QuemaNacionalHistorial[]        @relation("QuemaNacionalHistorialCorrigio")
+  quemasNacionalHistorialEditado  QuemaNacionalHistorial[]        @relation("QuemaNacionalHistorialEditadoPor")
+  lecturasTransferencia           LecturaTransferencia[]
+  lecturasTransferenciaHistorial  LecturaTransferenciaHistorial[]
+  novedadesOperativa              NovedadOperativa[]
+  fallasEstacionAbiertas          FallaEstacion[]                 @relation("FallaEstacionAbiertaPor")
+  fallasEstacionResueltas         FallaEstacion[]                 @relation("FallaEstacionResueltaPor")
+  fallasEstacionHistorial         FallaEstacionHistorial[]
+  actividadesRegistro             ActividadRegistro[]
+  actividadesRegistroHistorial    ActividadRegistroHistorial[]
+  clavesIdempotencia              ClaveIdempotencia[]
+  sesionesRefresh                 SesionRefresh[]
+  logsLogin                       LogLogin[]
+  logsIntentoNoAutorizado         LogIntentoNoAutorizado[]
 
   @@map("usuarios")
 }
