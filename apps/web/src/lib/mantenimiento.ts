@@ -92,6 +92,47 @@ export const useEstacion = (id: number | null) =>
     enabled: id !== null,
   });
 
+/**
+ * Alta de una estación. Supervisor+ de Mantenimiento (§15.2) — el backend es
+ * quien lo exige de verdad; acá sólo se invalida lo que cambia con el
+ * inventario: el listado y el tablero de disponibilidad, que cuenta
+ * estaciones.
+ */
+export const useCrearEstacion = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (datos: {
+      nodo: string;
+      nombre: string;
+      areaId: number;
+      tipoEnlaceCom: string;
+      tipoRed: "TRANSPORTE" | "DISTRIBUCION" | null;
+    }) => api<EstacionDetalleDto>("/mantenimiento/estaciones", { metodo: "POST", cuerpo: datos }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["mtto", "estaciones"] });
+      void qc.invalidateQueries({ queryKey: ["mtto", "disponibilidad"] });
+    },
+  });
+};
+
+export const useActualizarEstacion = (id: number) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (datos: {
+      nombre?: string;
+      areaId?: number;
+      tipoEnlaceCom?: string;
+      tipoRed?: "TRANSPORTE" | "DISTRIBUCION" | null;
+    }) =>
+      api<EstacionDetalleDto>(`/mantenimiento/estaciones/${id}`, { metodo: "PATCH", cuerpo: datos }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["mtto", "estaciones"] });
+      void qc.invalidateQueries({ queryKey: ["mtto", "estacion", id] });
+      void qc.invalidateQueries({ queryKey: ["mtto", "disponibilidad"] });
+    },
+  });
+};
+
 // ---------------------------------------------------------------------------
 // Bitácora de fallas
 // ---------------------------------------------------------------------------

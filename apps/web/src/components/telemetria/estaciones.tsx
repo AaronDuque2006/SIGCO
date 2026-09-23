@@ -1,23 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import type { EstacionDto } from "@sicog/shared-types";
+import type { EstacionDetalleDto, EstacionDto } from "@sicog/shared-types";
 import { EncabezadoVista } from "@/components/encabezado-vista";
+import { AvisoSoloConsulta } from "@/components/aviso-solo-consulta";
 import { TablaDesplazable, TH } from "@/components/tabla-desplazable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { ApiError } from "@/lib/api";
 import {
+  DEPARTAMENTO_MANTENIMIENTO,
   formatearDiasCaida,
+  useActualizarEstacion,
   useAreas,
   useCausasFalla,
+  useCrearEstacion,
   useEstacion,
   useEstaciones,
   type FiltrosEstaciones,
 } from "@/lib/mantenimiento";
+import { useSesion } from "@/lib/sesion";
 import { SubNavTelemetria } from "./sub-nav";
+
+/** Catálogo cerrado real (§15.1): el ERD lo declara `string`, no enum, pero la
+ *  lista de valores es fija — mismo criterio que `packages/shared-validators`. */
+const TIPOS_ENLACE = ["IP PDVSA", "SATELITAL", "SERIAL PDVSA"] as const;
 
 const hoy = (): string => new Date().toISOString().slice(0, 10);
 
@@ -29,6 +39,13 @@ const hoy = (): string => new Date().toISOString().slice(0, 10);
  * real esas tres cosas viven en tres hojas distintas.
  */
 export function Estaciones() {
+  const { sesion } = useSesion();
+  // Mismo criterio que la bitácora de fallas: es la puerta del departamento,
+  // no la de Supervisor+ que exige el backend para escribir en el inventario
+  // (§15.2) — esa la resuelve el 403, la UI sólo evita ofrecer un control que
+  // sabe que va a rebotar para casi todo el mundo del departamento.
+  const puedeEditar = sesion?.departamentosQueEdita.includes(DEPARTAMENTO_MANTENIMIENTO) === true;
+
   const [filtros, setFiltros] = useState<FiltrosEstaciones>({ page: 1 });
   const [detalle, setDetalle] = useState<number | null>(null);
 
@@ -52,6 +69,8 @@ export function Estaciones() {
         El inventario de estaciones de transporte y distribución, con el estado que
         resulta de la bitácora de fallas.
       </EncabezadoVista>
+
+      <AvisoSoloConsulta sesion={sesion} departamento={DEPARTAMENTO_MANTENIMIENTO} />
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         <div className="space-y-1.5">
@@ -179,6 +198,12 @@ export function Estaciones() {
         </p>
       ) : null}
 
+      {puedeEditar ? <FormularioNuevaEstacion /> : null}
+
+      {detalle !== null ? (
+        <PanelDetalle id={detalle} puedeEditar={puedeEditar} onCerrar={() => setDetalle(null)} />
+      ) : null}
+
       {isError ? (
         <Alert variant="destructive" className="mt-6">
           <AlertDescription>No se pudo cargar el inventario.</AlertDescription>
@@ -240,8 +265,6 @@ export function Estaciones() {
           </div>
         </div>
       ) : null}
-
-      {detalle !== null ? <PanelDetalle id={detalle} onCerrar={() => setDetalle(null)} /> : null}
     </main>
   );
 }
@@ -290,8 +313,17 @@ function Fila({ estacion, onAbrir }: { estacion: EstacionDto; onAbrir: () => voi
   );
 }
 
-function PanelDetalle({ id, onCerrar }: { id: number; onCerrar: () => void }) {
+function PanelDetalle({
+  id,
+  puedeEditar,
+  onCerrar,
+}: {
+  id: number;
+  puedeEditar: boolean;
+  onCerrar: () => void;
+}) {
   const { data, isPending } = useEstacion(id);
+  const [editando, setEditando] = useState(false);
 
   return (
     <section
@@ -302,12 +334,28 @@ function PanelDetalle({ id, onCerrar }: { id: number; onCerrar: () => void }) {
         <h2 className="text-sm font-medium">
           {isPending ? "Cargando…" : `${data?.nodo} · ${data?.nombre}`}
         </h2>
-        <Button variant="ghost" size="sm" onClick={onCerrar}>
-          Cerrar
-        </Button>
+        <div className="flex gap-2">
+          {/* El nodo no se edita acá: es la clave con la que el área nombra la
+              estación en sus reportes (mismo criterio del schema), y el
+              formulario de edición no lo ofrece. */}
+          {puedeEditar && data && !editando ? (
+            <Button variant="outline" size="sm" onClick={() => setEditando(true)}>
+              Editar
+            </Button>
+          ) : null}
+          <Button variant="ghost" size="sm" onClick={onCerrar}>
+            Cerrar
+          </Button>
+        </div>
       </div>
 
-      {data ? (
+      {data && editando ? (
+        <FormularioEditarEstacion
+          estacion={data}
+          onListo={() => setEditando(false)}
+          onCancelar={() => setEditando(false)}
+        />
+      ) : data ? (
         <>
           <p className="mt-1 text-sm text-muted-foreground">
             {data.area.nombre} · {data.region.nombre} · {data.tipoEnlaceCom} ·{" "}
@@ -343,5 +391,252 @@ function PanelDetalle({ id, onCerrar }: { id: number; onCerrar: () => void }) {
         </>
       ) : null}
     </section>
+  );
+}
+
+/** Nombre, área, enlace y red — los cuatro campos de `updateEstacionSchema`.
+ *  Manda sólo lo que cambió, mismo criterio que la edición de usuarios. */
+function FormularioEditarEstacion({
+  estacion,
+  onListo,
+  onCancelar,
+}: {
+  estacion: EstacionDetalleDto;
+  onListo: () => void;
+  onCancelar: () => void;
+}) {
+  const [nombre, setNombre] = useState(estacion.nombre);
+  const [areaId, setAreaId] = useState(String(estacion.area.id));
+  const [tipoEnlaceCom, setTipoEnlaceCom] = useState(estacion.tipoEnlaceCom);
+  const [tipoRed, setTipoRed] = useState<"" | "TRANSPORTE" | "DISTRIBUCION">(
+    estacion.tipoRed ?? "",
+  );
+
+  const areas = useAreas();
+  const actualizar = useActualizarEstacion(estacion.id);
+
+  return (
+    <form
+      className="mt-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const cambios: Parameters<typeof actualizar.mutate>[0] = {};
+        if (nombre.trim() !== estacion.nombre) cambios.nombre = nombre.trim();
+        if (Number(areaId) !== estacion.area.id) cambios.areaId = Number(areaId);
+        if (tipoEnlaceCom !== estacion.tipoEnlaceCom) cambios.tipoEnlaceCom = tipoEnlaceCom;
+        const redElegida = tipoRed === "" ? null : tipoRed;
+        if (redElegida !== estacion.tipoRed) cambios.tipoRed = redElegida;
+        if (Object.keys(cambios).length === 0) {
+          onListo();
+          return;
+        }
+        actualizar.mutate(cambios, { onSuccess: onListo });
+      }}
+    >
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="editar-nombre">Nombre</Label>
+          <Input id="editar-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="editar-area">Área</Label>
+          <Select id="editar-area" value={areaId} onChange={(e) => setAreaId(e.target.value)}>
+            {(areas.data ?? []).map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.nombre} — {a.region.nombre}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="editar-enlace">Tipo de enlace</Label>
+          <Select
+            id="editar-enlace"
+            value={tipoEnlaceCom}
+            onChange={(e) => setTipoEnlaceCom(e.target.value as typeof tipoEnlaceCom)}
+          >
+            {TIPOS_ENLACE.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="editar-red">Tipo de red</Label>
+          <Select
+            id="editar-red"
+            value={tipoRed}
+            onChange={(e) => setTipoRed(e.target.value as typeof tipoRed)}
+          >
+            <option value="">Sin clasificar</option>
+            <option value="TRANSPORTE">Transporte</option>
+            <option value="DISTRIBUCION">Distribución</option>
+          </Select>
+        </div>
+      </div>
+
+      {actualizar.error ? (
+        <p className="mt-2 text-sm text-destructive" role="alert">
+          {actualizar.error instanceof ApiError
+            ? actualizar.error.message
+            : "No se pudo guardar el cambio."}
+        </p>
+      ) : null}
+
+      <div className="mt-3 flex gap-2">
+        <Button type="submit" disabled={nombre.trim() === "" || actualizar.isPending}>
+          {actualizar.isPending ? "Guardando…" : "Guardar"}
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancelar} disabled={actualizar.isPending}>
+          Cancelar
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * Alta de una estación nueva. Mismo patrón que `FormularioAbrir` en
+ * `fallas.tsx`: un botón que se convierte en un formulario, y se repliega al
+ * cancelar o al guardar con éxito.
+ */
+function FormularioNuevaEstacion() {
+  const [abierto, setAbierto] = useState(false);
+  const [nodo, setNodo] = useState("");
+  const [nombre, setNombre] = useState("");
+  const [areaId, setAreaId] = useState("");
+  const [tipoEnlaceCom, setTipoEnlaceCom] = useState<(typeof TIPOS_ENLACE)[number]>(
+    TIPOS_ENLACE[0],
+  );
+  const [tipoRed, setTipoRed] = useState<"" | "TRANSPORTE" | "DISTRIBUCION">("");
+
+  const areas = useAreas();
+  const crear = useCrearEstacion();
+
+  const limpiar = () => {
+    setNodo("");
+    setNombre("");
+    setAreaId("");
+    setTipoEnlaceCom(TIPOS_ENLACE[0]);
+    setTipoRed("");
+  };
+
+  if (!abierto) {
+    return (
+      <div className="mt-4">
+        <Button onClick={() => setAbierto(true)}>Nueva estación</Button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="mt-4 rounded-lg border border-border bg-card p-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (areaId === "") return;
+        crear.mutate(
+          {
+            nodo: nodo.trim(),
+            nombre: nombre.trim(),
+            areaId: Number(areaId),
+            tipoEnlaceCom,
+            tipoRed: tipoRed === "" ? null : tipoRed,
+          },
+          {
+            onSuccess: () => {
+              limpiar();
+              setAbierto(false);
+            },
+          },
+        );
+      }}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <h2 className="text-sm font-medium">Nueva estación</h2>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            limpiar();
+            setAbierto(false);
+          }}
+        >
+          Cancelar
+        </Button>
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="nueva-nodo">Nodo</Label>
+          <Input
+            id="nueva-nodo"
+            placeholder="Ej. CRR"
+            maxLength={20}
+            value={nodo}
+            onChange={(e) => setNodo(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="nueva-nombre">Nombre</Label>
+          <Input id="nueva-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="nueva-area">Área</Label>
+          <Select id="nueva-area" value={areaId} onChange={(e) => setAreaId(e.target.value)}>
+            <option value="" disabled>
+              {areas.isPending ? "Cargando…" : "Elegir"}
+            </option>
+            {(areas.data ?? []).map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.nombre} — {a.region.nombre}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="nueva-enlace">Tipo de enlace</Label>
+          <Select
+            id="nueva-enlace"
+            value={tipoEnlaceCom}
+            onChange={(e) => setTipoEnlaceCom(e.target.value as typeof tipoEnlaceCom)}
+          >
+            {TIPOS_ENLACE.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="nueva-red">Tipo de red</Label>
+          <Select
+            id="nueva-red"
+            value={tipoRed}
+            onChange={(e) => setTipoRed(e.target.value as typeof tipoRed)}
+          >
+            <option value="">Sin clasificar</option>
+            <option value="TRANSPORTE">Transporte</option>
+            <option value="DISTRIBUCION">Distribución</option>
+          </Select>
+        </div>
+      </div>
+
+      {crear.error ? (
+        <p className="mt-2 text-sm text-destructive" role="alert">
+          {crear.error instanceof ApiError ? crear.error.message : "No se pudo crear la estación."}
+        </p>
+      ) : null}
+
+      <Button
+        type="submit"
+        className="mt-3"
+        disabled={nodo.trim() === "" || nombre.trim() === "" || areaId === "" || crear.isPending}
+      >
+        {crear.isPending ? "Creando…" : "Crear"}
+      </Button>
+    </form>
   );
 }
