@@ -18,7 +18,7 @@ export function SubNavTelemetria() {
   ];
 
   return (
-    <nav aria-label="Vistas de Telemetría" className="mt-4 border-b border-border">
+    <nav aria-label="Vistas de Telemetría" className="mt-4 mb-4 border-b border-border">
       <ul className="-mb-px flex gap-1 overflow-x-auto">
         {vistas.map((v) => {
           const activa = ruta === v.href;
