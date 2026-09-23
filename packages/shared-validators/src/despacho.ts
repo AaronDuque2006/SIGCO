@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   busquedaSchema,
   fechaSchema,
+  horaLecturaSchema,
   paginationQuerySchema,
   tipoCorteSchema,
   volumenMmpcedSchema,
@@ -82,12 +83,29 @@ export const createLecturaBalanceSchema = z.object({
   clienteId: z.number().int().positive(),
   fecha: fechaSchema,
   volumenMmpced: volumenMmpcedSchema,
+  horaLectura: horaLecturaSchema,
 });
 
-// Sólo cambia el volumen: mover una lectura a otro cliente o fecha sería otro
-// registro, no una corrección. Cada PATCH genera una fila de historial.
+// Cambia el volumen y/o la hora: mover una lectura a otro cliente o fecha
+// sería otro registro, no una corrección. Cada PATCH genera una fila de
+// historial.
 export const updateLecturaBalanceSchema = z.object({
   volumenMmpced: volumenMmpcedSchema,
+  horaLectura: horaLecturaSchema,
+});
+
+// Corrige un valor ya guardado en el historial (decisión pendiente de
+// numerar, amplía la #3). Pisa el número original y dispara el recálculo del
+// CIERRE_PROMEDIO de ese día, que lo tenía contado en su media (decisión #34).
+export const editarHistorialSchema = z.object({
+  valorAnterior: volumenMmpcedSchema,
+});
+
+// Corrige el valor **vigente** en el lugar, desde la misma cuadrícula: pisa el
+// número sin bajar el viejo al historial, que es lo que lo distingue del
+// `PATCH` normal de la lectura (ese sí registra la corrección).
+export const editarValorVigenteSchema = z.object({
+  valor: volumenMmpcedSchema,
 });
 
 // ===== LECTURA_FUENTE =====
@@ -99,14 +117,23 @@ export const listLecturasFuenteQuerySchema = gridPaginationSchema.extend({
   sistemaId: z.coerce.number().int().positive().optional(),
 });
 
+// Informativo, no entra en el balance (decisiones #62/#74): se acepta en
+// cualquier fuente, sin mirar `procesaGas` acá — es la pantalla la que decide
+// si ofrece el campo, y mandar de más no rompe nada del lado del servidor.
+const procesadoSchema = volumenMmpcedSchema.nullish();
+
 export const createLecturaFuenteSchema = z.object({
   fuenteId: z.number().int().positive(),
   fecha: fechaSchema,
   volumenMmpced: volumenMmpcedSchema,
+  horaLectura: horaLecturaSchema,
+  procesado: procesadoSchema,
 });
 
 export const updateLecturaFuenteSchema = z.object({
   volumenMmpced: volumenMmpcedSchema,
+  horaLectura: horaLecturaSchema,
+  procesado: procesadoSchema,
 });
 
 // ===== QUEMA_NACIONAL =====
@@ -119,10 +146,12 @@ export const getQuemaNacionalQuerySchema = z.object({
 export const createQuemaNacionalSchema = z.object({
   fecha: fechaSchema,
   mmpced: volumenMmpcedSchema,
+  horaLectura: horaLecturaSchema,
 });
 
 export const updateQuemaNacionalSchema = z.object({
   mmpced: volumenMmpcedSchema,
+  horaLectura: horaLecturaSchema,
 });
 
 // ===== TRANSFERENCIAS (decisión #79) =====
@@ -247,6 +276,8 @@ export type CreateFuenteInput = z.infer<typeof createFuenteSchema>;
 export type UpdateFuenteInput = z.infer<typeof updateFuenteSchema>;
 export type CreateLecturaBalanceInput = z.infer<typeof createLecturaBalanceSchema>;
 export type UpdateLecturaBalanceInput = z.infer<typeof updateLecturaBalanceSchema>;
+export type EditarHistorialInput = z.infer<typeof editarHistorialSchema>;
+export type EditarValorVigenteInput = z.infer<typeof editarValorVigenteSchema>;
 export type CreateLecturaFuenteInput = z.infer<typeof createLecturaFuenteSchema>;
 export type UpdateLecturaFuenteInput = z.infer<typeof updateLecturaFuenteSchema>;
 export type CreateQuemaNacionalInput = z.infer<typeof createQuemaNacionalSchema>;

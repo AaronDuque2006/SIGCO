@@ -12,6 +12,14 @@ export const fechaSchema = z
 
 export const tipoCorteSchema = z.enum(["PUNTUAL", "CIERRE_PROMEDIO"]);
 
+// Hora real de la lectura en planta, no la de digitación (dato llega
+// desfasado). Opcional: no bloquea el registro si el analista no la sabe.
+// `HH:MM`, sin segundos — es lo que se teclea, no lo que guarda un reloj.
+export const horaLecturaSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "La hora debe tener formato HH:MM")
+  .nullish();
+
 export const idParamSchema = z.object({
   id: z.coerce.number().int().positive(),
 });

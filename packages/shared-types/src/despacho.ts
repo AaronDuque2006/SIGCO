@@ -38,6 +38,10 @@ export interface FuenteDto {
   id: number;
   nombre: string;
   sistema: SistemaDto;
+  /** Plantas que procesan gas (San Joaquín, Santa Bárbara, Jusepín, El
+   *  Tablazo LGN1/LGN2). Decide si la pantalla de lecturas ofrece el campo
+   *  "Procesado" para esta fuente. */
+  procesaGas: boolean;
 }
 
 /**
@@ -80,7 +84,20 @@ export interface LecturaBalanceDto {
   fecha: string;
   tipoCorte: TipoCorte;
   volumenMmpced: number;
+  /** Hora real de la lectura en planta (HH:MM), no la de digitación. `null` si no se cargó. */
+  horaLectura: string | null;
   usuarioId: number;
+  /** Quién fijó este valor. Mismo criterio que `HistorialEntryDto.usuarioNombre`. */
+  usuarioNombre: string;
+  /**
+   * Quién corrigió el valor vigente **en el lugar** y cuándo, desde la
+   * cuadrícula del historial. Ese camino pisa el número sin bajar el viejo al
+   * historial —para que un mal tecleado no entre en la media del
+   * `CIERRE_PROMEDIO`— así que esto es el único rastro que deja. `null` si
+   * nadie lo retocó así.
+   */
+  editadoPor: string | null;
+  editadoEn: string | null;
 }
 
 export interface LecturaFuenteDto {
@@ -88,7 +105,16 @@ export interface LecturaFuenteDto {
   fuenteId: number;
   fecha: string;
   volumenMmpced: number;
+  horaLectura: string | null;
+  /**
+   * Lo que la planta procesó ese corte — sólo para fuentes con
+   * `FuenteDto.procesaGas`. **No entra en el balance**: el recibido sigue
+   * siendo `volumenMmpced` (decisiones #62/#74). `null` en las fuentes que
+   * no procesan, y en las que procesan hasta que se carga.
+   */
+  procesado: number | null;
   usuarioId: number;
+  usuarioNombre: string;
 }
 
 export interface QuemaNacionalDto {
@@ -96,12 +122,32 @@ export interface QuemaNacionalDto {
   fecha: string;
   tipoCorte: TipoCorte;
   mmpced: number;
+  horaLectura: string | null;
   usuarioId: number;
+  usuarioNombre: string;
+  /** Ver `LecturaBalanceDto.editadoPor`. */
+  editadoPor: string | null;
+  editadoEn: string | null;
 }
 
 export interface HistorialEntryDto {
   id: string;
   valorAnterior: number;
+  /** Hora que tenía la lectura antes de esta corrección. `null` si no tenía. */
+  horaAnterior: string | null;
+  /**
+   * Quién corrigió este valor del historial después, y cuándo. Un valor del
+   * historial se puede editar (amplía la decisión #3): editarlo **pisa** el
+   * número que el analista había tecleado, así que esto es el único rastro
+   * que queda de que la fila fue retocada. `null` en las que nadie tocó, y
+   * siempre `null` en los recursos que no admiten la edición (fuentes y
+   * transferencias, que no tienen `CIERRE_PROMEDIO` al que afectar).
+   */
+  editadoPor: string | null;
+  editadoEn: string | null;
+  /** El "procesado" que tenía antes de esta corrección. Sólo tiene sentido en
+   *  `lecturas-fuente`; `null` en el resto de los recursos. */
+  procesadoAnterior: number | null;
   usuarioId: number;
   /**
    * Nombre de quien hizo el cambio. El `usuarioId` solo no le dice nada a
@@ -134,6 +180,17 @@ export interface FilaBalanceDiarioDto {
    * indicador en las 111 sería ruido. `0` en una fila sin lectura.
    */
   correcciones: number;
+  /**
+   * El volumen que la corrección más reciente reemplazó, para que la grilla
+   * muestre si el valor subió o bajó respecto de la última vez. `null` cuando
+   * la lectura nunca se corrigió (o no existe): ahí no hay contra qué
+   * compararla, y la flecha no se dibuja.
+   *
+   * Va en la fila y no en `LecturaBalanceDto` por el mismo motivo que
+   * `correcciones`: el `POST` y el `PATCH` devuelven ese DTO y tendrían que
+   * buscarlo en cada escritura.
+   */
+  valorAnterior: number | null;
 }
 
 export interface FilaFuenteDiariaDto {
