@@ -2,11 +2,12 @@
 
 import { CONTENEDOR } from "@/components/contenedor";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { SelectorTema } from "@/components/selector-tema";
 import { Button } from "@/components/ui/button";
 import { useLogout, useSesion } from "@/lib/sesion";
+import { IconHome } from "@tabler/icons-react";
 
 /**
  * Cabecera común de las pantallas autenticadas. El nombre del sistema lleva al
@@ -16,6 +17,12 @@ export function Encabezado() {
   const { sesion } = useSesion();
   const logout = useLogout();
   const router = useRouter();
+  const pathname = usePathname();
+  // Sólo tiene sentido "volver al inicio" cuando no se está ya ahí: en el hub
+  // (`/`) y en las pantallas que no cuelgan de un departamento (`/usuarios`,
+  // `/cambiar-password`) el ícono sería un atajo a la propia pantalla.
+  const dentroDeUnDepartamento =
+    pathname.startsWith("/despacho") || pathname.startsWith("/mantenimiento");
   // "Salir" es el control más prominente del encabezado y está a un clic
   // durante las doce horas del turno. Cerrar sesión no destruye datos, pero sí
   // saca a alguien de la pantalla que estaba digitando, así que pide un paso
@@ -29,7 +36,20 @@ export function Encabezado() {
     <header className="border-b border-border">
       <div className={`${CONTENEDOR} flex flex-wrap items-center justify-between gap-3 p-4`}>
         <div className="min-w-0">
-          <Link href="/" className="text-base font-semibold tracking-tight hover:underline">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-base font-semibold tracking-tight hover:underline"
+          >
+            {/* Alude al hub de dominios, que es "el inicio": mismo ícono que
+                usaría cualquier menú para volver a la pantalla de arranque.
+                Sólo aparece dentro de un departamento — en el propio hub
+                sería un atajo a la pantalla en la que ya se está.
+                `relative top-px`: centrado por caja da el pico del techo
+                más alto que la altura de mayúscula del texto; el ajuste
+                óptico lo asienta junto a "SICOG" en vez de sobre él. */}
+            {dentroDeUnDepartamento ? (
+              <IconHome size={18} stroke={1.75} className="relative top-px" aria-hidden />
+            ) : null}
             SICOG
           </Link>
           <p className="mt-0.5 truncate text-sm text-muted-foreground">
