@@ -442,6 +442,9 @@ ctrl-operacional-gas/
 98. **`LECTURA_FUENTE` gana un segundo campo, `procesado` — reabre la decisión #4.** El owner mostró una captura del workbook real: las plantas que procesan gas (San Joaquín Tren A/B, San Joaquín Tren C, Santa Bárbara Tren A/B, Santa Bárbara Tren C, Jusepín, El Tablazo LGN1, El Tablazo LGN2) tienen columnas `PROCESADO` y `RESIDUAL` separadas, no una sola. Confirmado con el owner que **el volumen del corte no cambia de significado**: sigue siendo el dato que entra al balance (recibido, decisiones #62/#74); `procesado` es puramente informativo, se pierde el dato si no se guarda, pero no afecta ningún cálculo. Y que sólo aplica a esas 7 plantas — el resto de las 31 fuentes (entregas directas, empresas mixtas) no procesan nada y no muestran el campo, igual que en el Excel real (donde esa columna queda gris/vacía, no en cero). Nuevo campo `Fuente.procesaGas` (marcado en el seed y en una migración de datos sobre las 7 fuentes existentes por nombre exacto) decide si la pantalla ofrece el segundo cuadro. `LECTURA_FUENTE.procesado` es `Decimal(14,4)?`; su historial gana `procesadoAnt` con el mismo criterio que `horaLecturaAnt`. La decisión #5 (Desvío como `FUENTE` aparte) no se tocó: sigue sin ser una columna.
 
 99. **Balance Diario y Lecturas de fuentes exportan a Excel (`.xlsx`), no a CSV.** El owner dudaba entre los dos formatos; motivo de la elección: casi todos los nombres reales llevan tilde o ñ ("San Joaquín", "Cardón IV"), y un CSV sin BOM se rompe con esos caracteres al abrirlo en Excel — el mismo tipo de problema silencioso que el resto del sistema viene evitando. Se exporta **la grilla tal cual está en pantalla**, con el filtro/fecha/corte elegido, no un catálogo aparte (no existe una pantalla de "catálogo de clientes/fuentes" separada de estas dos grillas). Se genera en el navegador con `xlsx` (SheetJS), nueva dependencia de `apps/web`: no hace falta un viaje al servidor porque no hay que repetir ningún layout visual, a diferencia del PDF de Reportes (decisión #96).
+100. **RAG (Fase 2): los Excel operativos quedan fuera del corpus, pero `.xlsx` sigue siendo un formato aceptado** (confirmado por el owner el 2026-09-23). Los workbooks cuyos datos ya viven en SICOG (balance, fuentes, quema, actividades, fallas) no se indexan: el RAG contestaría con una cifra vieja del Excel en vez de la vigente de la base. Otras planillas que no replican datos del sistema (formatos, tablas de referencia técnicas, listados) sí pueden subirse. El criterio no es la extensión del archivo sino **si su contenido ya está en la base**. Detalle en §16.1.
+101. **RAG (Fase 2): sólo el superadmin sube documentos al corpus** (confirmado por el owner el 2026-09-23). Es una **excepción explícita** al criterio de la decisión #31 (que aleja al superadmin del contenido de negocio): el owner prefiere que quien controla qué entra a la aplicación sea una sola persona, porque un documento malo contamina las respuestas de todos. Riesgo aceptado a sabiendas: hoy hay **un solo** superadmin y sin recuperación técnica (§12.3), así que si pierde el acceso nadie puede cargar documentos hasta resolverlo. Consultar lo puede cualquier usuario autenticado. Detalle en §16.3.
+102. **RAG (Fase 2): el histórico de `NOVEDAD_OPERATIVA` entra al corpus desde la primera versión** (confirmado por el owner el 2026-09-23). Es un segundo origen de chunks, sin archivo: cada novedad se indexa al crearse y se reindexa al corregirse, a partir de los datos que ya están en la base. Es lo que `PRODUCT.md` señala como el corpus más valioso. Detalle en §16.1 y §16.6.
 
 ---
 
@@ -702,6 +705,7 @@ erDiagram
 
 ### 9.5 Fase 2 — RAG
 14. Plan definido (Ollama + pgvector, modelo 7-8B cuantizado, CPU puro, vía Coolify — mismo despliegue que la app, contenedor de Ollama se agrega solo cuando arranque esta fase). Falta: RAM real de la VM, y si los manuales de procedimientos ya existen documentados o requieren levantamiento con los analistas.
+    **Actualización 2026-09-23**: el diseño detallado quedó en el **§16** (propuesta, sin código). Los manuales existen — `Manual_DAO.pptx` es el primer documento analizado —. Alcance y gobernanza cerrados el mismo día: Excel operativos fuera del corpus (#100), sólo el superadmin carga documentos (#101) y el histórico de novedades entra desde la primera versión (#102).
 
 ### 9.6 Despacho — verificar
 6. ~~"Quema Puntual" vs. "Quema TyD"~~ **Resuelto, ver decisión #38** — son el mismo dato (confirmado por fórmula: ambas vistas apuntan a la misma celda origen). No requirió cambio de schema.
@@ -1255,3 +1259,246 @@ REAL/PLAN del §14.4.
   sin reportar no es lo mismo que una hurtada. **Confirmado con el owner
   (2026-09-21): sigue sin distinguirse** — hoy cuenta igual que las demás
   causas en el indicador, que es lo que hace el archivo.
+
+---
+
+## 16. Fase 2 — Módulo RAG (propuesta de diseño, **no implementar todavía**)
+
+**Estado**: propuesta del owner, revisada el 2026-09-23; sus tres puntos de
+alcance y gobernanza quedaron cerrados ese mismo día como decisiones #100, #101 y
+#102. Sigue vigente la regla de `CLAUDE.md`: **ni contenedor de Ollama ni código
+de RAG hasta que la fase arranque formalmente**. Esta sección deja el diseño listo
+para ese momento.
+
+### 16.1 Objetivo y alcance
+
+Que los analistas consulten en lenguaje natural el conocimiento operativo de PDVSA
+Gas —manuales de procedimientos, guías técnicas de los sistemas de transporte,
+formatos de control— con respuestas armadas sobre fragmentos reales de esos
+documentos (RAG), no sobre el conocimiento genérico del modelo.
+
+**Límite de alcance que ya fija `PRODUCT.md`**: los datos operacionales son
+estructurados y numéricos, y preguntarles algo es una consulta SQL, no
+recuperación semántica. El RAG trabaja sobre el corpus **no estructurado**.
+
+- **Los Excel operativos quedan fuera; otras planillas no (decisión #100).** Los
+  workbooks de balance, fuentes, quema, actividades o fallas ya viven en la base de
+  SICOG, con historial y cierres: si el RAG los indexara, ante "¿cuánto se entregó
+  a X?" contestaría con una cifra vieja del Excel, y con seguridad. Pero `.xlsx`
+  sigue siendo un formato aceptado para planillas que **no** replican datos del
+  sistema (formatos, tablas técnicas de referencia, listados). El criterio es el
+  contenido, no la extensión, y lo aplica quien carga (§16.3): no hay forma
+  automática confiable de distinguir un Excel operativo de uno de referencia.
+- **El histórico de `NOVEDAD_OPERATIVA` entra desde la primera versión (decisión
+  #102).** `PRODUCT.md` lo nombra como el corpus más valioso ("crece todos los días
+  y hoy no es consultable más allá de filtrar por fecha y origen"). Es un segundo
+  origen de chunks, **sin archivo**: cada novedad se indexa al crearse y se
+  reindexa al corregirse, desde los datos que ya están en la base. Una novedad es
+  corta, así que es un chunk por novedad, con el texto de `impacto`/`causa` y la
+  fecha, el origen y el tipo como metadata — lo que permite citar "novedad del
+  12/09, Anaco" igual que se cita una slide.
+
+### 16.2 Stack
+
+| Pieza | Elección | Estado |
+|---|---|---|
+| Motor de inferencia | **Ollama**, local, CPU | En pruebas fuera del repo |
+| Modelo de generación | **Qwen2.5:7b-instruct** (Q4_K_M); baja a **Qwen2.5:3b-instruct** sin tocar el pipeline si la RAM de la VM no alcanza | En pruebas |
+| Modelo de embeddings | **Por evaluar** — ver §16.5. Candidato inicial `nomic-embed-text` | En pruebas |
+| Almacén vectorial | **pgvector** en la misma `ctrl_operacional_gas`, sin base aparte (habilitado desde la migración inicial) | Listo |
+| Búsqueda por palabras | Full-text nativo de Postgres (`tsvector`, configuración `'spanish'`) | Propuesto |
+| Cola de ingesta | Postgres nativo (`SELECT … FOR UPDATE SKIP LOCKED`), sin Redis | Diseñado |
+| Despliegue | Contenedor `ollama` en el compose de Coolify **sólo al arrancar la fase**, en la red interna, sin puerto publicado | Pendiente |
+
+### 16.3 Gobernanza: quién sube documentos
+
+- **Sólo el superadmin sube documentos (decisión #101).** Un documento malo
+  contamina las respuestas de todos, y el owner prefiere que quien controla qué
+  entra a la aplicación sea una sola persona. Es una **excepción explícita** a la
+  decisión #31, que aleja al superadmin del contenido de negocio; se aceptó a
+  sabiendas. El riesgo que queda: hoy hay **un solo** superadmin, sin
+  recuperación técnica (§12.3) — si pierde el acceso, nadie carga documentos
+  hasta resolverlo. En el backend va con `requireSuperadmin`, igual que la
+  gestión de usuarios.
+- Las novedades (decisión #102) no pasan por esta carga: entran solas al
+  registrarse, con los permisos de siempre de Despacho.
+- Formatos: `.pptx`, `.docx`, `.pdf` y `.xlsx` (este último sólo si no replica
+  datos del sistema, decisión #100). La pantalla de carga debe recordarle ese
+  criterio a quien sube.
+- **Consultar** lo puede cualquier usuario autenticado, en línea con la decisión
+  #22. Si algún documento resulta sensible para un departamento, el control de
+  acceso sobre lo recuperado queda como pregunta abierta (`PRODUCT.md` ya la
+  nombra).
+
+### 16.4 Clasificar antes de trocear
+
+**Regla central del borrador, y la decisión más valiosa del diseño**: cada unidad
+de contenido (slide, página, hoja) se clasifica en **TEXTO**, **TABLA** o
+**IMAGEN** antes de trocearla. Nunca un solo método para todo el archivo.
+
+Evidencia, `Manual_DAO.pptx` (110 slides): 95 narrativas, 11 esquemáticas (hasta
+100 cajas de texto sueltas: códigos de estación, distancias, diámetros — el
+diagrama de la red de gasoductos) y 4 mixtas. El texto crudo de una slide
+esquemática es una "sopa semántica": su significado está en la **posición** de
+las etiquetas, no en el orden en que la librería las lee. Un embedding de eso no
+recupera nada, y un LLM que intente explicarlo inventa conexiones.
+
+- **TEXTO** — troceo por tamaño (~300-500 tokens, ~50 de solapamiento), cortando
+  por sección con los títulos como separador. Metadata: sección, página/slide.
+- **TABLA** — N filas por chunk, con el encabezado repetido en cada uno para que
+  el chunk tenga sentido suelto.
+- **IMAGEN** — no se indexa el texto crudo. La slide se exporta a PNG, se le
+  escribe una **descripción** y el embedding se calcula sobre esa descripción.
+  Cuando el chunk se recupera, **la aplicación muestra la imagen real**, en vez de
+  pedirle a un LLM sin visión que describa el esquema.
+  - **Propuesta: la descripción la escribe una persona del área, no un modelo de
+    visión.** Son ~15 diagramas en el manual conocido; un VLM en CPU es mucha
+    infraestructura para ese volumen, y la descripción de un experto sale más
+    precisa. El modelo de visión (Qwen2-VL, LLaVA, Gemma 3) vuelve a tener sentido
+    cuando haya cientos.
+
+Heurística de clasificación:
+
+- **pptx/docx**: una slide/sección con más de 20 cajas de texto de longitud
+  promedio corta → IMAGEN; si no, TEXTO.
+- **xlsx** (si queda en alcance): encabezado claro y ≥80% de filas con la misma
+  cantidad de columnas → TABLA; celdas combinadas o fórmulas entre hojas → IMAGEN.
+- **pdf**: mismo criterio que pptx. **Sin validar** contra un manual real.
+
+### 16.5 Recuperación y respuesta
+
+- **Búsqueda híbrida**: similitud vectorial + full-text en español sobre **todos**
+  los chunks, combinadas. Reemplaza la columna `palabras_clave` del borrador, que
+  sólo cubría diagramas: una búsqueda literal ("dónde está BA1") encuentra la
+  slide por el texto aunque el embedding no lo capture.
+- **Modelo de embeddings, a elegir midiendo**: el corpus es 100% español técnico y
+  `nomic-embed-text` (v1.5) está entrenado sobre todo en inglés. Antes de fijarlo,
+  comparar contra multilingües (`bge-m3`, `nomic-embed-text-v2-moe`) con el set de
+  evaluación del §16.9. Si queda nomic: **exige los prefijos**
+  `search_document:` al indexar y `search_query:` al consultar; sin ellos la
+  recuperación cae bastante.
+- **Pocos chunks por consulta (4-6).** En CPU lo más lento es procesar el prompt,
+  no generar la respuesta. Respuesta en **streaming**.
+- **Prompt de sistema** (por diseñar): responder sólo con el contexto recuperado,
+  **citar documento y slide/página** de cada afirmación, y decir "no lo encuentro
+  en los documentos" cuando la recuperación da puntajes bajos, en vez de completar
+  con conocimiento general.
+
+### 16.6 Esquema propuesto
+
+Corregido respecto del borrador para seguir las convenciones del schema
+(tablas en plural y snake_case, enums nativos, `BigInt` en tablas que crecen).
+
+```mermaid
+erDiagram
+  USUARIO ||--o{ DOCUMENTO_RAG : sube
+  DOCUMENTO_RAG ||--o{ CHUNK_RAG : contiene
+  NOVEDAD_OPERATIVA ||--o| CHUNK_RAG : "se indexa como"
+
+  DOCUMENTO_RAG { int id PK
+    string nombre
+    enum tipo_archivo "PPTX | DOCX | PDF | XLSX"
+    string ruta_original "volumen de archivos, fuera de la base"
+    string hash_sha256 "detecta resubidas del mismo archivo"
+    enum estado_procesamiento "PENDIENTE | PROCESANDO | LISTO | ERROR"
+    timestamp tomado_en "cuándo lo tomó el worker; rescata trabados"
+    text error_detalle "sólo si ERROR"
+    int usuario_id FK
+    timestamp subido_en }
+
+  CHUNK_RAG { bigint id PK
+    int documento_id FK "null si viene de una novedad"
+    bigint novedad_id FK "null si viene de un documento"
+    int origen_desde "slide, página u hoja; null en novedades"
+    int origen_hasta
+    enum tipo_chunk "TEXTO | TABLA | IMAGEN"
+    text contenido "texto, tabla serializada o descripción"
+    vector embedding "vector(N), N según el modelo elegido"
+    string modelo_embedding "para saber qué reindexar si se cambia"
+    tsvector contenido_busqueda "full-text 'spanish'"
+    string imagen_ref "sólo IMAGEN"
+    timestamp indexado_en }
+```
+
+Notas de implementación:
+
+- Prisma no conoce `vector` ni `tsvector`: van como `Unsupported("vector(768)")` /
+  `Unsupported("tsvector")`, y **los índices se escriben a mano** en la migración
+  (HNSW para el vector, GIN para el full-text) — mismo precedente que el índice
+  único parcial de `FALLA_ESTACION`. Las consultas, con `$queryRaw` parametrizado
+  dentro del Repository.
+- **Dos orígenes, una tabla de chunks** (decisión #102): cada chunk viene de un
+  documento **o** de una novedad, nunca de los dos — un `CHECK` escrito a mano
+  exige exactamente una de las dos FK. Así la búsqueda es una sola consulta y la
+  cita sabe qué mostrar. `CHUNK_RAG` referencia a `NOVEDAD_OPERATIVA`, nunca al
+  revés: la tabla de Despacho no se toca, en línea con no mezclar dominios. Al
+  borrar o corregir una novedad, su chunk se reemplaza en la misma transacción
+  que el cambio o lo retoma el worker comparando `indexado_en` contra la última
+  edición; cuál de las dos, se decide al implementar.
+- La dimensión del vector la fija el modelo (768 para `nomic-embed-text`, 1024 para
+  `bge-m3`): se decide después de la evaluación, no antes.
+- Los archivos originales y los PNG viven en un volumen del stack, no en la base,
+  y **entran en el respaldo**.
+
+### 16.7 Flujo de ingesta
+
+1. Se sube el archivo: se valida (tamaño, extensión **y** firma real del archivo),
+   se guarda, y se crea `DOCUMENTO_RAG` en `PENDIENTE`. La respuesta HTTP es
+   inmediata; nada se procesa dentro del request.
+2. Un worker toma el siguiente pendiente con `FOR UPDATE SKIP LOCKED`, lo pasa a
+   `PROCESANDO` y sella `tomado_en`. **Uno que lleve demasiado en `PROCESANDO`**
+   (el worker murió a mitad) vuelve a `PENDIENTE` en la corrida siguiente.
+3. El parser del tipo de archivo clasifica cada unidad (§16.4) y todos devuelven la
+   misma forma: una lista de chunks candidatos.
+4. Un único paso de embeddings sobre esa lista.
+5. **Reemplazo en una transacción**: se borran los chunks anteriores del documento
+   y se insertan los nuevos, así resubir no duplica. Estado `LISTO`, o `ERROR` con
+   `error_detalle`.
+
+Pendiente de definir: si el worker es Node (dentro de `apps/api`) o un contenedor
+Python aparte. Python tiene mejores parsers (p. ej. Docling, que ya clasifica
+layout en pptx/docx/pdf), a cambio de un servicio más en el stack.
+
+### 16.8 Seguridad
+
+- Los `.pptx`/`.docx`/`.xlsx` son zips: **límite de tamaño y protección contra zip
+  bombs** en el parser, que procesa archivos que no controla el sistema.
+- Ollama sólo en la red interna del compose, sin puerto publicado.
+- **Registro de consultas** (quién preguntó qué y qué se recuperó), igual que el
+  resto de la auditoría (§3).
+- **Datos personales**: la regla del proyecto prohíbe reproducir cédulas,
+  direcciones, fechas de nacimiento o tallas (archivos tipo `PERSONAL.csv`). Un
+  documento con esos datos no debe entrar al RAG: rechazo al subir o, como mínimo,
+  advertencia explícita a quien lo carga.
+- Que sólo curadores suban documentos (§16.3) es además la defensa principal
+  contra instrucciones escondidas en un documento que intenten manipular las
+  respuestas.
+
+### 16.9 Evaluación
+
+Antes de elegir el modelo de embeddings y de dar la fase por buena: un set de
+**20-30 preguntas reales** del área, cada una con el documento y la slide/página
+que debería recuperar. Se mide cuántas veces esa fuente aparece entre los primeros
+k resultados (recall@k), y el mismo set sirve para comparar modelos, tamaños de
+chunk y la búsqueda híbrida contra la puramente vectorial. Por la decisión #102,
+el set incluye preguntas sobre novedades ("¿qué pasó la última vez que falló X?"),
+no sólo sobre manuales.
+
+### 16.10 Pendientes
+
+**Del owner (bloquean el diseño):**
+
+1. ~~Excel operativos fuera del corpus~~ **Resuelto, decisión #100.**
+2. ~~Quién sube documentos~~ **Resuelto, decisión #101: el superadmin.**
+3. ~~Histórico de `NOVEDAD_OPERATIVA` en la primera versión~~ **Resuelto, decisión #102: entra.**
+4. Si la Fase 2 entra en el alcance del trabajo de grado (§10, `CONTEXTO_TEG.md`).
+5. Los casos de uso concretos, confirmados con el área (`PRODUCT.md`).
+
+**Técnicos (se resuelven midiendo):**
+
+6. RAM real de la VM: decide Qwen2.5 7b o 3b.
+7. Modelo de embeddings y dimensión del vector, con el set del §16.9.
+8. Worker en Node o contenedor Python.
+9. Validar la heurística de PDF contra un manual real.
+10. Diseñar el prompt de sistema (§16.5).
+11. Armar el set de evaluación con el área (§16.9).
