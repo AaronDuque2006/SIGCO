@@ -208,3 +208,37 @@ Quedó un solo `<select>` con las 56, que además rotula cuántas son
 `<select>` nativo ya busca escribiendo — es exactamente la razón por la que
 `select.tsx` es nativo a propósito, y la caja de búsqueda estaba reimplementando
 peor algo que el navegador ya hacía.
+
+## Cuarto post scríptum: el rango de `/estaciones` filtraba mal, y dos pendientes se resolvieron
+
+El owner señaló que el rango de fechas del filtro de **Estaciones** debía
+mostrar las que estuvieron en falla **durante** el período, no necesariamente
+las que **entraron** en falla en ese momento — podían llevar meses o años
+caídas. El filtro original miraba `vigente(hoy) AND desde dentro del rango`,
+que sólo agarraba fallas que seguían abiertas hoy y habían empezado dentro de
+la ventana pedida: contra los datos reales, la ventana de 2015 daba 8
+estaciones con esa lógica y 21 con la correcta (solapamiento, igual que ya
+hacía `/fallas`). Se corrigió `estacion.repository.ts`, el rótulo del filtro
+("Cayó desde" → "En falla desde") y la nota que explica el rango en pantalla.
+
+Después se resolvieron, confirmados con el owner, dos de los cinco pendientes
+que había dejado abierto la sección "Lo que queda anotado": **el historial de
+correcciones de `FALLA_ESTACION`** (mismo hueco del §14.7, extendido también a
+`ACTIVIDAD_REGISTRO` en la misma pasada — decisión #3 aplicada por fin a los
+dos módulos que se habían quedado afuera) y **quién resolvió una falla**
+(`usuarioResolvioId`, antes sólo se guardaba quién la abría). Los tres
+restantes se confirmaron como **seguían sin resolverse**, a propósito:
+
+- **Reabrir no está modelado.** Una estación que vuelve a caerse anota una
+  falla nueva sin vínculo con la anterior. "Hoy alcanza"; si el área lo pide,
+  es una columna.
+- **Los 4 nodos huérfanos** (`LQU`, `JMV`, `IAL`, `REZ`) siguen sin
+  clasificar: sigue haciendo falta que alguien del área diga si son
+  estaciones nuevas o nodos de baja.
+- **"Esperando reporte"** sigue contando igual que cualquier otra causa en el
+  indicador de disponibilidad, aunque conceptualmente sea "no sabemos" y no
+  una falla confirmada.
+
+Y de paso quedó igual de pendiente, porque no entró en el alcance confirmado
+esta vez, el otro punto del §14.7: **no se guarda quién asignó una tarea** en
+`ACTIVIDAD_REGISTRO`, sólo el responsable.
