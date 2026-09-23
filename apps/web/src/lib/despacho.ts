@@ -28,7 +28,7 @@ import type {
   UpdateNovedadInput,
 } from "@sicog/shared-validators";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError, todasLasPaginas } from "./api";
+import { api, ApiError, BASE, todasLasPaginas } from "./api";
 
 export const claveGrilla = (fecha: string, tipoCorte: TipoCorte) =>
   ["balance", fecha, tipoCorte] as const;
@@ -53,6 +53,9 @@ interface GuardarInput {
   clienteId: number;
   lecturaId: string | null;
   volumenMmpced: number;
+  /** Hora real de la lectura en planta, `HH:MM`. `undefined` en el `PATCH`
+   *  significa "no tocarla"; `null` la borra. */
+  horaLectura?: string | null;
 }
 
 /**
@@ -68,15 +71,15 @@ interface GuardarInput {
 export function useGuardarLectura(fecha: string, tipoCorte: TipoCorte) {
   const cliente = useQueryClient();
   return useMutation<LecturaBalanceDto, ApiError, GuardarInput>({
-    mutationFn: ({ clienteId, lecturaId, volumenMmpced }) =>
+    mutationFn: ({ clienteId, lecturaId, volumenMmpced, horaLectura }) =>
       lecturaId === null
         ? api<LecturaBalanceDto>("/despacho/lecturas-balance", {
             metodo: "POST",
-            cuerpo: { clienteId, fecha, volumenMmpced },
+            cuerpo: { clienteId, fecha, volumenMmpced, horaLectura },
           })
         : api<LecturaBalanceDto>(`/despacho/lecturas-balance/${lecturaId}`, {
             metodo: "PATCH",
-            cuerpo: { volumenMmpced },
+            cuerpo: { volumenMmpced, horaLectura },
           }),
     onSuccess: () => {
       void cliente.invalidateQueries({ queryKey: claveGrilla(fecha, tipoCorte) });
@@ -163,17 +166,24 @@ export function useGuardarLecturaFuente(fecha: string) {
   return useMutation<
     LecturaFuenteDto,
     ApiError,
-    { fuenteId: number; lecturaId: string | null; volumenMmpced: number }
+    {
+      fuenteId: number;
+      lecturaId: string | null;
+      volumenMmpced: number;
+      horaLectura?: string | null;
+      /** Sólo para fuentes con `procesaGas`. No afecta el balance. */
+      procesado?: number | null;
+    }
   >({
-    mutationFn: ({ fuenteId, lecturaId, volumenMmpced }) =>
+    mutationFn: ({ fuenteId, lecturaId, volumenMmpced, horaLectura, procesado }) =>
       lecturaId === null
         ? api<LecturaFuenteDto>("/despacho/lecturas-fuente", {
             metodo: "POST",
-            cuerpo: { fuenteId, fecha, volumenMmpced },
+            cuerpo: { fuenteId, fecha, volumenMmpced, horaLectura, procesado },
           })
         : api<LecturaFuenteDto>(`/despacho/lecturas-fuente/${lecturaId}`, {
             metodo: "PATCH",
-            cuerpo: { volumenMmpced },
+            cuerpo: { volumenMmpced, horaLectura, procesado },
           }),
     onSuccess: () => {
       void cliente.invalidateQueries({ queryKey: claveGrillaFuentes(fecha) });
@@ -228,16 +238,20 @@ export function useQuemaDelDia(fecha: string, tipoCorte: TipoCorte) {
  */
 export function useGuardarQuema(fecha: string, tipoCorte: TipoCorte) {
   const cliente = useQueryClient();
-  return useMutation<QuemaNacionalDto, ApiError, { quemaId: string | null; mmpced: number }>({
-    mutationFn: ({ quemaId, mmpced }) =>
+  return useMutation<
+    QuemaNacionalDto,
+    ApiError,
+    { quemaId: string | null; mmpced: number; horaLectura?: string | null }
+  >({
+    mutationFn: ({ quemaId, mmpced, horaLectura }) =>
       quemaId === null
         ? api<QuemaNacionalDto>("/despacho/quema-nacional", {
             metodo: "POST",
-            cuerpo: { fecha, mmpced },
+            cuerpo: { fecha, mmpced, horaLectura },
           })
         : api<QuemaNacionalDto>(`/despacho/quema-nacional/${quemaId}`, {
             metodo: "PATCH",
-            cuerpo: { mmpced },
+            cuerpo: { mmpced, horaLectura },
           }),
     onSuccess: () => {
       void cliente.invalidateQueries({ queryKey: claveQuema(fecha, tipoCorte) });
@@ -281,6 +295,47 @@ export function useHistorialLectura(
     queryFn: () =>
       api<Paginated<HistorialEntryDto>>(`/despacho/${recurso}/${lecturaId}/historial`),
     enabled: abierto && lecturaId !== null,
+  });
+}
+
+/**
+ * Corrige un valor ya guardado en el historial (decisión pendiente de
+ * numerar): pisa el número original y deja como rastro quién lo editó.
+ *
+ * Sólo existe para `lecturas-balance` y `quema-nacional`: son los dos únicos
+ * recursos cuyo `CIERRE_PROMEDIO` depende de esos valores (decisión #34). En
+ * `lecturas-fuente` y `transferencias` editar el historial no cambiaría
+ * ningún cálculo, así que ahí es de sólo lectura.
+ *
+ * Si el día ya estaba cerrado, el backend recalcula el promedio de inmediato
+ * — acá alcanza con invalidar la grilla (los dos cortes, de ahí el prefijo
+ * sin `tipoCorte`) para que la pantalla muestre el cierre nuevo.
+ */
+export function useEditarHistorial(
+  recurso: "lecturas-balance" | "quema-nacional",
+  lecturaId: string | null,
+  fecha: string,
+) {
+  const cliente = useQueryClient();
+  // `historialId: null` es la fila vigente, que tiene su propia ruta: pisa el
+  // valor de la lectura en vez del de una corrección vieja.
+  return useMutation<void, ApiError, { historialId: string | null; valor: number }>({
+    mutationFn: ({ historialId, valor }) =>
+      historialId === null
+        ? api<void>(`/despacho/${recurso}/${lecturaId}/valor`, {
+            metodo: "PATCH",
+            cuerpo: { valor },
+          })
+        : api<void>(`/despacho/${recurso}/${lecturaId}/historial/${historialId}`, {
+            metodo: "PATCH",
+            cuerpo: { valorAnterior: valor },
+          }),
+    onSuccess: () => {
+      void cliente.invalidateQueries({ queryKey: ["historial", recurso, lecturaId] });
+      void cliente.invalidateQueries({ queryKey: ["quema-historial", lecturaId] });
+      void cliente.invalidateQueries({ queryKey: ["balance", fecha] });
+      void cliente.invalidateQueries({ queryKey: ["quema", fecha] });
+    },
   });
 }
 
@@ -465,11 +520,16 @@ export function useSerieBalance(hasta: string, dias: number, tipoCorte: TipoCort
   });
 }
 
-/** `2026-09-15` → `15/09`. El eje de siete días no necesita el año repetido. */
-export const diaMes = (fecha: string): string => {
-  const [, mes, dia] = fecha.split("-");
-  return `${dia}/${mes}`;
-};
+/**
+ * La URL de descarga del PDF del reporte.
+ *
+ * Un `<a href download>` y no un `fetch`: es una navegación normal del
+ * navegador, así que las cookies de sesión viajan solas (mismo origen que
+ * `api()`, `credentials: "include"` no hace falta acá) y el navegador muestra
+ * su propio progreso de descarga en vez de tener que armar uno con un blob.
+ */
+export const urlExportarPdfReportes = (fecha: string, tipoCorte: TipoCorte): string =>
+  `${BASE}/api/despacho/reportes/pdf?fecha=${fecha}&tipoCorte=${tipoCorte}`;
 
 // ---------------------------------------------------------------------------
 // Transferencias — el gas que sale del sistema sin ser consumo de un cliente

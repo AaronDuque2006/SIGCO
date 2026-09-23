@@ -13,7 +13,7 @@ import { formatearVolumen } from "@/lib/despacho";
  * `497,4167`: una pérdida de precisión silenciosa, sin que nadie tecleara
  * nada. Al corregir un promedio se ve el número real.
  */
-const comoTexto = (v: number | null): string => (v === null ? "" : String(v));
+export const comoTexto = (v: number | null): string => (v === null ? "" : String(v));
 
 /**
  * Qué hacer con lo que hay tecleado en la celda.
@@ -239,3 +239,4 @@ export function CeldaVolumen({
     </span>
   );
 }
+

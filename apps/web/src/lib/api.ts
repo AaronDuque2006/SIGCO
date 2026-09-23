@@ -3,7 +3,7 @@ import type { ApiErrorBody, Paginated } from "@sicog/shared-types";
 // El navegador nunca ve los tokens: viajan en cookies httpOnly (decisión #49),
 // así que toda petición va con `credentials: "include"` y no hay ningún header
 // de autorización que armar acá.
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+export const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 export class ApiError extends Error {
   constructor(

@@ -1,10 +1,11 @@
 "use client";
 
 import type { FilaBalanceDiarioDto, TipoCorte } from "@sicog/shared-types";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { AvanceDelDia } from "@/components/avance-del-dia";
 import { AvisoSoloConsulta } from "@/components/aviso-solo-consulta";
-import { CeldaVolumen } from "@/components/celda-volumen";
+import { comoTexto, evaluarCelda } from "@/components/celda-volumen";
+import { FlechaVariacion } from "@/components/flecha-variacion";
 import {
   BotonCorrecciones,
   FilaHistorial,
@@ -287,6 +288,7 @@ function Tabla({
   puedeEditar: boolean;
 }) {
   const { abierta, alternar } = useDesplegable();
+  const [editando, setEditando] = useState<string | null>(null);
 
   if (filas.length === 0) {
     return (
@@ -304,7 +306,9 @@ function Tabla({
           <th scope="col" className={TH}>Sistema</th>
           <th scope="col" className={TH}>Región</th>
           <th scope="col" className={TH}>Sector</th>
+          <th scope="col" className={TH}>Hora</th>
           <th scope="col" className={`${TH} text-right`}>MMPCED</th>
+          <th scope="col" className="px-3 py-1.5"><span className="sr-only">Acciones</span></th>
         </tr>
       </thead>
       <tbody>
@@ -314,44 +318,37 @@ function Tabla({
           const abierto = abierta === clave;
           return (
             <Fragment key={fila.cliente.id}>
-              <tr className="border-b border-border last:border-0">
-                <th scope="row" className="px-3 py-1.5 text-left font-normal">
-                  {fila.cliente.nombre}
-                </th>
-                <td className="px-3 py-1.5 text-muted-foreground">
-                  {fila.cliente.sistema.nombre}
-                </td>
-                <td className="px-3 py-1.5 text-muted-foreground">
-                  {fila.cliente.region.nombre}
-                </td>
-                <td className="px-3 py-1.5 text-muted-foreground">
-                  {fila.cliente.sector.nombre}
-                </td>
-                <td className="px-3 py-1.5 text-right">
-                  <span className="inline-flex items-center justify-end gap-2">
-                    <BotonCorrecciones
-                      correcciones={fila.correcciones}
-                      abierto={abierto}
-                      onClick={() => alternar(clave)}
-                      etiqueta={fila.cliente.nombre}
-                      idPanel={idPanel}
-                    />
-                    <CeldaCliente
-                      fila={fila}
-                      fecha={fecha}
-                      tipoCorte={tipoCorte}
-                      puedeEditar={puedeEditar}
-                    />
-                  </span>
-                </td>
-              </tr>
+              <FilaCliente
+                fila={fila}
+                fecha={fecha}
+                tipoCorte={tipoCorte}
+                puedeEditar={puedeEditar}
+                editando={editando === clave}
+                onEditar={() => setEditando(clave)}
+                onListo={() => setEditando(null)}
+                correccionesBoton={
+                  <BotonCorrecciones
+                    correcciones={fila.correcciones}
+                    abierto={abierto}
+                    onClick={() => alternar(clave)}
+                    etiqueta={fila.cliente.nombre}
+                    idPanel={idPanel}
+                  />
+                }
+              />
               {abierto && fila.lectura ? (
                 <FilaHistorial
                   recurso="lecturas-balance"
                   lecturaId={fila.lectura.id}
-                  columnas={5}
+                  fecha={fecha}
+                  columnas={7}
                   idPanel={idPanel}
                   valorActual={fila.lectura.volumenMmpced}
+                  horaActual={fila.lectura.horaLectura}
+                  usuarioActual={fila.lectura.usuarioNombre}
+                  editadoPorActual={fila.lectura.editadoPor}
+                  editadoEnActual={fila.lectura.editadoEn}
+                  puedeEditar={puedeEditar}
                 />
               ) : null}
             </Fragment>
@@ -362,37 +359,152 @@ function Tabla({
   );
 }
 
-function CeldaCliente({
+/**
+ * Un solo formulario por fila —volumen y hora juntos— en vez de dos celdas
+ * sueltas: el owner lo pidió así por más intuitivo, aunque cueste la carga en
+ * cadena por teclado que tenía la celda de volumen antes.
+ *
+ * `CIERRE_PROMEDIO` sólo lo escribe el job de cierre (decisión #42): "Editar"
+ * no aparece si la fila no existe y el corte es de cierre, porque no hay nada
+ * que crear desde acá.
+ */
+function FilaCliente({
   fila,
   fecha,
   tipoCorte,
   puedeEditar,
+  editando,
+  onEditar,
+  onListo,
+  correccionesBoton,
 }: {
   fila: FilaBalanceDiarioDto;
   fecha: string;
   tipoCorte: TipoCorte;
   puedeEditar: boolean;
+  editando: boolean;
+  onEditar: () => void;
+  onListo: () => void;
+  correccionesBoton: ReactNode;
 }) {
   const guardar = useGuardarLectura(fecha, tipoCorte);
-
-  // `CIERRE_PROMEDIO` sólo lo escribe el job de cierre (decisión #42): se puede
-  // corregir una fila existente, nunca crear una.
   const editable = puedeEditar && (tipoCorte === "PUNTUAL" || fila.lectura !== null);
+  const [volumenTexto, setVolumenTexto] = useState(comoTexto(fila.lectura?.volumenMmpced ?? null));
+  const [horaTexto, setHoraTexto] = useState(fila.lectura?.horaLectura ?? "");
+  const [errorLocal, setErrorLocal] = useState<string | null>(null);
 
-  return (
-    <CeldaVolumen
-      valor={fila.lectura?.volumenMmpced ?? null}
-      etiqueta={`Volumen de ${fila.cliente.nombre} en MMPCED`}
-      editable={editable}
-      guardando={guardar.isPending}
-      error={guardar.error?.message ?? null}
-      onGuardar={(volumenMmpced) =>
-        guardar.mutate({
+  if (editando) {
+    const confirmar = () => {
+      const resultado = evaluarCelda(volumenTexto, fila.lectura?.volumenMmpced ?? null);
+      if (resultado.tipo === "rechazar") {
+        setErrorLocal(resultado.mensaje);
+        return;
+      }
+      const volumenMmpced =
+        resultado.tipo === "guardar" ? resultado.numero : (fila.lectura?.volumenMmpced ?? null);
+      if (volumenMmpced === null) {
+        setErrorLocal("Hace falta un volumen");
+        return;
+      }
+      setErrorLocal(null);
+      guardar.mutate(
+        {
           clienteId: fila.cliente.id,
           lecturaId: fila.lectura?.id ?? null,
           volumenMmpced,
-        })
-      }
-    />
+          horaLectura: horaTexto === "" ? null : horaTexto,
+        },
+        { onSuccess: onListo },
+      );
+    };
+
+    return (
+      <tr className="border-b border-border last:border-0">
+        <th scope="row" className="px-3 py-1.5 text-left font-normal">
+          {fila.cliente.nombre}
+        </th>
+        <td className="px-3 py-1.5 text-muted-foreground">{fila.cliente.sistema.nombre}</td>
+        <td className="px-3 py-1.5 text-muted-foreground">{fila.cliente.region.nombre}</td>
+        <td className="px-3 py-1.5 text-muted-foreground">{fila.cliente.sector.nombre}</td>
+        <td className="px-3 py-1.5">
+          <Input
+            type="time"
+            aria-label={`Hora de lectura de ${fila.cliente.nombre}`}
+            value={horaTexto}
+            onChange={(e) => setHoraTexto(e.target.value)}
+            className="h-8 w-28"
+          />
+        </td>
+        <td className="px-3 py-1.5">
+          <Input
+            inputMode="decimal"
+            aria-label={`Volumen de ${fila.cliente.nombre} en MMPCED`}
+            value={volumenTexto}
+            onChange={(e) => {
+              setVolumenTexto(e.target.value);
+              setErrorLocal(null);
+            }}
+            className="h-8 w-28 text-right font-mono tabular-nums"
+          />
+        </td>
+        <td className="px-3 py-1.5 text-right">
+          <span className="inline-flex flex-col items-end gap-1">
+            {(errorLocal ?? guardar.error?.message) ? (
+              <span className="text-xs text-destructive" role="alert">
+                {errorLocal ?? guardar.error?.message}
+              </span>
+            ) : null}
+            <span className="inline-flex gap-2">
+              <Button disabled={guardar.isPending} onClick={confirmar}>
+                {guardar.isPending ? "Guardando…" : "Guardar"}
+              </Button>
+              <Button variant="outline" disabled={guardar.isPending} onClick={onListo}>
+                Cancelar
+              </Button>
+            </span>
+          </span>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr className="border-b border-border last:border-0">
+      <th scope="row" className="px-3 py-1.5 text-left font-normal">
+        {fila.cliente.nombre}
+      </th>
+      <td className="px-3 py-1.5 text-muted-foreground">{fila.cliente.sistema.nombre}</td>
+      <td className="px-3 py-1.5 text-muted-foreground">{fila.cliente.region.nombre}</td>
+      <td className="px-3 py-1.5 text-muted-foreground">{fila.cliente.sector.nombre}</td>
+      <td className="px-3 py-1.5 font-mono text-xs tabular-nums text-muted-foreground">
+        {fila.lectura?.horaLectura ?? "—"}
+      </td>
+      <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+        {fila.lectura === null ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          <span className="inline-flex items-center justify-end gap-1.5">
+            {formatearVolumen(fila.lectura.volumenMmpced)}
+            {/* Contra el valor que reemplazó la última corrección, que viaja
+                con la grilla. Sin correcciones no hay flecha: no hay contra
+                qué comparar. */}
+            <FlechaVariacion
+              valor={fila.lectura.volumenMmpced}
+              anterior={fila.valorAnterior}
+            />
+          </span>
+        )}
+      </td>
+      <td className="px-3 py-1.5 text-right">
+        <span className="inline-flex items-center justify-end gap-2">
+          {correccionesBoton}
+          {editable ? (
+            <Button variant="outline" onClick={onEditar}>
+              Editar
+            </Button>
+          ) : null}
+        </span>
+      </td>
+    </tr>
   );
 }

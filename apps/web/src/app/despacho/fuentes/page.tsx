@@ -1,10 +1,10 @@
 "use client";
 
 import type { FilaFuenteDiariaDto } from "@sicog/shared-types";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { AvanceDelDia } from "@/components/avance-del-dia";
 import { AvisoSoloConsulta } from "@/components/aviso-solo-consulta";
-import { CeldaVolumen } from "@/components/celda-volumen";
+import { comoTexto, evaluarCelda } from "@/components/celda-volumen";
 import {
   BotonCorrecciones,
   FilaHistorial,
@@ -12,6 +12,7 @@ import {
 } from "@/components/historial-correcciones";
 import { TablaDesplazable, TH } from "@/components/tabla-desplazable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -147,6 +148,7 @@ function Tabla({
   puedeEditar: boolean;
 }) {
   const { abierta, alternar } = useDesplegable();
+  const [editando, setEditando] = useState<string | null>(null);
 
   return (
     <TablaDesplazable anchoMinimo="min-w-[34rem]">
@@ -154,7 +156,10 @@ function Tabla({
         <tr className="bg-card text-left text-xs text-muted-foreground">
           <th scope="col" className={TH}>Fuente</th>
           <th scope="col" className={TH}>Sistema</th>
+          <th scope="col" className={TH}>Hora</th>
+          <th scope="col" className={`${TH} text-right`}>Procesado</th>
           <th scope="col" className={`${TH} text-right`}>MMPCED</th>
+          <th scope="col" className="px-3 py-1.5"><span className="sr-only">Acciones</span></th>
         </tr>
       </thead>
       <tbody>
@@ -164,33 +169,32 @@ function Tabla({
           const abierto = abierta === clave;
           return (
             <Fragment key={fila.fuente.id}>
-              <tr className="border-b border-border last:border-0">
-                <th scope="row" className="px-3 py-1.5 text-left font-normal">
-                  {fila.fuente.nombre}
-                </th>
-                <td className="px-3 py-1.5 text-muted-foreground">
-                  {fila.fuente.sistema.nombre}
-                </td>
-                <td className="px-3 py-1.5 text-right">
-                  <span className="inline-flex items-center justify-end gap-2">
-                    <BotonCorrecciones
-                      correcciones={fila.correcciones}
-                      abierto={abierto}
-                      onClick={() => alternar(clave)}
-                      etiqueta={fila.fuente.nombre}
-                      idPanel={idPanel}
-                    />
-                    <CeldaFuente fila={fila} fecha={fecha} puedeEditar={puedeEditar} />
-                  </span>
-                </td>
-              </tr>
+              <FilaFuente
+                fila={fila}
+                fecha={fecha}
+                puedeEditar={puedeEditar}
+                editando={editando === clave}
+                onEditar={() => setEditando(clave)}
+                onListo={() => setEditando(null)}
+                correccionesBoton={
+                  <BotonCorrecciones
+                    correcciones={fila.correcciones}
+                    abierto={abierto}
+                    onClick={() => alternar(clave)}
+                    etiqueta={fila.fuente.nombre}
+                    idPanel={idPanel}
+                  />
+                }
+              />
               {abierto && fila.lectura ? (
                 <FilaHistorial
                   recurso="lecturas-fuente"
                   lecturaId={fila.lectura.id}
-                  columnas={3}
+                  columnas={6}
                   idPanel={idPanel}
                   valorActual={fila.lectura.volumenMmpced}
+                  horaActual={fila.lectura.horaLectura}
+                  usuarioActual={fila.lectura.usuarioNombre}
                 />
               ) : null}
             </Fragment>
@@ -201,30 +205,169 @@ function Tabla({
   );
 }
 
-function CeldaFuente({
+/** Mismo formulario por fila que Balance Diario: volumen y hora juntos. */
+function FilaFuente({
   fila,
   fecha,
   puedeEditar,
+  editando,
+  onEditar,
+  onListo,
+  correccionesBoton,
 }: {
   fila: FilaFuenteDiariaDto;
   fecha: string;
   puedeEditar: boolean;
+  editando: boolean;
+  onEditar: () => void;
+  onListo: () => void;
+  correccionesBoton: ReactNode;
 }) {
   const guardar = useGuardarLecturaFuente(fecha);
-  return (
-    <CeldaVolumen
-      valor={fila.lectura?.volumenMmpced ?? null}
-      etiqueta={`Volumen de ${fila.fuente.nombre} en MMPCED`}
-      editable={puedeEditar}
-      guardando={guardar.isPending}
-      error={guardar.error?.message ?? null}
-      onGuardar={(volumenMmpced) =>
-        guardar.mutate({
+  const [volumenTexto, setVolumenTexto] = useState(comoTexto(fila.lectura?.volumenMmpced ?? null));
+  const [horaTexto, setHoraTexto] = useState(fila.lectura?.horaLectura ?? "");
+  const [procesadoTexto, setProcesadoTexto] = useState(
+    comoTexto(fila.lectura?.procesado ?? null),
+  );
+  const [errorLocal, setErrorLocal] = useState<string | null>(null);
+
+  if (editando) {
+    const confirmar = () => {
+      const resultado = evaluarCelda(volumenTexto, fila.lectura?.volumenMmpced ?? null);
+      if (resultado.tipo === "rechazar") {
+        setErrorLocal(resultado.mensaje);
+        return;
+      }
+      const volumenMmpced =
+        resultado.tipo === "guardar" ? resultado.numero : (fila.lectura?.volumenMmpced ?? null);
+      if (volumenMmpced === null) {
+        setErrorLocal("Hace falta un volumen");
+        return;
+      }
+
+      // El procesado es informativo (no entra al balance), así que un valor
+      // que no se puede interpretar simplemente no se manda — no vale la
+      // pena bloquear el volumen, que sí importa, por un dato aparte.
+      let procesado: number | null | undefined;
+      if (fila.fuente.procesaGas) {
+        const resultadoProcesado = evaluarCelda(procesadoTexto, fila.lectura?.procesado ?? null);
+        procesado =
+          resultadoProcesado.tipo === "guardar"
+            ? resultadoProcesado.numero
+            : resultadoProcesado.tipo === "reponer"
+              ? null
+              : undefined;
+      }
+
+      setErrorLocal(null);
+      guardar.mutate(
+        {
           fuenteId: fila.fuente.id,
           lecturaId: fila.lectura?.id ?? null,
           volumenMmpced,
-        })
-      }
-    />
+          horaLectura: horaTexto === "" ? null : horaTexto,
+          procesado,
+        },
+        { onSuccess: onListo },
+      );
+    };
+
+    return (
+      <tr className="border-b border-border last:border-0">
+        <th scope="row" className="px-3 py-1.5 text-left font-normal">
+          {fila.fuente.nombre}
+        </th>
+        <td className="px-3 py-1.5 text-muted-foreground">{fila.fuente.sistema.nombre}</td>
+        <td className="px-3 py-1.5">
+          <Input
+            type="time"
+            aria-label={`Hora de lectura de ${fila.fuente.nombre}`}
+            value={horaTexto}
+            onChange={(e) => setHoraTexto(e.target.value)}
+            className="h-8 w-28"
+          />
+        </td>
+        <td className="px-3 py-1.5">
+          {/* Sólo las plantas que procesan gas (San Joaquín, Santa Bárbara,
+              Jusepín, El Tablazo LGN1/LGN2) tienen este dato en el workbook
+              real; el resto de las fuentes son entregas directas y no
+              procesan nada. */}
+          {fila.fuente.procesaGas ? (
+            <Input
+              inputMode="decimal"
+              aria-label={`Procesado de ${fila.fuente.nombre} en MMPCED`}
+              value={procesadoTexto}
+              onChange={(e) => setProcesadoTexto(e.target.value)}
+              className="h-8 w-28 text-right font-mono tabular-nums"
+            />
+          ) : (
+            <span className="block text-right text-muted-foreground">—</span>
+          )}
+        </td>
+        <td className="px-3 py-1.5">
+          <Input
+            inputMode="decimal"
+            aria-label={`Volumen de ${fila.fuente.nombre} en MMPCED`}
+            value={volumenTexto}
+            onChange={(e) => {
+              setVolumenTexto(e.target.value);
+              setErrorLocal(null);
+            }}
+            className="h-8 w-28 text-right font-mono tabular-nums"
+          />
+        </td>
+        <td className="px-3 py-1.5 text-right">
+          <span className="inline-flex flex-col items-end gap-1">
+            {(errorLocal ?? guardar.error?.message) ? (
+              <span className="text-xs text-destructive" role="alert">
+                {errorLocal ?? guardar.error?.message}
+              </span>
+            ) : null}
+            <span className="inline-flex gap-2">
+              <Button disabled={guardar.isPending} onClick={confirmar}>
+                {guardar.isPending ? "Guardando…" : "Guardar"}
+              </Button>
+              <Button variant="outline" disabled={guardar.isPending} onClick={onListo}>
+                Cancelar
+              </Button>
+            </span>
+          </span>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr className="border-b border-border last:border-0">
+      <th scope="row" className="px-3 py-1.5 text-left font-normal">
+        {fila.fuente.nombre}
+      </th>
+      <td className="px-3 py-1.5 text-muted-foreground">{fila.fuente.sistema.nombre}</td>
+      <td className="px-3 py-1.5 font-mono text-xs tabular-nums text-muted-foreground">
+        {fila.lectura?.horaLectura ?? "—"}
+      </td>
+      <td className="px-3 py-1.5 text-right font-mono tabular-nums text-muted-foreground">
+        {!fila.fuente.procesaGas || fila.lectura?.procesado == null
+          ? "—"
+          : formatearVolumen(fila.lectura.procesado)}
+      </td>
+      <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+        {fila.lectura === null ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          formatearVolumen(fila.lectura.volumenMmpced)
+        )}
+      </td>
+      <td className="px-3 py-1.5 text-right">
+        <span className="inline-flex items-center justify-end gap-2">
+          {correccionesBoton}
+          {puedeEditar ? (
+            <Button variant="outline" onClick={onEditar}>
+              Editar
+            </Button>
+          ) : null}
+        </span>
+      </td>
+    </tr>
   );
 }

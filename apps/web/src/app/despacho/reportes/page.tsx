@@ -2,22 +2,15 @@
 
 import type { TipoCorte } from "@sicog/shared-types";
 import { useState } from "react";
-import { GraficaBarras, GraficaDona, GraficaLinea } from "@/components/graficas";
-import { TablaDesplazable, TH } from "@/components/tabla-desplazable";
+import { ContenidoReportes } from "@/components/contenido-reportes";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { TarjetaCifra } from "@/components/tarjeta-cifra";
 import { EncabezadoVista } from "@/components/encabezado-vista";
-import {
-  diaMes,
-  formatearVolumen,
-  hoy,
-  useBalanceNacion,
-  useConsumoPorSectores,
-  useSerieBalance,
-} from "@/lib/despacho";
+import { hoy, useBalanceNacion, useConsumoPorSectores, urlExportarPdfReportes } from "@/lib/despacho";
+import { IconFileTypePdf } from "@tabler/icons-react";
 
 /**
  * Los reportes del módulo, con las gráficas del workbook.
@@ -30,17 +23,20 @@ import {
 export default function ReportesPage() {
   const [fecha, setFecha] = useState(hoy);
   const [tipoCorte, setTipoCorte] = useState<TipoCorte>("PUNTUAL");
-  const [dias, setDias] = useState(7);
 
   const balance = useBalanceNacion(fecha, tipoCorte);
   const consumo = useConsumoPorSectores(fecha, tipoCorte);
-  const serie = useSerieBalance(fecha, dias, tipoCorte);
 
-  const error = balance.error ?? consumo.error ?? serie.error;
-  // Las tres consultas describen el mismo día, así que la pantalla espera a las
-  // tres y aparece entera. Dejarlas entrar de a una haría saltar el layout tres
+  const error = balance.error ?? consumo.error;
+  // Las dos consultas describen el mismo día, así que la pantalla espera a las
+  // dos y aparece entera. Dejarlas entrar de a una haría saltar el layout dos
   // veces, y en una máquina cargada eso son varios segundos de brincos.
-  const cargando = balance.isPending || consumo.isPending || serie.isPending;
+  const cargando = balance.isPending || consumo.isPending;
+
+  // Deshabilitado mientras carga o hay error: exportar un reporte a medio
+  // cargar (o el de un día que ni siquiera respondió) produciría un PDF con
+  // huecos que nadie pidió.
+  const puedeExportar = !cargando && !error;
 
   return (
     <main>
@@ -49,8 +45,10 @@ export default function ReportesPage() {
         <em>PROMEDIO</em> del balance, con el corte como selector.
       </EncabezadoVista>
 
-      {/* Los filtros, en una fila arriba de todo lo demás. */}
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+      {/* Los filtros, en una fila arriba de todo lo demás, con el botón de
+          exportar al final: es una acción sobre el mismo filtro, no otra
+          cosa. */}
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-1.5">
           <Label htmlFor="fecha">Fecha</Label>
           <Input id="fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
@@ -66,13 +64,30 @@ export default function ReportesPage() {
             <option value="CIERRE_PROMEDIO">Cierre promedio</option>
           </Select>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="dias">Ventana de la serie</Label>
-          <Select id="dias" value={dias} onChange={(e) => setDias(Number(e.target.value))}>
-            <option value={7}>7 días</option>
-            <option value={15}>15 días</option>
-            <option value={30}>30 días</option>
-          </Select>
+        <div className="flex items-end">
+          {/* Un `<a>` con `download`, no un `onClick` con `fetch`: es una
+              descarga de archivo, y el navegador ya sabe hacer eso — con
+              barra de progreso propia y sin tener que armar un blob acá. Las
+              cookies de sesión viajan solas porque es una navegación normal,
+              no un `fetch` cross-origin. */}
+          <Button
+            variant="outline"
+            disabled={!puedeExportar}
+            // El `<a>` de abajo es el elemento real: `nativeButton={false}`
+            // le dice a Base UI que no espere un `<button>` nativo detrás del
+            // `render`, así no repite semántica que ya no aplica.
+            nativeButton={false}
+            render={
+              <a
+                href={puedeExportar ? urlExportarPdfReportes(fecha, tipoCorte) : undefined}
+                aria-disabled={!puedeExportar}
+                download
+              />
+            }
+          >
+            <IconFileTypePdf size={16} stroke={1.75} aria-hidden />
+            Exportar PDF
+          </Button>
         </div>
       </div>
 
@@ -84,184 +99,9 @@ export default function ReportesPage() {
         <p className="mt-6 text-sm text-muted-foreground" role="status">
           Cargando los reportes…
         </p>
-      ) : null}
-
-      {/* Balance Nación como cifras y no como gráfica: son cuatro números
-          sueltos, y una barra de un solo valor no dice más que el número. */}
-      {!cargando && balance.data ? (
-        <dl className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <TarjetaCifra titulo="Recibido" valor={balance.data.recibidoMmpced} pie="MMPCED" />
-          <TarjetaCifra
-            titulo="Transportado"
-            valor={balance.data.transportadoMmpced}
-            pie={desgloseTransportado(balance.data) ?? "MMPCED"}
-          />
-          <TarjetaCifra titulo="Variación" valor={balance.data.variacionMmpced} pie="MMPCED" />
-          <div className="rounded-lg border border-border bg-card px-3 py-2.5">
-            <dt className="text-xs font-medium text-muted-foreground">Condición</dt>
-            {/* "Empacado/Desempacado", que es como lo rotula el resto del
-                sistema. Acá decía "Empaque/Desempaque": el mismo estado con dos
-                nombres en dos pantallas. Verde y rojo, igual que en Balance
-                Diario. */}
-            <dd className="mt-0.5">
-              <span
-                className={`rounded-md px-2 py-0.5 text-sm font-medium ${
-                  balance.data.condicion === "EMPAQUE"
-                    ? "bg-ok-soft text-ok"
-                    : "bg-danger-soft text-destructive"
-                }`}
-              >
-                {balance.data.condicion === "EMPAQUE" ? "Empacado" : "Desempacado"}
-              </span>
-            </dd>
-            <p className="mt-1 text-xs text-muted-foreground">Del sistema de transporte</p>
-          </div>
-        </dl>
-      ) : null}
-
-      {!cargando && serie.data ? (
-        <section className="mt-4 rounded-lg border border-border bg-card p-4">
-          <GraficaLinea
-            puntos={serie.data.dias.map((d) => ({
-              etiqueta: diaMes(d.fecha),
-              recibido: d.recibidoMmpced,
-              transportado: d.transportadoMmpced,
-            }))}
-            promedioRecibido={serie.data.promedioRecibidoMmpced}
-            promedioTransportado={serie.data.promedioTransportadoMmpced}
-          />
-        </section>
-      ) : null}
-
-      {!cargando && consumo.data ? (
-        <>
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <section className="rounded-lg border border-border bg-card p-4">
-              {/* Dona, como en el workbook y a pedido del owner. Las porciones
-                  van en el orden del catálogo —por `sector.id`— y no por
-                  tamaño: así un sector está siempre en el mismo lugar del
-                  anillo y comparar dos días muestra porciones que cambian de
-                  tamaño, no de posición. */}
-              <GraficaDona
-                titulo="Consumo por sectores"
-                datos={[...consumo.data.nacional]
-                  .sort((a, b) => a.sector.id - b.sector.id)
-                  .map((s) => ({
-                    id: s.sector.id,
-                    etiqueta: s.sector.nombre,
-                    valor: s.totalMmpced,
-                  }))}
-                total={consumo.data.totalMmpced}
-                nota="No incluye la quema nacional: no es consumo de ningún sector."
-              />
-            </section>
-
-            <section className="rounded-lg border border-border bg-card p-4">
-              <GraficaBarras
-                titulo="Entregado por región"
-                datos={consumo.data.porRegion
-                  .map((r) => ({ etiqueta: r.region.nombre, valor: r.totalMmpced }))
-                  .sort((a, b) => b.valor - a.valor)}
-                total={consumo.data.totalMmpced}
-              />
-            </section>
-          </div>
-
-          {/* La cuarta gráfica del workbook. Agrupa por sub-sistema cuando el
-              cliente tiene uno y por sistema cuando no (decisión #78): así
-              Costa Oeste y Costa Este salen como barras propias aunque
-              compartan sistema y región, que es lo que el Excel muestra y lo
-              que agrupar por `SISTEMA` no podía producir. */}
-          <section className="mt-4 rounded-lg border border-border bg-card p-4">
-            <GraficaBarras
-              titulo="Entregado por sistema"
-              datos={consumo.data.porAgrupacion.map((a) => ({
-                etiqueta: a.nombre,
-                valor: a.totalMmpced,
-                detalle: a.subSistema ? a.sistema.nombre : undefined,
-              }))}
-              total={consumo.data.totalMmpced}
-            />
-            <p className="mt-3 text-xs text-muted-foreground">
-              Las ramas con nombre propio van separadas; el resto de cada sistema se
-              suma en una barra del sistema.
-            </p>
-          </section>
-
-          {/* La vista de tabla: el mismo dato en números, que además es el
-              desglose región × sector del workbook. */}
-          <section className="mt-4">
-            <h2 className="text-sm font-medium">Región y sector</h2>
-            {consumo.data.porRegion.length === 0 ? (
-              <p className="mt-3 text-sm text-muted-foreground">
-                Ninguna lectura cargada ese día con ese corte.
-              </p>
-            ) : (
-              <TablaDesplazable anchoMinimo="min-w-[32rem]">
-                <thead>
-                  <tr className="bg-card text-left text-xs text-muted-foreground">
-                    <th scope="col" className={TH}>Región</th>
-                    <th scope="col" className={TH}>Sector</th>
-                    <th scope="col" className={`${TH} text-right`}>MMPCED</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {consumo.data.porRegion.map((r) =>
-                    r.sectores.map((s, i) => (
-                      <tr
-                        key={`${r.region.id}-${s.sector.id}`}
-                        className="border-b border-border last:border-0"
-                      >
-                        {/* El nombre de la región se **ve** sólo en su
-                            primera fila —repetirlo sería ruido— pero se
-                            **anuncia** en todas: con el `<th>` vacío, un lector
-                            de pantalla oía un encabezado de fila en blanco en
-                            cada sector siguiente y perdía de qué región estaba
-                            leyendo. */}
-                        <th scope="row" className="px-3 py-1.5 text-left font-normal">
-                          <span aria-hidden={i !== 0}>{i === 0 ? r.region.nombre : ""}</span>
-                          {i === 0 ? null : <span className="sr-only">{r.region.nombre}</span>}
-                        </th>
-                        <td className="px-3 py-1.5 text-muted-foreground">{s.sector.nombre}</td>
-                        <td className="px-3 py-1.5 text-right font-mono tabular-nums">
-                          {formatearVolumen(s.totalMmpced)}
-                        </td>
-                      </tr>
-                    )),
-                  )}
-                  <tr className="border-t border-border">
-                    <th scope="row" className="px-3 py-1.5 text-left font-medium">
-                      Total
-                    </th>
-                    <td />
-                    <td className="px-3 py-1.5 text-right font-mono font-medium tabular-nums">
-                      {formatearVolumen(consumo.data.totalMmpced)}
-                    </td>
-                  </tr>
-                </tbody>
-              </TablaDesplazable>
-            )}
-          </section>
-        </>
+      ) : balance.data && consumo.data ? (
+        <ContenidoReportes balance={balance.data} consumo={consumo.data} tipoCorte={tipoCorte} />
       ) : null}
     </main>
   );
-}
-
-/**
- * Qué parte del transportado no es consumo de clientes.
- *
- * Se nombra sólo lo que hay: un día sin quema ni transferencias no necesita
- * explicar que no las tuvo.
- */
-function desgloseTransportado(b: {
-  quemaMmpced: number;
-  transferenciasMmpced: number;
-}): string | null {
-  const partes: string[] = [];
-  if (b.quemaMmpced !== 0) partes.push(`${formatearVolumen(b.quemaMmpced)} de quema`);
-  if (b.transferenciasMmpced !== 0) {
-    partes.push(`${formatearVolumen(b.transferenciasMmpced)} de transferencias`);
-  }
-  return partes.length === 0 ? null : `incluye ${partes.join(" y ")}`;
 }
