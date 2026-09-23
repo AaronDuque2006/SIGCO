@@ -23,8 +23,10 @@ import {
   useGrillaFuentes,
   useGuardarLecturaFuente,
 } from "@/lib/despacho";
+import { exportarExcel } from "@/lib/exportar-excel";
 import { useSesion } from "@/lib/sesion";
 import { EncabezadoVista } from "@/components/encabezado-vista";
+import { IconFileTypeXls } from "@tabler/icons-react";
 
 export default function LecturasFuentePage() {
   const { sesion } = useSesion();
@@ -116,6 +118,36 @@ export default function LecturasFuentePage() {
               onChange={(e) => setBusqueda(e.target.value)}
             />
           </div>
+        </div>
+
+        <div className="mt-3 flex justify-end">
+          <Button
+            variant="outline"
+            disabled={visibles.length === 0}
+            onClick={() =>
+              exportarExcel(
+                `lecturas-fuente-${fecha}.xlsx`,
+                "Lecturas de fuentes",
+                [
+                  { encabezado: "Fuente", ancho: 28 },
+                  { encabezado: "Sistema", ancho: 24 },
+                  { encabezado: "Hora", ancho: 10 },
+                  { encabezado: "Procesado", ancho: 12 },
+                  { encabezado: "MMPCED", ancho: 12 },
+                ],
+                visibles.map((f) => [
+                  f.fuente.nombre,
+                  f.fuente.sistema.nombre,
+                  f.lectura?.horaLectura ?? "",
+                  f.fuente.procesaGas ? (f.lectura?.procesado ?? "") : "",
+                  f.lectura?.volumenMmpced ?? "",
+                ]),
+              )
+            }
+          >
+            <IconFileTypeXls size={16} stroke={1.75} aria-hidden />
+            Exportar Excel
+          </Button>
         </div>
 
         {grilla.isPending ? (

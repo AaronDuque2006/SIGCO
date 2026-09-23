@@ -6,6 +6,7 @@ import { AvanceDelDia } from "@/components/avance-del-dia";
 import { AvisoSoloConsulta } from "@/components/aviso-solo-consulta";
 import { comoTexto, evaluarCelda } from "@/components/celda-volumen";
 import { FlechaVariacion } from "@/components/flecha-variacion";
+import { IconFileTypeXls } from "@tabler/icons-react";
 import {
   BotonCorrecciones,
   FilaHistorial,
@@ -28,6 +29,7 @@ import {
   useGuardarLectura,
   useSerieBalance,
 } from "@/lib/despacho";
+import { exportarExcel } from "@/lib/exportar-excel";
 import { useSesion } from "@/lib/sesion";
 import { TarjetasBalance } from "./tarjetas-balance";
 import { EncabezadoVista } from "@/components/encabezado-vista";
@@ -204,6 +206,38 @@ export default function BalanceDiarioPage() {
               onChange={(e) => setBusqueda(e.target.value)}
             />
           </div>
+        </div>
+
+        <div className="mt-3 flex justify-end">
+          <Button
+            variant="outline"
+            disabled={!listo || visibles.length === 0}
+            onClick={() =>
+              exportarExcel(
+                `balance-diario-${fecha}-${tipoCorte.toLowerCase()}.xlsx`,
+                "Balance diario",
+                [
+                  { encabezado: "Cliente", ancho: 28 },
+                  { encabezado: "Sistema", ancho: 24 },
+                  { encabezado: "Región", ancho: 16 },
+                  { encabezado: "Sector", ancho: 14 },
+                  { encabezado: "Hora", ancho: 10 },
+                  { encabezado: "MMPCED", ancho: 12 },
+                ],
+                visibles.map((f) => [
+                  f.cliente.nombre,
+                  f.cliente.sistema.nombre,
+                  f.cliente.region.nombre,
+                  f.cliente.sector.nombre,
+                  f.lectura?.horaLectura ?? "",
+                  f.lectura?.volumenMmpced ?? "",
+                ]),
+              )
+            }
+          >
+            <IconFileTypeXls size={16} stroke={1.75} aria-hidden />
+            Exportar Excel
+          </Button>
         </div>
 
         <AvisoAlcance fecha={fecha} tipoCorte={tipoCorte} puedeEditar={puedeEditar} />
