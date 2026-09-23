@@ -23,8 +23,19 @@ export const registrar = async (req: Request, res: Response): Promise<void> => {
 
 export const corregir = async (req: Request, res: Response): Promise<void> => {
   const { id } = parseOrThrow(bigIntIdParamSchema, req.params);
-  const { volumenMmpced } = parseOrThrow(updateLecturaFuenteSchema, req.body);
-  res.json(await lecturaFuenteService.corregir(BigInt(id), volumenMmpced, usuarioActual(req).id));
+  const { volumenMmpced, horaLectura, procesado } = parseOrThrow(
+    updateLecturaFuenteSchema,
+    req.body,
+  );
+  res.json(
+    await lecturaFuenteService.corregir(
+      BigInt(id),
+      volumenMmpced,
+      horaLectura,
+      procesado,
+      usuarioActual(req).id,
+    ),
+  );
 };
 
 export const listarHistorial = async (req: Request, res: Response): Promise<void> => {

@@ -35,6 +35,13 @@ const toFilaDto = (fila: FilaTransferencia): FilaTransferenciaDto => ({
 const toHistorialDto = (row: HistorialTransferenciaRow): HistorialEntryDto => ({
   id: row.id.toString(),
   valorAnterior: row.mmpcedAnt.toNumber(),
+  // Las transferencias no tienen hora de lectura ni edición del historial
+  // (fuera de alcance): los campos existen en el DTO compartido con
+  // balance/fuentes/quema.
+  horaAnterior: null,
+  editadoPor: null,
+  procesadoAnterior: null,
+  editadoEn: null,
   usuarioId: row.usuarioId,
   usuarioNombre: row.usuario.nombre,
   modificadoEn: row.modificadoEn.toISOString(),

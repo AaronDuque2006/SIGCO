@@ -11,7 +11,12 @@ export interface ContactoRow {
     sistema: { id: number; nombre: string };
     sector: { id: number; nombre: string; activo: boolean };
   } | null;
-  fuente: { id: number; nombre: string; sistema: { id: number; nombre: string } } | null;
+  fuente: {
+    id: number;
+    nombre: string;
+    sistema: { id: number; nombre: string };
+    procesaGas: boolean;
+  } | null;
   nombreOperador: string;
   telefono: string;
 }
@@ -52,7 +57,12 @@ const CAMPOS = {
     },
   },
   fuente: {
-    select: { id: true, nombre: true, sistema: { select: { id: true, nombre: true } } },
+    select: {
+      id: true,
+      nombre: true,
+      sistema: { select: { id: true, nombre: true } },
+      procesaGas: true,
+    },
   },
   nombreOperador: true,
   telefono: true,

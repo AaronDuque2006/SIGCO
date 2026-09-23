@@ -12,3 +12,14 @@
  */
 export const fechaToDate = (fecha: string): Date => new Date(`${fecha}T00:00:00.000Z`);
 export const dateToFecha = (fecha: Date): string => fecha.toISOString().slice(0, 10);
+
+/**
+ * Mismo criterio que `fechaToDate`/`dateToFecha`, para la columna `@db.Time`
+ * de la hora de lectura (decisión pendiente de numerar): Postgres la guarda
+ * sin zona, así que se ancla a un día fijo en UTC para ida y vuelta sin
+ * corrimiento. `null`/`undefined` viajan tal cual: la hora es opcional.
+ */
+export const horaToDate = (hora: string | null | undefined): Date | null =>
+  hora == null ? null : new Date(`1970-01-01T${hora}:00.000Z`);
+export const dateToHora = (hora: Date | null | undefined): string | null =>
+  hora == null ? null : hora.toISOString().slice(11, 16);

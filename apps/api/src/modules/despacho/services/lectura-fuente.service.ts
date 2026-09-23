@@ -6,6 +6,7 @@ import type {
 } from "@sicog/shared-types";
 import type { ListLecturasFuenteQuery } from "@sicog/shared-validators";
 import { NotFoundError } from "../../../shared/errors.js";
+import { dateToHora } from "../../../shared/fechas.js";
 import { paginate } from "../../../shared/http.js";
 import { dateToFecha } from "../repositories/lectura-balance.repository.js";
 import {
@@ -21,7 +22,10 @@ const toLecturaDto = (row: LecturaFuenteRow): LecturaFuenteDto => ({
   fuenteId: row.fuenteId,
   fecha: dateToFecha(row.fecha),
   volumenMmpced: row.volumenMmpced.toNumber(),
+  horaLectura: dateToHora(row.horaLectura),
+  procesado: row.procesado?.toNumber() ?? null,
   usuarioId: row.usuarioId,
+  usuarioNombre: row.usuario.nombre,
 });
 
 const toFilaDto = (fila: FilaGridFuente): FilaFuenteDiariaDto => ({
@@ -33,6 +37,13 @@ const toFilaDto = (fila: FilaGridFuente): FilaFuenteDiariaDto => ({
 const toHistorialDto = (row: HistorialFuenteRow): HistorialEntryDto => ({
   id: row.id.toString(),
   valorAnterior: row.volumenMmpcedAnt.toNumber(),
+  horaAnterior: dateToHora(row.horaLecturaAnt),
+  // Las fuentes no tienen CIERRE_PROMEDIO (decisión #34 no aplica), así que
+  // editar un valor del historial no cambiaría ningún cálculo: queda de sólo
+  // lectura.
+  editadoPor: null,
+  editadoEn: null,
+  procesadoAnterior: row.procesadoAnt?.toNumber() ?? null,
   usuarioId: row.usuarioId,
   usuarioNombre: row.usuario.nombre,
   modificadoEn: row.modificadoEn.toISOString(),
@@ -63,7 +74,13 @@ export class LecturaFuenteService {
   }
 
   async registrar(
-    input: { fuenteId: number; fecha: string; volumenMmpced: number },
+    input: {
+      fuenteId: number;
+      fecha: string;
+      volumenMmpced: number;
+      horaLectura?: string | null;
+      procesado?: number | null;
+    },
     usuarioId: number,
   ): Promise<LecturaFuenteDto> {
     if (!(await this.repo.fuenteExiste(input.fuenteId))) {
@@ -81,9 +98,17 @@ export class LecturaFuenteService {
    * de cierre, que no toca las fuentes. Una lectura de fuente corregida es un
    * dato aislado de su día.
    */
-  async corregir(id: bigint, volumenMmpced: number, usuarioId: number): Promise<LecturaFuenteDto> {
+  async corregir(
+    id: bigint,
+    volumenMmpced: number,
+    horaLectura: string | null | undefined,
+    procesado: number | null | undefined,
+    usuarioId: number,
+  ): Promise<LecturaFuenteDto> {
     await this.obtenerOFallar(id);
-    return toLecturaDto(await this.repo.corregir(id, volumenMmpced, usuarioId));
+    return toLecturaDto(
+      await this.repo.corregir(id, volumenMmpced, horaLectura, procesado, usuarioId),
+    );
   }
 
   async obtenerHistorial(

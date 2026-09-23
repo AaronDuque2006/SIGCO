@@ -68,6 +68,20 @@ export class CierreDiarioService {
     return resumen;
   }
 
+  /**
+   * Recalcula el `CIERRE_PROMEDIO` de un solo día, sin esperar al job de
+   * medianoche. Existe para que marcar un valor como error de tipeo
+   * (decisión pendiente de numerar) se refleje de inmediato en el cierre ya
+   * emitido, en vez de dejarlo con el promedio viejo hasta la próxima corrida.
+   *
+   * No hace nada si `fecha` es hoy: el día en curso todavía no tiene cierre
+   * (mismo criterio que `ejecutarPendientes`).
+   */
+  async recalcularCierreDe(fecha: string, hoy: string): Promise<void> {
+    if (fecha >= hoy) return;
+    await this.cerrarDia(fecha);
+  }
+
   private async abrirDiasFaltantes(hoy: string, resumen: ResumenCierre): Promise<boolean> {
     const ultima = await this.repo.ultimaFechaConPuntual();
     if (!ultima || ultima >= hoy) return false;

@@ -1,5 +1,6 @@
 import { Prisma, PrismaClientKnownRequestError } from "@sicog/db";
 import { ConflictError } from "../../../shared/errors.js";
+import { horaToDate } from "../../../shared/fechas.js";
 import { prisma } from "../../../shared/prisma-client.js";
 import { fechaToDate } from "./lectura-balance.repository.js";
 
@@ -8,6 +9,7 @@ export interface FilaGridFuente {
     id: number;
     nombre: string;
     sistema: { id: number; nombre: string };
+    procesaGas: boolean;
   };
   lectura: LecturaFuenteRow | null;
   /** Ver `FilaGrid.correcciones` en `lectura-balance.repository.ts`. */
@@ -19,12 +21,20 @@ export interface LecturaFuenteRow {
   fuenteId: number;
   fecha: Date;
   volumenMmpced: Prisma.Decimal;
+  horaLectura: Date | null;
+  procesado: Prisma.Decimal | null;
   usuarioId: number;
+  /** Ver `LecturaBalanceRow.usuario`. */
+  usuario: { nombre: string };
 }
+
+const CON_USUARIO = { usuario: { select: { nombre: true } } } as const;
 
 export interface HistorialFuenteRow {
   id: bigint;
   volumenMmpcedAnt: Prisma.Decimal;
+  horaLecturaAnt: Date | null;
+  procesadoAnt: Prisma.Decimal | null;
   usuarioId: number;
   usuario: { nombre: string };
   modificadoEn: Date;
@@ -46,9 +56,17 @@ export interface ILecturaFuenteRepository {
     fuenteId: number;
     fecha: string;
     volumenMmpced: number;
+    horaLectura?: string | null;
+    procesado?: number | null;
     usuarioId: number;
   }): Promise<LecturaFuenteRow>;
-  corregir(id: bigint, volumenMmpced: number, usuarioId: number): Promise<LecturaFuenteRow>;
+  corregir(
+    id: bigint,
+    volumenMmpced: number,
+    horaLectura: string | null | undefined,
+    procesado: number | null | undefined,
+    usuarioId: number,
+  ): Promise<LecturaFuenteRow>;
   listHistorial(lecturaId: bigint, skip: number, take: number): Promise<HistorialFuenteRow[]>;
   countHistorial(lecturaId: bigint): Promise<number>;
 }
@@ -64,6 +82,7 @@ export class PrismaLecturaFuenteRepository implements ILecturaFuenteRepository {
         id: true,
         nombre: true,
         sistema: { select: { id: true, nombre: true } },
+        procesaGas: true,
         lecturasFuente: {
           where: { fecha: fechaToDate(fecha) },
           select: {
@@ -71,7 +90,10 @@ export class PrismaLecturaFuenteRepository implements ILecturaFuenteRepository {
             fuenteId: true,
             fecha: true,
             volumenMmpced: true,
+            horaLectura: true,
+            procesado: true,
             usuarioId: true,
+            ...CON_USUARIO,
             _count: { select: { historial: true } },
           },
         },
@@ -94,7 +116,7 @@ export class PrismaLecturaFuenteRepository implements ILecturaFuenteRepository {
   }
 
   findById(id: bigint): Promise<LecturaFuenteRow | null> {
-    return prisma.lecturaFuente.findUnique({ where: { id } });
+    return prisma.lecturaFuente.findUnique({ where: { id }, include: CON_USUARIO });
   }
 
   async fuenteExiste(fuenteId: number): Promise<boolean> {
@@ -108,11 +130,19 @@ export class PrismaLecturaFuenteRepository implements ILecturaFuenteRepository {
     fuenteId: number;
     fecha: string;
     volumenMmpced: number;
+    horaLectura?: string | null;
+    procesado?: number | null;
     usuarioId: number;
   }): Promise<LecturaFuenteRow> {
     try {
       return await prisma.lecturaFuente.create({
-        data: { ...input, fecha: fechaToDate(input.fecha) },
+        data: {
+          ...input,
+          fecha: fechaToDate(input.fecha),
+          horaLectura: horaToDate(input.horaLectura),
+          procesado: input.procesado ?? null,
+        },
+        include: CON_USUARIO,
       });
     } catch (err) {
       if (err instanceof PrismaClientKnownRequestError && err.code === "P2002") {
@@ -123,13 +153,38 @@ export class PrismaLecturaFuenteRepository implements ILecturaFuenteRepository {
   }
 
   // Corrección y bitácora en una sola transacción (decisión #3).
-  corregir(id: bigint, volumenMmpced: number, usuarioId: number): Promise<LecturaFuenteRow> {
+  //
+  // `procesado === undefined` es "no tocarlo" (mismo criterio que
+  // `horaLectura`): la pantalla no manda ese campo para las fuentes que no
+  // procesan, y no hay que borrarlo por eso.
+  corregir(
+    id: bigint,
+    volumenMmpced: number,
+    horaLectura: string | null | undefined,
+    procesado: number | null | undefined,
+    usuarioId: number,
+  ): Promise<LecturaFuenteRow> {
     return prisma.$transaction(async (tx) => {
       const actual = await tx.lecturaFuente.findUniqueOrThrow({ where: { id } });
       await tx.lecturaFuenteHistorial.create({
-        data: { lecturaFuenteId: id, volumenMmpcedAnt: actual.volumenMmpced, usuarioId },
+        data: {
+          lecturaFuenteId: id,
+          volumenMmpcedAnt: actual.volumenMmpced,
+          horaLecturaAnt: actual.horaLectura,
+          procesadoAnt: actual.procesado,
+          usuarioId,
+        },
       });
-      return tx.lecturaFuente.update({ where: { id }, data: { volumenMmpced, usuarioId } });
+      return tx.lecturaFuente.update({
+        where: { id },
+        data: {
+          volumenMmpced,
+          ...(horaLectura !== undefined ? { horaLectura: horaToDate(horaLectura) } : {}),
+          ...(procesado !== undefined ? { procesado } : {}),
+          usuarioId,
+        },
+        include: CON_USUARIO,
+      });
     });
   }
 
@@ -139,6 +194,8 @@ export class PrismaLecturaFuenteRepository implements ILecturaFuenteRepository {
       select: {
         id: true,
         volumenMmpcedAnt: true,
+        horaLecturaAnt: true,
+        procesadoAnt: true,
         usuarioId: true,
         usuario: { select: { nombre: true } },
         modificadoEn: true,

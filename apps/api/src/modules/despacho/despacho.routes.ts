@@ -65,7 +65,13 @@ router.patch("/fuentes/:id", soloDespacho, asyncHandler(fuente.actualizar));
 router.get("/lecturas-balance", asyncHandler(lecturaBalance.listarGrilla));
 router.post("/lecturas-balance", soloDespacho, asyncHandler(lecturaBalance.registrar));
 router.patch("/lecturas-balance/:id", soloDespacho, asyncHandler(lecturaBalance.corregir));
+router.patch("/lecturas-balance/:id/valor", soloDespacho, asyncHandler(lecturaBalance.editarValorVigente));
 router.get("/lecturas-balance/:id/historial", asyncHandler(lecturaBalance.listarHistorial));
+router.patch(
+  "/lecturas-balance/:id/historial/:historialId",
+  soloDespacho,
+  asyncHandler(lecturaBalance.editarHistorial),
+);
 
 router.get("/lecturas-fuente", asyncHandler(lecturaFuente.listarGrilla));
 router.post("/lecturas-fuente", soloDespacho, asyncHandler(lecturaFuente.registrar));
@@ -77,7 +83,13 @@ router.get("/lecturas-fuente/:id/historial", asyncHandler(lecturaFuente.listarHi
 router.get("/quema-nacional", asyncHandler(quemaNacional.obtenerDelDia));
 router.post("/quema-nacional", soloDespacho, asyncHandler(quemaNacional.registrar));
 router.patch("/quema-nacional/:id", soloDespacho, asyncHandler(quemaNacional.corregir));
+router.patch("/quema-nacional/:id/valor", soloDespacho, asyncHandler(quemaNacional.editarValorVigente));
 router.get("/quema-nacional/:id/historial", asyncHandler(quemaNacional.listarHistorial));
+router.patch(
+  "/quema-nacional/:id/historial/:historialId",
+  soloDespacho,
+  asyncHandler(quemaNacional.editarHistorial),
+);
 
 // ── Transferencias ───────────────────────────────────────────────────────────
 // El gas que sale del sistema sin ser consumo de un cliente (decisión #79).
@@ -112,5 +124,6 @@ router.delete("/contactos/:id", soloDespacho, asyncHandler(contacto.eliminar));
 router.get("/reportes/balance-nacion", asyncHandler(balanceNacion.balanceNacion));
 router.get("/reportes/consumo-por-sectores", asyncHandler(reportes.consumoPorSectores));
 router.get("/reportes/serie-balance", asyncHandler(reportes.serieBalance));
+router.get("/reportes/pdf", asyncHandler(reportes.exportarPdf));
 
 export default router;

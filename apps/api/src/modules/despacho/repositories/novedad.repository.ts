@@ -13,7 +13,12 @@ export interface NovedadRow {
     sistema: { id: number; nombre: string };
     sector: { id: number; nombre: string; activo: boolean };
   } | null;
-  fuente: { id: number; nombre: string; sistema: { id: number; nombre: string } } | null;
+  fuente: {
+    id: number;
+    nombre: string;
+    sistema: { id: number; nombre: string };
+    procesaGas: boolean;
+  } | null;
   tipo: string;
   impacto: string;
   inicio: Date;
@@ -65,7 +70,12 @@ const CAMPOS = {
     },
   },
   fuente: {
-    select: { id: true, nombre: true, sistema: { select: { id: true, nombre: true } } },
+    select: {
+      id: true,
+      nombre: true,
+      sistema: { select: { id: true, nombre: true } },
+      procesaGas: true,
+    },
   },
   tipo: true,
   impacto: true,

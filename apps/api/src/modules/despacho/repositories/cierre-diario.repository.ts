@@ -108,6 +108,10 @@ export class PrismaCierreDiarioRepository implements ICierreDiarioRepository {
   // Todo el historial de la lectura cuenta, sin filtrar por cuándo se hizo la
   // corrección: la fila ya está atada a una fecha, así que sus valores son los
   // que tuvo ese día aunque alguien la corrija días después (decisión #44).
+  //
+  // Tampoco se filtra por "este valor estaba mal": un número mal tecleado se
+  // corrige en el propio historial y este cálculo vuelve a correr con el
+  // número arreglado, en vez de excluirlo de la media.
   async valoresPuntualDelDia(fecha: string): Promise<ValoresDelDia[]> {
     const lecturas = await prisma.lecturaBalance.findMany({
       where: { fecha: fechaToDate(fecha), tipoCorte: "PUNTUAL" },
@@ -189,7 +193,12 @@ export class PrismaCierreDiarioRepository implements ICierreDiarioRepository {
   async quemaValoresDelDia(fecha: string): Promise<ValoresDelDia | null> {
     const quema = await prisma.quemaNacional.findFirst({
       where: { fecha: fechaToDate(fecha), tipoCorte: "PUNTUAL" },
-      select: { id: true, usuarioId: true, mmpced: true, historial: { select: { mmpcedAnt: true } } },
+      select: {
+        id: true,
+        usuarioId: true,
+        mmpced: true,
+        historial: { select: { mmpcedAnt: true } },
+      },
     });
     if (!quema) return null;
     return {

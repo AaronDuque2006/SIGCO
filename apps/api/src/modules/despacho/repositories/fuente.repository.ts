@@ -7,6 +7,7 @@ export interface FuenteRow {
   id: number;
   nombre: string;
   sistema: { id: number; nombre: string };
+  procesaGas: boolean;
 }
 
 export interface ListFuentesParams {
@@ -33,6 +34,7 @@ const CAMPOS = {
   id: true,
   nombre: true,
   sistema: { select: { id: true, nombre: true } },
+  procesaGas: true,
 } as const;
 
 const where = ({
