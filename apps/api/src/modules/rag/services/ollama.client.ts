@@ -52,6 +52,10 @@ export class OllamaClient implements IModeloLenguaje {
         model: env.RAG_MODELO_CHAT,
         messages: mensajes,
         stream: true,
+        // Sin modo de razonamiento: en los modelos que lo tienen (Qwen3), en
+        // CPU sumaría minutos de "pensar" antes de la primera palabra. Los que
+        // no lo tienen (Qwen2.5) ignoran el parámetro.
+        think: false,
         // Baja temperatura: se le pide que repita lo que dicen los
         // fragmentos, no que sea creativo.
         options: { temperature: 0.1, num_ctx: 8192 },
