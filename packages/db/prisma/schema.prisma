@@ -45,7 +45,7 @@ datasource db {
   // migraciones (ver .env y docker-compose.yml).
   url        = env("DATABASE_URL")
   directUrl  = env("DIRECT_URL")
-  extensions = [vector]
+  extensions = [vector, unaccent]
 }
 
 // ===== ENUMS =====
@@ -153,12 +153,12 @@ model SectorCliente {
 }
 
 model Fuente {
-  id        Int    @id @default(autoincrement())
-  sistemaId Int    @map("sistema_id")
+  id         Int     @id @default(autoincrement())
+  sistemaId  Int     @map("sistema_id")
   // Mismo criterio que CLIENTE. Unico a nivel nacional y no por sistema: el
   // catalogo real ya trae el sistema en el nombre cuando hace falta
   // distinguir (decision #39). Las 31 fuentes reales ya cumplen.
-  nombre    String @unique
+  nombre     String  @unique
   // Plantas que procesan gas (San Joaquín, Santa Bárbara, Jusepín, El
   // Tablazo LGN1/LGN2 — decisión pendiente de numerar): tienen un dato de
   // "procesado" además del volumen que entra al balance. El resto de las
@@ -390,6 +390,10 @@ model NovedadOperativa {
   fuente  Fuente?  @relation(fields: [fuenteId], references: [id])
   usuario Usuario  @relation(fields: [usuarioId], references: [id])
 
+  // Sólo del lado de Prisma: la columna vive en chunks_rag (decisión #102),
+  // la tabla de novedades no cambia.
+  chunkRag ChunkRag?
+
   @@map("novedades_operativa")
 }
 
@@ -613,6 +617,8 @@ model Usuario {
   sesionesRefresh                 SesionRefresh[]
   logsLogin                       LogLogin[]
   logsIntentoNoAutorizado         LogIntentoNoAutorizado[]
+  documentosRag                   DocumentoRag[]
+  consultasRag                    ConsultaRag[]
 
   @@map("usuarios")
 }
@@ -828,4 +834,103 @@ model LogIntentoNoAutorizado {
 
   @@index([creadoEn])
   @@map("logs_intento_no_autorizado")
+}
+
+// ===== FASE 2 — RAG (CONTEXTO_PROYECTO.md §16) =====
+//
+// Módulo transversal: consulta documentos de todos los departamentos. Lo que
+// Prisma no sabe declarar va escrito a mano en la migración: la extensión
+// unaccent, la configuración de búsqueda `sicog_es`, el CHECK "exactamente un
+// origen" de chunks_rag y los índices HNSW y GIN.
+
+enum TipoArchivoRag {
+  PPTX
+  DOCX
+  PDF
+  XLSX
+}
+
+enum EstadoDocumentoRag {
+  PENDIENTE
+  PROCESANDO
+  LISTO
+  ERROR
+}
+
+enum TipoChunkRag {
+  TEXTO
+  TABLA
+  IMAGEN
+  NOVEDAD
+}
+
+// Sólo el superadmin sube documentos (decisión #101). El archivo vive en el
+// volumen de archivos, no en la base; acá queda la referencia.
+model DocumentoRag {
+  id           Int                @id @default(autoincrement())
+  nombre       String
+  tipoArchivo  TipoArchivoRag     @map("tipo_archivo")
+  rutaOriginal String             @map("ruta_original")
+  // Único: resubir el mismo archivo es un 409, no un duplicado en el corpus.
+  hashSha256   String             @unique @map("hash_sha256")
+  tamanoBytes  Int                @map("tamano_bytes")
+  estado       EstadoDocumentoRag @default(PENDIENTE)
+  // Cuándo lo tomó el worker: uno que lleva demasiado en PROCESANDO murió a
+  // mitad y vuelve a PENDIENTE (§16.7).
+  tomadoEn     DateTime?          @map("tomado_en")
+  errorDetalle String?            @map("error_detalle")
+  usuarioId    Int                @map("usuario_id")
+  subidoEn     DateTime           @default(now()) @map("subido_en")
+  procesadoEn  DateTime?          @map("procesado_en")
+
+  usuario Usuario    @relation(fields: [usuarioId], references: [id])
+  chunks  ChunkRag[]
+
+  @@index([estado])
+  @@map("documentos_rag")
+}
+
+// Cada chunk viene de un documento O de una novedad, nunca de los dos (CHECK
+// a mano). `embedding` y `contenido_busqueda` los escribe el Repository con
+// $executeRaw: Prisma no conoce ni vector ni tsvector.
+model ChunkRag {
+  id                BigInt                      @id @default(autoincrement())
+  documentoId       Int?                        @map("documento_id")
+  novedadId         BigInt?                     @unique @map("novedad_id")
+  // Slide, página u hoja; null en novedades.
+  origenDesde       Int?                        @map("origen_desde")
+  origenHasta       Int?                        @map("origen_hasta")
+  // Contexto para citar: "SISTEMA ANACO PUERTO ORDAZ — Data Técnica".
+  seccion           String?
+  tipo              TipoChunkRag
+  contenido         String
+  embedding         Unsupported("vector(768)")?
+  modeloEmbedding   String                      @map("modelo_embedding")
+  contenidoBusqueda Unsupported("tsvector")?    @map("contenido_busqueda")
+  // Sólo novedades: md5 del contenido indexado, para detectar ediciones sin
+  // tocar la tabla de Despacho.
+  hashContenido     String?                     @map("hash_contenido")
+  imagenRef         String?                     @map("imagen_ref")
+  indexadoEn        DateTime                    @default(now()) @map("indexado_en")
+
+  documento DocumentoRag?     @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  novedad   NovedadOperativa? @relation(fields: [novedadId], references: [id], onDelete: Cascade)
+
+  @@index([documentoId])
+  @@map("chunks_rag")
+}
+
+// Auditoría de consultas (§16.8): quién preguntó qué y qué se recuperó.
+model ConsultaRag {
+  id         BigInt   @id @default(autoincrement())
+  usuarioId  Int      @map("usuario_id")
+  pregunta   String
+  chunkIds   BigInt[] @map("chunk_ids")
+  duracionMs Int?     @map("duracion_ms")
+  creadoEn   DateTime @default(now()) @map("creado_en")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([creadoEn])
+  @@map("consultas_rag")
 }
