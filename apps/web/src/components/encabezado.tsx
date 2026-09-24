@@ -20,9 +20,13 @@ export function Encabezado() {
   const pathname = usePathname();
   // Sólo tiene sentido "volver al inicio" cuando no se está ya ahí: en el hub
   // (`/`) y en las pantallas que no cuelgan de un departamento (`/usuarios`,
-  // `/cambiar-password`) el ícono sería un atajo a la propia pantalla.
+  // `/cambiar-password`) el ícono sería un atajo a la propia pantalla. El
+  // asistente no es un departamento, pero se entra a él desde el hub igual
+  // que a uno.
   const dentroDeUnDepartamento =
-    pathname.startsWith("/despacho") || pathname.startsWith("/mantenimiento");
+    pathname.startsWith("/despacho") ||
+    pathname.startsWith("/mantenimiento") ||
+    pathname.startsWith("/asistente");
   // "Salir" es el control más prominente del encabezado y está a un clic
   // durante las doce horas del turno. Cerrar sesión no destruye datos, pero sí
   // saca a alguien de la pantalla que estaba digitando, así que pide un paso

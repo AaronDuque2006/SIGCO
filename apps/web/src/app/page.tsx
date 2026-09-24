@@ -48,6 +48,30 @@ function Hub() {
             </li>
           ))}
         </ul>
+
+        {/* Aparte de los departamentos y no como un quinto: consulta
+            documentos de todos, y no es un DEPARTAMENTO del seed (la lista
+            de arriba se compara contra `departamentosQueEdita`, decisión
+            #59). Fase 2, §16. */}
+        <section className="mt-6" aria-labelledby="titulo-consultas">
+          <h2 id="titulo-consultas" className="text-sm font-medium">
+            Consultas
+          </h2>
+          <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+            <li>
+              <Link
+                href="/asistente"
+                className="block h-full rounded-lg border border-border bg-card p-4 transition-colors hover:border-ring hover:bg-panel-raised focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+              >
+                <h3 className="font-medium">Asistente de consulta</h3>
+                <p className="mt-1.5 text-sm text-muted-foreground">
+                  Preguntas en lenguaje natural sobre los manuales cargados y el histórico de
+                  novedades operativas, con la fuente de cada dato.
+                </p>
+              </Link>
+            </li>
+          </ul>
+        </section>
       </main>
     </>
   );

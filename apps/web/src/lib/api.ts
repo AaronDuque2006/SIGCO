@@ -40,6 +40,11 @@ interface Opciones {
    *  registros de actividad, que es el único del sistema sin una clave
    *  natural que lo proteja de un reintento. */
   cabeceras?: Record<string, string>;
+  /** Un archivo como cuerpo crudo, en vez de JSON: la carga de documentos
+   *  del asistente (§16). Va con `application/octet-stream`. */
+  binario?: Blob;
+  /** Para cortar una petición larga, como una consulta al asistente. */
+  senal?: AbortSignal;
   // El refresh y el login no reintentan: si el refresh da 401 es que la sesión
   // murió de verdad, y reintentarlo sería un bucle.
   reintentar?: boolean;
@@ -51,9 +56,11 @@ const pedir = async (ruta: string, opciones: Opciones = {}): Promise<Response> =
     credentials: "include",
     headers: {
       ...(opciones.cuerpo === undefined ? {} : { "Content-Type": "application/json" }),
+      ...(opciones.binario === undefined ? {} : { "Content-Type": "application/octet-stream" }),
       ...opciones.cabeceras,
     },
-    body: opciones.cuerpo === undefined ? undefined : JSON.stringify(opciones.cuerpo),
+    body: opciones.binario ?? (opciones.cuerpo === undefined ? undefined : JSON.stringify(opciones.cuerpo)),
+    signal: opciones.senal,
   });
 
 /**
@@ -63,6 +70,17 @@ const pedir = async (ruta: string, opciones: Opciones = {}): Promise<Response> =
  * iniciar sesión.
  */
 export const api = async <T>(ruta: string, opciones: Opciones = {}): Promise<T> => {
+  const res = await apiRespuesta(ruta, opciones);
+  if (res.status === 204) return undefined as T;
+  return (await res.json()) as T;
+};
+
+/**
+ * Igual que `api`, pero devuelve la respuesta sin leer: para las que llegan de
+ * a pedazos (la consulta al asistente responde NDJSON mientras el modelo
+ * escribe). Un error igual se lanza como `ApiError`.
+ */
+export const apiRespuesta = async (ruta: string, opciones: Opciones = {}): Promise<Response> => {
   let res = await pedir(ruta, opciones);
 
   if (res.status === 401 && opciones.reintentar !== false) {
@@ -71,8 +89,7 @@ export const api = async <T>(ruta: string, opciones: Opciones = {}): Promise<T> 
   }
 
   if (!res.ok) throw await leerError(res);
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  return res;
 };
 
 /**
