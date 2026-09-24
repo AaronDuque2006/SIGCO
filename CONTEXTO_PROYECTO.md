@@ -1408,6 +1408,16 @@ Heurística de clasificación:
   destapó un bug del parser: las tablas sin números (nomenclatura) se tragaban
   sus primeras filas como encabezado; ahora una fila extra sólo es encabezado si
   deja vacía la primera celda.
+- **Los 2 mejores de cada búsqueda entran siempre** (2026-09-24, otra consulta
+  del owner: "consumo promedio de ERP Pele El Ojo"). La fila existía y era la
+  única con ese nombre —1ª por BM25—, pero la búsqueda por significado no
+  distingue nombres propios y RRF la dejaba 13ª, detrás de filas "más o menos
+  bien" en las dos. Ahora el top 2 de cada lista va primero y después el resto
+  por RRF. También se expande "Prom" → promedio al indexar. Costo medido: la
+  evaluación pasó de 30/30 a 29/30 dentro de los 5 primeros (el diámetro del
+  EPA - Puerto Ordaz quedó 6º), pero entra igual en el contexto y la respuesta
+  es correcta. **El formato pptx no fue la causa**: la fila estaba bien leída, y
+  la misma tabla en Excel habría dado el mismo texto.
 - **Límite conocido — preguntas de "por qué"**: el Manual DAO casi no tiene
   texto explicativo; el rol de cada estación en la red está en los esquemas, que
   todavía no se indexan (§16.10). A "¿por qué es importante la EPA?" el modelo

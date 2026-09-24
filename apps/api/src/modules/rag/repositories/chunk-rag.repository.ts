@@ -53,6 +53,7 @@ export interface IChunkRagRepository {
 const CANDIDATOS = 40;
 // Constante estándar de Reciprocal Rank Fusion.
 const RRF_K = 60;
+const ASEGURADOS_POR_BUSQUEDA = 2;
 // Parámetros estándar de BM25.
 const BM25_K1 = 1.2;
 const BM25_B = 0.75;
@@ -134,7 +135,13 @@ export class PrismaChunkRagRepository implements IChunkRagRepository {
         SELECT coalesce(v.id, p.id) AS id,
                coalesce(1.0 / (${RRF_K} + v.rango), 0) + coalesce(1.0 / (${RRF_K} + p.rango), 0) AS puntaje,
                v.similitud,
-               p.id IS NOT NULL AS coincide_palabras
+               p.id IS NOT NULL AS coincide_palabras,
+               -- Los mejores de cada búsqueda entran siempre, antes que el
+               -- resto. Sin esto, RRF premia lo que sale "más o menos bien"
+               -- en las dos: a "consumo promedio de ERP Pele El Ojo" la única
+               -- fila con ese nombre salía 1ª por palabras, fuera del top por
+               -- significado (no distingue nombres propios), y terminaba 13ª.
+               least(coalesce(v.rango, 999), coalesce(p.rango, 999)) <= ${ASEGURADOS_POR_BUSQUEDA} AS asegurado
         FROM por_vector v
         FULL OUTER JOIN por_palabras p ON p.id = v.id
       )
@@ -144,7 +151,7 @@ export class PrismaChunkRagRepository implements IChunkRagRepository {
       FROM combinados comb
       JOIN chunks_rag c ON c.id = comb.id
       LEFT JOIN documentos_rag d ON d.id = c.documento_id
-      ORDER BY comb.puntaje DESC
+      ORDER BY comb.asegurado DESC, comb.puntaje DESC
       LIMIT ${cantidad}`;
 
     return filas.map((f) => ({

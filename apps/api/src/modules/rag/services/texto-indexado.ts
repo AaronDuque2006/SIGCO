@@ -10,5 +10,7 @@
 export function paraIndexar(texto: string): string {
   return texto
     .replace(/\bGDTOS?\b\.?/gi, (m) => (/s/i.test(m) ? "Gasoductos" : "Gasoducto"))
-    .replace(/(\d)\s*(?:"|”|″|'')/g, "$1 pulgadas");
+    .replace(/(\d)\s*(?:"|”|″|'')/g, "$1 pulgadas")
+    // "Consumo Prom 2023": sin esto no coincide con "consumo promedio".
+    .replace(/\bProm\b\.?/gi, "Promedio");
 }
