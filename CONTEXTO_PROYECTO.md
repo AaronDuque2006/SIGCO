@@ -1646,6 +1646,22 @@ consumo 0,21). Más rápido (35 s contra 50 s de promedio), pero no más preciso
 se volvió a 2 filas. La conclusión es que el límite es la capacidad de lectura
 de un modelo de 7B, no la cantidad de contexto.
 
+**Probado y descartado — Qwen3 8B** (2026-09-24, sin modo razonamiento): sobre
+las mismas 29 preguntas con dato clave, 20-21 correctas contra 23 de Qwen2.5 7B
+(dentro del ruido, no mejor), mismo tiempo (~52 s) y ~1 GB más de memoria: en
+la laptop de desarrollo (15 GB) el sistema cerró Ollama por `oom-kill` dos
+veces durante la evaluación. Arregló el lazo N30 - N50 y rompió cuatro; sigue
+leyendo mal la fila o columna en las mismas tablas. **Se queda Qwen2.5 7B**
+(decisión #106). Techo observado de un modelo de ~8B en CPU con estas tablas:
+~70-75% de respuestas correctas; lo que lo movería es un modelo bastante más
+grande, que exige otro hardware.
+
+Dos lecciones de método de ese día: la evaluación y la pantalla del asistente
+no pueden correr a la vez en una máquina de 15 GB (cada una carga su modelo), y
+con más de un documento la cita se califica por **contenido** (el fragmento
+citado contiene el dato), no por slide: el manual de contingencia repite la
+data técnica del Manual DAO.
+
 **Limitación del set**: las 30 preguntas las redactó Claude leyendo los chunks,
 así que comparten vocabulario con el manual más que una pregunta real. Falta
 reemplazarlas o completarlas con preguntas del área, y sumar preguntas sobre
