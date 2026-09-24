@@ -6,8 +6,9 @@ import { TarjetaCifra } from "@/components/tarjeta-cifra";
  * El "Balance Nación" del §11, que es query-calculado y no una tabla
  * (decisión #15).
  *
- * `recibido` sale de las lecturas de FUENTES y `transportado` de las de
- * CLIENTES **más la quema y las transferencias**: el workbook las cuenta en su
+ * `recibido` sale de las lecturas de FUENTES **más las entregas directas**
+ * (decisión #107) y `transportado` de las de CLIENTES **más la quema y las
+ * transferencias**: el workbook las cuenta en su
  * total y así quedó (decisiones #74 y #79). La condición replica la fórmula del
  * workbook real: corte estricto en cero, sin umbral, así que una variación de
  * exactamente 0 cae en desempaque.
@@ -34,7 +35,11 @@ export function TarjetasBalance({
       <TarjetaCifra
         titulo="Recibido"
         valor={datos.recibidoMmpced}
-        pie="Lecturas de fuentes"
+        pie={
+          datos.entregasDirectasMmpced === 0
+            ? "Lecturas de fuentes"
+            : "Fuentes más entregas directas"
+        }
       />
       <TarjetaCifra
         titulo="Entregado"

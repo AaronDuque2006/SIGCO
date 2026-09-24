@@ -30,7 +30,11 @@ export function ContenidoReportes({
             pie ya dice de dónde sale — "MMPCED" ahí es la unidad, que la
             cifra ya muestra al lado del número (ver `TarjetaCifra`), no algo
             para repetir. */}
-        <TarjetaCifra titulo="Recibido" valor={balance.recibidoMmpced} pie="Lecturas de fuentes" />
+        <TarjetaCifra
+          titulo="Recibido"
+          valor={balance.recibidoMmpced}
+          pie={desgloseRecibido(balance) ?? "Lecturas de fuentes"}
+        />
         <TarjetaCifra
           titulo="Transportado"
           valor={balance.transportadoMmpced}
@@ -188,6 +192,17 @@ export function ContenidoReportes({
       </section>
     </>
   );
+}
+
+/**
+ * Qué parte del recibido no sale de las lecturas de fuentes: las entregas
+ * directas, 4 clientes que el workbook suma de los dos lados (decisión #107).
+ * Mismo criterio que `desgloseTransportado`: sólo se nombra si hubo.
+ */
+function desgloseRecibido(b: { entregasDirectasMmpced: number }): string | null {
+  return b.entregasDirectasMmpced === 0
+    ? null
+    : `incluye ${formatearVolumen(b.entregasDirectasMmpced)} de entregas directas`;
 }
 
 /**

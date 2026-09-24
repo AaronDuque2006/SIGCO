@@ -173,17 +173,19 @@ export function useGuardarLecturaFuente(fecha: string) {
       horaLectura?: string | null;
       /** Sólo para fuentes con `procesaGas`. No afecta el balance. */
       procesado?: number | null;
+      /** Sólo para fuentes con `procesaGas`. Sí suma al recibido (#107). */
+      desvio?: number | null;
     }
   >({
-    mutationFn: ({ fuenteId, lecturaId, volumenMmpced, horaLectura, procesado }) =>
+    mutationFn: ({ fuenteId, lecturaId, volumenMmpced, horaLectura, procesado, desvio }) =>
       lecturaId === null
         ? api<LecturaFuenteDto>("/despacho/lecturas-fuente", {
             metodo: "POST",
-            cuerpo: { fuenteId, fecha, volumenMmpced, horaLectura, procesado },
+            cuerpo: { fuenteId, fecha, volumenMmpced, horaLectura, procesado, desvio },
           })
         : api<LecturaFuenteDto>(`/despacho/lecturas-fuente/${lecturaId}`, {
             metodo: "PATCH",
-            cuerpo: { volumenMmpced, horaLectura, procesado },
+            cuerpo: { volumenMmpced, horaLectura, procesado, desvio },
           }),
     onSuccess: () => {
       void cliente.invalidateQueries({ queryKey: claveGrillaFuentes(fecha) });

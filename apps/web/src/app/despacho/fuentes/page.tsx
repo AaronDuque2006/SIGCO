@@ -57,7 +57,11 @@ export default function LecturasFuentePage() {
     );
   }, [filas, sistema, busqueda]);
 
-  const total = visibles.reduce((s, f) => s + (f.lectura?.volumenMmpced ?? 0), 0);
+  // Lo mismo que suma el recibido: residual más desvío (decisión #107).
+  const total = visibles.reduce(
+    (s, f) => s + (f.lectura?.volumenMmpced ?? 0) + (f.lectura?.desvio ?? 0),
+    0,
+  );
   const cargadas = visibles.filter((f) => f.lectura !== null).length;
   const puedeEditar = puedeEditarDespacho(sesion);
 
@@ -76,7 +80,8 @@ export default function LecturasFuentePage() {
             </>
           }
         >
-          Esto es el <strong>recibido</strong> del balance: el gas que entra al sistema.
+          Esto es el <strong>recibido</strong> del balance: el gas que entra al sistema. Las
+          entregas directas también suman, pero salen de sus lecturas en Balance Diario.
         </EncabezadoVista>
 
         <AvanceDelDia cargadas={cargadas} total={visibles.length} sustantivo="fuentes" />
@@ -133,6 +138,7 @@ export default function LecturasFuentePage() {
                   { encabezado: "Sistema", ancho: 24 },
                   { encabezado: "Hora", ancho: 10 },
                   { encabezado: "Procesado", ancho: 12 },
+                  { encabezado: "Desvío", ancho: 12 },
                   { encabezado: "MMPCED", ancho: 12 },
                 ],
                 visibles.map((f) => [
@@ -140,6 +146,7 @@ export default function LecturasFuentePage() {
                   f.fuente.sistema.nombre,
                   f.lectura?.horaLectura ?? "",
                   f.fuente.procesaGas ? (f.lectura?.procesado ?? "") : "",
+                  f.fuente.procesaGas ? (f.lectura?.desvio ?? "") : "",
                   f.lectura?.volumenMmpced ?? "",
                 ]),
               )
@@ -183,13 +190,14 @@ function Tabla({
   const [editando, setEditando] = useState<string | null>(null);
 
   return (
-    <TablaDesplazable anchoMinimo="min-w-[34rem]">
+    <TablaDesplazable anchoMinimo="min-w-[40rem]">
       <thead>
         <tr className="bg-card text-left text-xs text-muted-foreground">
           <th scope="col" className={TH}>Fuente</th>
           <th scope="col" className={TH}>Sistema</th>
           <th scope="col" className={TH}>Hora</th>
           <th scope="col" className={`${TH} text-right`}>Procesado</th>
+          <th scope="col" className={`${TH} text-right`}>Desvío</th>
           <th scope="col" className={`${TH} text-right`}>MMPCED</th>
           <th scope="col" className="px-3 py-1.5"><span className="sr-only">Acciones</span></th>
         </tr>
@@ -222,7 +230,7 @@ function Tabla({
                 <FilaHistorial
                   recurso="lecturas-fuente"
                   lecturaId={fila.lectura.id}
-                  columnas={6}
+                  columnas={7}
                   idPanel={idPanel}
                   valorActual={fila.lectura.volumenMmpced}
                   horaActual={fila.lectura.horaLectura}
@@ -261,6 +269,7 @@ function FilaFuente({
   const [procesadoTexto, setProcesadoTexto] = useState(
     comoTexto(fila.lectura?.procesado ?? null),
   );
+  const [desvioTexto, setDesvioTexto] = useState(comoTexto(fila.lectura?.desvio ?? null));
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
 
   if (editando) {
@@ -281,7 +290,22 @@ function FilaFuente({
       // que no se puede interpretar simplemente no se manda — no vale la
       // pena bloquear el volumen, que sí importa, por un dato aparte.
       let procesado: number | null | undefined;
+      let desvio: number | null | undefined;
       if (fila.fuente.procesaGas) {
+        // El desvío, en cambio, sí suma al recibido (decisión #107): un
+        // valor mal escrito frena el guardado igual que el volumen.
+        const resultadoDesvio = evaluarCelda(desvioTexto, fila.lectura?.desvio ?? null);
+        if (resultadoDesvio.tipo === "rechazar") {
+          setErrorLocal(`Desvío: ${resultadoDesvio.mensaje}`);
+          return;
+        }
+        desvio =
+          resultadoDesvio.tipo === "guardar"
+            ? resultadoDesvio.numero
+            : resultadoDesvio.tipo === "reponer"
+              ? null
+              : undefined;
+
         const resultadoProcesado = evaluarCelda(procesadoTexto, fila.lectura?.procesado ?? null);
         procesado =
           resultadoProcesado.tipo === "guardar"
@@ -299,6 +323,7 @@ function FilaFuente({
           volumenMmpced,
           horaLectura: horaTexto === "" ? null : horaTexto,
           procesado,
+          desvio,
         },
         { onSuccess: onListo },
       );
@@ -320,16 +345,31 @@ function FilaFuente({
           />
         </td>
         <td className="px-3 py-1.5">
-          {/* Sólo las plantas que procesan gas (San Joaquín, Santa Bárbara,
-              Jusepín, El Tablazo LGN1/LGN2) tienen este dato en el workbook
-              real; el resto de las fuentes son entregas directas y no
-              procesan nada. */}
+          {/* Sólo las plantas que procesan gas (San Joaquín Tren A y B y
+              Tren C) tienen este dato y el desvío en el workbook real; el
+              resto de las fuentes no procesan nada. */}
           {fila.fuente.procesaGas ? (
             <Input
               inputMode="decimal"
               aria-label={`Procesado de ${fila.fuente.nombre} en MMPCED`}
               value={procesadoTexto}
               onChange={(e) => setProcesadoTexto(e.target.value)}
+              className="h-8 w-28 text-right font-mono tabular-nums"
+            />
+          ) : (
+            <span className="block text-right text-muted-foreground">—</span>
+          )}
+        </td>
+        <td className="px-3 py-1.5">
+          {fila.fuente.procesaGas ? (
+            <Input
+              inputMode="decimal"
+              aria-label={`Desvío de ${fila.fuente.nombre} en MMPCED`}
+              value={desvioTexto}
+              onChange={(e) => {
+                setDesvioTexto(e.target.value);
+                setErrorLocal(null);
+              }}
               className="h-8 w-28 text-right font-mono tabular-nums"
             />
           ) : (
@@ -382,6 +422,13 @@ function FilaFuente({
         {!fila.fuente.procesaGas || fila.lectura?.procesado == null
           ? "—"
           : formatearVolumen(fila.lectura.procesado)}
+      </td>
+      <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+        {!fila.fuente.procesaGas || fila.lectura?.desvio == null ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          formatearVolumen(fila.lectura.desvio)
+        )}
       </td>
       <td className="px-3 py-1.5 text-right font-mono tabular-nums">
         {fila.lectura === null ? (
