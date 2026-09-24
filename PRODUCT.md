@@ -18,7 +18,7 @@ encendida todo el día.** No es una herramienta que se abre y se cierra: es la
 que está puesta mientras dura el turno.
 
 El trabajo central de un analista de Despacho es **digitar el día de corrido**:
-recorrer los 111 clientes y las 31 fuentes cargando volúmenes, corregir lo que
+recorrer los 111 clientes y las 14 fuentes cargando volúmenes, corregir lo que
 cambió, y consultar el balance resultante. Todo lo demás del sistema existe
 alrededor de eso.
 
@@ -172,7 +172,7 @@ Real y disponible, en `archivos-fuente/` (gitignored, nunca se commitea):
 - `ACTIVIDADES MDC FINAL V4.xls`, `DISPON_SISUGAS_Semana_35.xls`,
   `INVENTARIO ESTACIONES.xls`, `ESTACIONES TyD.csv`.
 
-En la base, sembrados y reales: 7 sistemas, 31 fuentes, 111 clientes, 4
+En la base, sembrados y reales: 7 sistemas, 14 fuentes, 111 clientes, 4
 regiones, 7 sectores, 3 sub-sistemas, 4 departamentos, 5 puestos.
 
 **Ausencias que no se deben rellenar inventando:** no hay planilla ni
