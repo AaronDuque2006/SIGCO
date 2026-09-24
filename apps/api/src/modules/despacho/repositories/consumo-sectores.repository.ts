@@ -120,17 +120,28 @@ export class PrismaConsumoSectoresRepository implements IConsumoSectoresReposito
    * separado y se unen por fecha con un `FULL OUTER JOIN`: un día puede tener
    * fuentes y no clientes, o al revés.
    *
-   * La quema y las transferencias van **dentro** del transportado, igual que en
-   * el Balance Nación (decisiones #74 y #79).
+   * La quema y las transferencias van **dentro** del transportado, y el desvío
+   * y las entregas directas dentro del recibido, igual que en el Balance
+   * Nación (decisiones #74, #79 y #107).
    */
   serieBalance(desde: string, hasta: string, tipoCorte: TipoCorte): Promise<FilaSerie[]> {
     const d = fechaToDate(desde);
     const h = fechaToDate(hasta);
     return prisma.$queryRaw<FilaSerie[]>`
       WITH recibido AS (
-        SELECT fecha, SUM(volumen_mmpced) AS total
-        FROM lecturas_fuente
-        WHERE fecha BETWEEN ${d} AND ${h}
+        SELECT fecha, SUM(total) AS total FROM (
+          SELECT fecha, SUM(volumen_mmpced + COALESCE(desvio, 0)) AS total
+          FROM lecturas_fuente
+          WHERE fecha BETWEEN ${d} AND ${h}
+          GROUP BY fecha
+          UNION ALL
+          SELECT lb.fecha, SUM(lb.volumen_mmpced) AS total
+          FROM lecturas_balance lb
+          JOIN clientes c ON c.id = lb.cliente_id
+          WHERE lb.fecha BETWEEN ${d} AND ${h} AND lb.tipo_corte = ${tipoCorte}::tipo_corte
+            AND c.entrega_directa
+          GROUP BY lb.fecha
+        ) u
         GROUP BY fecha
       ),
       transportado AS (

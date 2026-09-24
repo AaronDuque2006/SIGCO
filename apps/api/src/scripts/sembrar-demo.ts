@@ -97,7 +97,9 @@ async function main(): Promise<void> {
   console.log(`  Semana: ${fechas[0]} .. ${fechas[fechas.length - 1]}`);
 
   const [clientes, fuentes, puntos] = await Promise.all([
-    prisma.cliente.findMany({ select: { id: true, sector: { select: { nombre: true } } } }),
+    prisma.cliente.findMany({
+      select: { id: true, entregaDirecta: true, sector: { select: { nombre: true } } },
+    }),
     prisma.fuente.findMany({ select: { id: true } }),
     prisma.puntoTransferencia.findMany({ select: { id: true, bidireccional: true } }),
   ]);
@@ -198,18 +200,25 @@ async function main(): Promise<void> {
   }
 
   // --- Fuentes: el recibido ronda el **transportado** ±2%, para que la
-  //     variación sea chica y el empaque cambie de signo entre días.
+  //     variación sea chica y el empaque cambie de signo entre días. Las
+  //     entregas directas ya son parte del recibido (decisión #107), así que
+  //     a las fuentes les toca lo que falta después de ellas.
+  const entregaDirecta = new Set(clientes.filter((c) => c.entregaDirecta).map((c) => c.id));
   const porDia = new Map<string, number>();
+  const directasPorDia = new Map<string, number>();
   for (const l of lecturas) {
     const f = l.fecha.toISOString().slice(0, 10);
     porDia.set(f, (porDia.get(f) ?? 0) + l.volumen);
+    if (entregaDirecta.has(l.clienteId)) {
+      directasPorDia.set(f, (directasPorDia.get(f) ?? 0) + l.volumen);
+    }
   }
 
   const lecturasFuente: { fuenteId: number; fecha: Date; volumen: number }[] = [];
   for (const fecha of fechas) {
     const transportado =
       (porDia.get(fecha) ?? 0) + (quemaPorDia.get(fecha) ?? 0) + (transferenciasPorDia.get(fecha) ?? 0);
-    const objetivo = transportado * (0.98 + azar() * 0.04);
+    const objetivo = transportado * (0.98 + azar() * 0.04) - (directasPorDia.get(fecha) ?? 0);
     const pesos = fuentes.map(() => 0.5 + azar());
     const suma = pesos.reduce((t, p) => t + p, 0);
     fuentes.forEach((f, i) => {

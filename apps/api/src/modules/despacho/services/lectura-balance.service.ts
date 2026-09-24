@@ -49,8 +49,9 @@ const toHistorialDto = (row: HistorialRow): HistorialEntryDto => ({
   horaAnterior: dateToHora(row.horaLecturaAnt),
   editadoPor: row.editadoPor?.nombre ?? null,
   editadoEn: row.editadoEn?.toISOString() ?? null,
-  // Sólo `lecturas-fuente` tiene "procesado" (decisión pendiente de numerar).
+  // Sólo `lecturas-fuente` tiene "procesado" y "desvío" (decisiones #98/#107).
   procesadoAnterior: null,
+  desvioAnterior: null,
   usuarioId: row.usuarioId,
   usuarioNombre: row.usuario.nombre,
   modificadoEn: row.modificadoEn.toISOString(),

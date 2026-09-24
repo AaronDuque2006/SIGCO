@@ -41,6 +41,7 @@ const toHistorialDto = (row: HistorialTransferenciaRow): HistorialEntryDto => ({
   horaAnterior: null,
   editadoPor: null,
   procesadoAnterior: null,
+  desvioAnterior: null,
   editadoEn: null,
   usuarioId: row.usuarioId,
   usuarioNombre: row.usuario.nombre,

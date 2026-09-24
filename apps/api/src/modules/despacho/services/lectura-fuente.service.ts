@@ -24,6 +24,7 @@ const toLecturaDto = (row: LecturaFuenteRow): LecturaFuenteDto => ({
   volumenMmpced: row.volumenMmpced.toNumber(),
   horaLectura: dateToHora(row.horaLectura),
   procesado: row.procesado?.toNumber() ?? null,
+  desvio: row.desvio?.toNumber() ?? null,
   usuarioId: row.usuarioId,
   usuarioNombre: row.usuario.nombre,
 });
@@ -44,6 +45,7 @@ const toHistorialDto = (row: HistorialFuenteRow): HistorialEntryDto => ({
   editadoPor: null,
   editadoEn: null,
   procesadoAnterior: row.procesadoAnt?.toNumber() ?? null,
+  desvioAnterior: row.desvioAnt?.toNumber() ?? null,
   usuarioId: row.usuarioId,
   usuarioNombre: row.usuario.nombre,
   modificadoEn: row.modificadoEn.toISOString(),
@@ -80,6 +82,7 @@ export class LecturaFuenteService {
       volumenMmpced: number;
       horaLectura?: string | null;
       procesado?: number | null;
+      desvio?: number | null;
     },
     usuarioId: number,
   ): Promise<LecturaFuenteDto> {
@@ -103,11 +106,12 @@ export class LecturaFuenteService {
     volumenMmpced: number,
     horaLectura: string | null | undefined,
     procesado: number | null | undefined,
+    desvio: number | null | undefined,
     usuarioId: number,
   ): Promise<LecturaFuenteDto> {
     await this.obtenerOFallar(id);
     return toLecturaDto(
-      await this.repo.corregir(id, volumenMmpced, horaLectura, procesado, usuarioId),
+      await this.repo.corregir(id, volumenMmpced, horaLectura, procesado, desvio, usuarioId),
     );
   }
 

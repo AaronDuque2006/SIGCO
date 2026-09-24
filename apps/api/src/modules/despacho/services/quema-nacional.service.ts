@@ -38,6 +38,7 @@ const toHistorialDto = (row: HistorialQuemaRow): HistorialEntryDto => ({
   editadoPor: row.editadoPor?.nombre ?? null,
   editadoEn: row.editadoEn?.toISOString() ?? null,
   procesadoAnterior: null,
+  desvioAnterior: null,
   usuarioId: row.usuarioId,
   usuarioNombre: row.usuario.nombre,
   modificadoEn: row.modificadoEn.toISOString(),

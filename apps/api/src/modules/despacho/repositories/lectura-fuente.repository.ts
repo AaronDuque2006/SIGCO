@@ -23,6 +23,7 @@ export interface LecturaFuenteRow {
   volumenMmpced: Prisma.Decimal;
   horaLectura: Date | null;
   procesado: Prisma.Decimal | null;
+  desvio: Prisma.Decimal | null;
   usuarioId: number;
   /** Ver `LecturaBalanceRow.usuario`. */
   usuario: { nombre: string };
@@ -35,6 +36,7 @@ export interface HistorialFuenteRow {
   volumenMmpcedAnt: Prisma.Decimal;
   horaLecturaAnt: Date | null;
   procesadoAnt: Prisma.Decimal | null;
+  desvioAnt: Prisma.Decimal | null;
   usuarioId: number;
   usuario: { nombre: string };
   modificadoEn: Date;
@@ -58,6 +60,7 @@ export interface ILecturaFuenteRepository {
     volumenMmpced: number;
     horaLectura?: string | null;
     procesado?: number | null;
+    desvio?: number | null;
     usuarioId: number;
   }): Promise<LecturaFuenteRow>;
   corregir(
@@ -65,6 +68,7 @@ export interface ILecturaFuenteRepository {
     volumenMmpced: number,
     horaLectura: string | null | undefined,
     procesado: number | null | undefined,
+    desvio: number | null | undefined,
     usuarioId: number,
   ): Promise<LecturaFuenteRow>;
   listHistorial(lecturaId: bigint, skip: number, take: number): Promise<HistorialFuenteRow[]>;
@@ -92,6 +96,7 @@ export class PrismaLecturaFuenteRepository implements ILecturaFuenteRepository {
             volumenMmpced: true,
             horaLectura: true,
             procesado: true,
+            desvio: true,
             usuarioId: true,
             ...CON_USUARIO,
             _count: { select: { historial: true } },
@@ -132,6 +137,7 @@ export class PrismaLecturaFuenteRepository implements ILecturaFuenteRepository {
     volumenMmpced: number;
     horaLectura?: string | null;
     procesado?: number | null;
+    desvio?: number | null;
     usuarioId: number;
   }): Promise<LecturaFuenteRow> {
     try {
@@ -141,6 +147,7 @@ export class PrismaLecturaFuenteRepository implements ILecturaFuenteRepository {
           fecha: fechaToDate(input.fecha),
           horaLectura: horaToDate(input.horaLectura),
           procesado: input.procesado ?? null,
+          desvio: input.desvio ?? null,
         },
         include: CON_USUARIO,
       });
@@ -154,14 +161,15 @@ export class PrismaLecturaFuenteRepository implements ILecturaFuenteRepository {
 
   // Corrección y bitácora en una sola transacción (decisión #3).
   //
-  // `procesado === undefined` es "no tocarlo" (mismo criterio que
-  // `horaLectura`): la pantalla no manda ese campo para las fuentes que no
-  // procesan, y no hay que borrarlo por eso.
+  // `procesado`/`desvio === undefined` es "no tocarlo" (mismo criterio que
+  // `horaLectura`): la pantalla no manda esos campos para las fuentes que no
+  // procesan, y no hay que borrarlos por eso.
   corregir(
     id: bigint,
     volumenMmpced: number,
     horaLectura: string | null | undefined,
     procesado: number | null | undefined,
+    desvio: number | null | undefined,
     usuarioId: number,
   ): Promise<LecturaFuenteRow> {
     return prisma.$transaction(async (tx) => {
@@ -172,6 +180,7 @@ export class PrismaLecturaFuenteRepository implements ILecturaFuenteRepository {
           volumenMmpcedAnt: actual.volumenMmpced,
           horaLecturaAnt: actual.horaLectura,
           procesadoAnt: actual.procesado,
+          desvioAnt: actual.desvio,
           usuarioId,
         },
       });
@@ -181,6 +190,7 @@ export class PrismaLecturaFuenteRepository implements ILecturaFuenteRepository {
           volumenMmpced,
           ...(horaLectura !== undefined ? { horaLectura: horaToDate(horaLectura) } : {}),
           ...(procesado !== undefined ? { procesado } : {}),
+          ...(desvio !== undefined ? { desvio } : {}),
           usuarioId,
         },
         include: CON_USUARIO,
@@ -196,6 +206,7 @@ export class PrismaLecturaFuenteRepository implements ILecturaFuenteRepository {
         volumenMmpcedAnt: true,
         horaLecturaAnt: true,
         procesadoAnt: true,
+        desvioAnt: true,
         usuarioId: true,
         usuario: { select: { nombre: true } },
         modificadoEn: true,

@@ -23,7 +23,7 @@ export const registrar = async (req: Request, res: Response): Promise<void> => {
 
 export const corregir = async (req: Request, res: Response): Promise<void> => {
   const { id } = parseOrThrow(bigIntIdParamSchema, req.params);
-  const { volumenMmpced, horaLectura, procesado } = parseOrThrow(
+  const { volumenMmpced, horaLectura, procesado, desvio } = parseOrThrow(
     updateLecturaFuenteSchema,
     req.body,
   );
@@ -33,6 +33,7 @@ export const corregir = async (req: Request, res: Response): Promise<void> => {
       volumenMmpced,
       horaLectura,
       procesado,
+      desvio,
       usuarioActual(req).id,
     ),
   );
