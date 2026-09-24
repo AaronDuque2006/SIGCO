@@ -58,7 +58,11 @@ export class OllamaClient implements IModeloLenguaje {
         think: false,
         // Baja temperatura: se le pide que repita lo que dicen los
         // fragmentos, no que sea creativo.
-        options: { temperature: 0.1, num_ctx: 8192 },
+        // 4096 alcanza: con el presupuesto de 4.000 caracteres el prompt
+        // entero ronda los 2.000 tokens. Con 8192 cada modelo reservaba ~1 GB
+        // más de memoria, y Qwen3 8B no entraba en una máquina de 15 GB con
+        // el resto del entorno abierto (oom-kill, 2026-09-24).
+        options: { temperature: 0.1, num_ctx: 4096 },
       }),
       signal: senal,
     });

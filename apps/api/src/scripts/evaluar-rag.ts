@@ -69,6 +69,11 @@ const normalizar = (s: string): string =>
     .replace(/(\d)\.(\d)/g, "$1,$2")
     .replace(/\s+/g, " ");
 
+// Cada dato clave puede traer alternativas separadas por "|": un gasoducto
+// con dos tramos de 30" tiene dos años de puesta en servicio válidos.
+const contieneClaves = (texto: string, claves: string[]): boolean =>
+  claves.every((c) => c.split("|").some((alt) => normalizar(texto).includes(normalizar(alt.trim()))));
+
 interface Resultado {
   pregunta: Pregunta;
   posicion: number | null;
@@ -83,9 +88,10 @@ interface Resultado {
 async function evaluarRespuesta(p: Pregunta, r: Resultado): Promise<void> {
   const inicio = Date.now();
   let texto = "";
-  const fuentes = new Map<number, { origen: number | null; novedad: boolean }>();
+  const fuentes = new Map<number, { origen: number | null; novedad: boolean; contenido: string }>();
   for await (const e of consultaRagService.responder(p.pregunta, 0, new AbortController().signal, { auditar: false })) {
-    if (e.tipo === "fuentes") e.fuentes.forEach((f) => fuentes.set(f.n, { origen: f.origen, novedad: !!f.novedadId }));
+    if (e.tipo === "fuentes")
+      e.fuentes.forEach((f) => fuentes.set(f.n, { origen: f.origen, novedad: !!f.novedadId, contenido: f.contenido }));
     if (e.tipo === "texto") texto += e.texto;
     if (e.tipo === "error") texto = `[ERROR] ${e.mensaje}`;
   }
@@ -96,16 +102,18 @@ async function evaluarRespuesta(p: Pregunta, r: Resultado): Promise<void> {
   r.citadas = citas.map((c) => (c!.novedad ? "novedad" : `slide ${c!.origen}`)).join(", ");
 
   const negado = normalizar(texto).includes(normalizar(NO_LO_ENCUENTRO).replace(/\.$/, ""));
-  // Cada dato clave puede traer alternativas separadas por "|": un gasoducto
-  // con dos tramos de 30" tiene dos años de puesta en servicio válidos.
-  r.claveOk = p.claves.length
-    ? p.claves.every((c) => c.split("|").some((alt) => normalizar(texto).includes(normalizar(alt.trim()))))
-    : null;
-  r.citaOk = p.slides.length
-    ? citas.some((c) => p.slides.includes(c!.origen ?? -1))
-    : p.tipo === "Novedad"
-      ? citas.some((c) => c!.novedad)
-      : null;
+  r.claveOk = p.claves.length ? contieneClaves(texto, p.claves) : null;
+  // La cita es buena si el fragmento citado respalda el dato, sea del
+  // documento que sea: con dos manuales que repiten la misma data técnica,
+  // exigir la slide del Manual DAO castigaba citas correctas del otro.
+  // Sin dato clave, se cae a la slide esperada.
+  r.citaOk = p.claves.length
+    ? citas.some((c) => contieneClaves(c!.contenido, p.claves))
+    : p.slides.length
+      ? citas.some((c) => p.slides.includes(c!.origen ?? -1))
+      : p.tipo === "Novedad"
+        ? citas.some((c) => c!.novedad)
+        : null;
 
   // "No respondió" sólo si además falta el dato: la regla 3 del prompt le
   // pide dar lo que tiene y decir qué falta, así que "N50 […] No lo encuentro
@@ -156,7 +164,11 @@ async function main(): Promise<void> {
     const r: Resultado = { pregunta: p, posicion: null };
     if (p.slides.length) {
       const recuperados = await consultaRagService.recuperar(p.pregunta, K);
-      const i = recuperados.findIndex((c) => p.slides.includes(c.origenDesde ?? -1));
+      // Acierta si trae la slide esperada o cualquier fragmento, de cualquier
+      // documento, que contenga el dato clave.
+      const i = recuperados.findIndex(
+        (c) => p.slides.includes(c.origenDesde ?? -1) || (p.claves.length > 0 && contieneClaves(c.contenido, p.claves)),
+      );
       if (i >= 0) {
         r.posicion = i + 1;
         entreK++;
