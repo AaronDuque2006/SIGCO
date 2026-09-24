@@ -39,7 +39,7 @@ Reemplazar el balance diario de gas natural que actualmente se lleva manualmente
 | Base de datos | **PostgreSQL** — nombre: `ctrl_operacional_gas`, con **pgvector** habilitado desde el script inicial (para RAG Fase 2). **Desarrollo**: contenedor Docker local (`docker-compose.yml`, imagen `pgvector/pgvector:pg16`) — ver decisión #40. **Producción**: contenedor `postgres` del stack Coolify (ver fila Despliegue), mismo patrón |
 | Arquitectura | Controller → Service → Repository (no MVC "puro") |
 | Monorepo | **pnpm workspaces** |
-| Despliegue | Un solo stack vía **Coolify** (docker-compose): `web`, `api`, `postgres`. `ollama` se agrega solo cuando arranque la Fase 2 RAG, no antes |
+| Despliegue | Un solo stack vía **Coolify** (docker-compose): `web`, `api`, `postgres`. `ollama` se suma para la Fase 2 RAG (arrancó el 2026-09-24; en desarrollo corre local, **todavía no está en el compose**, §16.10) |
 | Principios obligatorios | **SOLID** en la aplicación, **ACID** en la base de datos |
 
 **Aplicación de SOLID/ACID:**
@@ -445,6 +445,10 @@ ctrl-operacional-gas/
 100. **RAG (Fase 2): los Excel operativos quedan fuera del corpus, pero `.xlsx` sigue siendo un formato aceptado** (confirmado por el owner el 2026-09-23). Los workbooks cuyos datos ya viven en SICOG (balance, fuentes, quema, actividades, fallas) no se indexan: el RAG contestaría con una cifra vieja del Excel en vez de la vigente de la base. Otras planillas que no replican datos del sistema (formatos, tablas de referencia técnicas, listados) sí pueden subirse. El criterio no es la extensión del archivo sino **si su contenido ya está en la base**. Detalle en §16.1.
 101. **RAG (Fase 2): sólo el superadmin sube documentos al corpus** (confirmado por el owner el 2026-09-23). Es una **excepción explícita** al criterio de la decisión #31 (que aleja al superadmin del contenido de negocio): el owner prefiere que quien controla qué entra a la aplicación sea una sola persona, porque un documento malo contamina las respuestas de todos. Riesgo aceptado a sabiendas: hoy hay **un solo** superadmin y sin recuperación técnica (§12.3), así que si pierde el acceso nadie puede cargar documentos hasta resolverlo. Consultar lo puede cualquier usuario autenticado. Detalle en §16.3.
 102. **RAG (Fase 2): el histórico de `NOVEDAD_OPERATIVA` entra al corpus desde la primera versión** (confirmado por el owner el 2026-09-23). Es un segundo origen de chunks, sin archivo: cada novedad se indexa al crearse y se reindexa al corregirse, a partir de los datos que ya están en la base. Es lo que `PRODUCT.md` señala como el corpus más valioso. Detalle en §16.1 y §16.6.
+103. **RAG: el procesamiento de documentos corre en Node, dentro de `apps/api`, no en un contenedor Python** (2026-09-24; el owner pidió la recomendación y se tomó). Hoy el corpus son pptx y docx, que son XML dentro de un zip: se leen con `fflate` y expresiones acotadas, sin servicio nuevo ni segundo lenguaje. El worker es un intervalo de 30 s en el mismo proceso de la API (`iniciarWorkerRag`), con la cola en Postgres (`SKIP LOCKED`). PDF y XLSX están en el modelo pero **se rechazan al subir** hasta que tengan parser, en vez de aceptarlos y dejarlos en ERROR. Un contenedor Python (Docling) vuelve a tener sentido si aparecen PDFs escaneados o de layout difícil. Detalle en §16.7.
+104. **RAG: el asistente es una entrada propia en el hub, no un quinto departamento** (confirmado por el owner el 2026-09-24). Va en una sección "Consultas" debajo de los cuatro departamentos, porque consulta documentos de todos y no es un `DEPARTAMENTO` del seed (la lista del hub se compara contra `departamentosQueEdita`, decisión #59). Rutas: `/asistente` (cualquier usuario autenticado) y `/asistente/documentos` (sólo superadmin, decisión #101).
+105. **RAG: embeddings con `nomic-embed-text`, vector de 768, y búsqueda híbrida con BM25** (2026-09-24; el owner eligió "medir primero" y la medición decidió). Contra `bge-m3`, sobre 30 preguntas del Manual DAO, nomic híbrido quedó empatado o arriba (MRR 0,88 contra 0,84 en el prototipo), indexa 2,7 veces más rápido y ocupa 274 MB contra 1,2 GB — que pesa con Qwen corriendo al lado. Los prefijos `search_document:`/`search_query:` son obligatorios (sin ellos, 0,82 → 0,78). La parte por palabras es **BM25 escrito en SQL** y no `ts_rank_cd`, que no pondera por rareza: con `ts_rank_cd` la híbrida real daba MRR 0,66; con BM25, **0,93-0,94 y las 30 preguntas dentro de las 5 primeras**. El full-text usa una configuración propia `sicog_es` (español + `unaccent`) para que "Güiria" encuentre "Guiria". Cambiar de modelo exige migrar la dimensión y reindexar todo. Detalle en §16.5 y §16.9.
+106. **RAG: la generación sigue con Qwen2.5 7b; el 3b se midió y no sirve para las tablas** (2026-09-24, en línea con el §16.2). El 3b es 2-2,5 veces más rápido, pero leyendo la fila de Cardón de la slide 83 acertó el año pedido **0 de 3** veces, contra 6 de 6 del 7b con la regla de lectura de tablas en el prompt. Consecuencias que quedaron en el diseño: las filas de tabla viajan como "encabezado: valor" también al modelo (la tabla compacta le hacía perder la alineación de columnas), 2 filas por chunk, contexto con **presupuesto de 4.000 caracteres** y máximo 2 chunks por slide, y **sin umbral de similitud** para "no lo encuentro": una pregunta fuera de tema puntúa igual que una del manual (0,60 contra 0,61), así que esa decisión la toma el modelo por la regla del prompt. Latencia medida en esta máquina (16 núcleos, sin GPU): ~50-60 s hasta la primera palabra.
 
 ---
 
@@ -706,6 +710,7 @@ erDiagram
 ### 9.5 Fase 2 — RAG
 14. Plan definido (Ollama + pgvector, modelo 7-8B cuantizado, CPU puro, vía Coolify — mismo despliegue que la app, contenedor de Ollama se agrega solo cuando arranque esta fase). Falta: RAM real de la VM, y si los manuales de procedimientos ya existen documentados o requieren levantamiento con los analistas.
     **Actualización 2026-09-23**: el diseño detallado quedó en el **§16** (propuesta, sin código). Los manuales existen — `Manual_DAO.pptx` es el primer documento analizado —. Alcance y gobernanza cerrados el mismo día: Excel operativos fuera del corpus (#100), sólo el superadmin carga documentos (#101) y el histórico de novedades entra desde la primera versión (#102).
+    **Actualización 2026-09-24**: la fase arrancó y quedó construida — ingesta, búsqueda híbrida, asistente y pantalla de documentos (#103-#106, §16). Falta el despliegue del contenedor `ollama` y los pendientes del §16.10.
 
 ### 9.6 Despacho — verificar
 6. ~~"Quema Puntual" vs. "Quema TyD"~~ **Resuelto, ver decisión #38** — son el mismo dato (confirmado por fórmula: ambas vistas apuntan a la misma celda origen). No requirió cambio de schema.
@@ -1262,13 +1267,17 @@ REAL/PLAN del §14.4.
 
 ---
 
-## 16. Fase 2 — Módulo RAG (propuesta de diseño, **no implementar todavía**)
+## 16. Fase 2 — Módulo RAG (asistente de consulta)
 
-**Estado**: propuesta del owner, revisada el 2026-09-23; sus tres puntos de
-alcance y gobernanza quedaron cerrados ese mismo día como decisiones #100, #101 y
-#102. Sigue vigente la regla de `CLAUDE.md`: **ni contenedor de Ollama ni código
-de RAG hasta que la fase arranque formalmente**. Esta sección deja el diseño listo
-para ese momento.
+**Estado**: diseño del owner revisado el 2026-09-23 (decisiones #100-#102);
+**la fase arrancó el 2026-09-24** y quedaron construidas la ingesta (pptx y
+docx), la indexación de novedades, la búsqueda híbrida y las dos pantallas
+(decisiones #103-#106). Verificado de punta a punta contra Ollama local y la base
+real, con el Manual DAO cargado. Lo que falta está en el §16.10. Falta también
+el despliegue: el contenedor `ollama` todavía no está en ningún compose.
+
+Código: `apps/api/src/modules/rag/` (parsers, repositories, services,
+controller), migración `20260924082123_modulo_rag`, `apps/web/src/app/asistente/`.
 
 ### 16.1 Objetivo y alcance
 
@@ -1302,13 +1311,13 @@ recuperación semántica. El RAG trabaja sobre el corpus **no estructurado**.
 
 | Pieza | Elección | Estado |
 |---|---|---|
-| Motor de inferencia | **Ollama**, local, CPU | En pruebas fuera del repo |
-| Modelo de generación | **Qwen2.5:7b-instruct** (Q4_K_M); baja a **Qwen2.5:3b-instruct** sin tocar el pipeline si la RAM de la VM no alcanza | En pruebas |
-| Modelo de embeddings | **Por evaluar** — ver §16.5. Candidato inicial `nomic-embed-text` | En pruebas |
-| Almacén vectorial | **pgvector** en la misma `ctrl_operacional_gas`, sin base aparte (habilitado desde la migración inicial) | Listo |
-| Búsqueda por palabras | Full-text nativo de Postgres (`tsvector`, configuración `'spanish'`) | Propuesto |
-| Cola de ingesta | Postgres nativo (`SELECT … FOR UPDATE SKIP LOCKED`), sin Redis | Diseñado |
-| Despliegue | Contenedor `ollama` en el compose de Coolify **sólo al arrancar la fase**, en la red interna, sin puerto publicado | Pendiente |
+| Motor de inferencia | **Ollama**, local, CPU (`OLLAMA_URL`) | Funcionando en desarrollo |
+| Modelo de generación | **Qwen2.5:7b-instruct** (Q4_K_M), decisión #106. El 3b se midió y lee mal las tablas | Funcionando |
+| Modelo de embeddings | **`nomic-embed-text`**, vector(768), con prefijos — decisión #105 | Funcionando |
+| Almacén vectorial | **pgvector** en la misma `ctrl_operacional_gas`, índice HNSW | Funcionando |
+| Búsqueda por palabras | **BM25 en SQL** sobre `tsvector` con la configuración `sicog_es` (español + `unaccent`) | Funcionando |
+| Cola de ingesta | Postgres nativo (`SELECT … FOR UPDATE SKIP LOCKED`), worker cada 30 s dentro de la API | Funcionando |
+| Despliegue | Contenedor `ollama` en el compose de Coolify, en la red interna, sin puerto publicado; volumen para `RAG_DIR_ARCHIVOS` | **Pendiente** |
 
 ### 16.3 Gobernanza: quién sube documentos
 
@@ -1322,9 +1331,10 @@ recuperación semántica. El RAG trabaja sobre el corpus **no estructurado**.
   gestión de usuarios.
 - Las novedades (decisión #102) no pasan por esta carga: entran solas al
   registrarse, con los permisos de siempre de Despacho.
-- Formatos: `.pptx`, `.docx`, `.pdf` y `.xlsx` (este último sólo si no replica
-  datos del sistema, decisión #100). La pantalla de carga debe recordarle ese
-  criterio a quien sube.
+- Formatos: `.pptx` y `.docx` hoy; `.pdf` y `.xlsx` se rechazan al subir hasta
+  tener parser (decisión #103). El `.xlsx`, cuando exista, sólo si no replica
+  datos del sistema (decisión #100): la pantalla de carga se lo recuerda a quien
+  sube.
 - **Consultar** lo puede cualquier usuario autenticado, en línea con la decisión
   #22. Si algún documento resulta sensible para un departamento, el control de
   acceso sobre lo recuperado queda como pregunta abierta (`PRODUCT.md` ya la
@@ -1336,17 +1346,25 @@ recuperación semántica. El RAG trabaja sobre el corpus **no estructurado**.
 de contenido (slide, página, hoja) se clasifica en **TEXTO**, **TABLA** o
 **IMAGEN** antes de trocearla. Nunca un solo método para todo el archivo.
 
-Evidencia, `Manual_DAO.pptx` (110 slides): 95 narrativas, 11 esquemáticas (hasta
-100 cajas de texto sueltas: códigos de estación, distancias, diámetros — el
-diagrama de la red de gasoductos) y 4 mixtas. El texto crudo de una slide
+Evidencia, `Manual_DAO.pptx` (110 slides), **corregida al medir el 2026-09-24**:
+el borrador decía "95 narrativas", pero el manual es **casi todo tablas** — unas
+85 slides tabulares con 1.799 filas (data técnica de gasoductos, puntos de
+entrega y recepción, coordenadas UTM, calidad del gas), 11 esquemáticas (entre 56
+y 143 cajas de texto sueltas: códigos de estación, distancias, diámetros — el
+diagrama de la red de gasoductos) y apenas 4 de texto corrido (definiciones e
+instalaciones típicas). Las slides "Data Técnica" no dicen de qué sistema son: lo
+dice la slide separadora anterior, que el parser arrastra como sección. El texto crudo de una slide
 esquemática es una "sopa semántica": su significado está en la **posición** de
 las etiquetas, no en el orden en que la librería las lee. Un embedding de eso no
 recupera nada, y un LLM que intente explicarlo inventa conexiones.
 
-- **TEXTO** — troceo por tamaño (~300-500 tokens, ~50 de solapamiento), cortando
-  por sección con los títulos como separador. Metadata: sección, página/slide.
-- **TABLA** — N filas por chunk, con el encabezado repetido en cada uno para que
-  el chunk tenga sentido suelto.
+- **TEXTO** — por párrafos hasta ~1.500 caracteres, sin cortar ninguno a la
+  mitad, con documento y sección como cabecera. Metadata: sección, slide.
+- **TABLA** — **2 filas por chunk**, cada fila como "encabezado: valor; …" con
+  los encabezados de varias filas combinados ("CONDICIÓN DE DISEÑO Año Puesta en
+  Servicio") y la celda de grupo arrastrada a las filas que la dejan vacía. Se
+  probó mandarle al modelo la tabla compacta (encabezado una vez) y en las tablas
+  anchas perdía la alineación de columnas (decisión #106).
 - **IMAGEN** — no se indexa el texto crudo. La slide se exporta a PNG, se le
   escribe una **descripción** y el embedding se calcula sobre esa descripción.
   Cuando el chunk se recupera, **la aplicación muestra la imagen real**, en vez de
@@ -1359,65 +1377,90 @@ recupera nada, y un LLM que intente explicarlo inventa conexiones.
 
 Heurística de clasificación:
 
-- **pptx/docx**: una slide/sección con más de 20 cajas de texto de longitud
-  promedio corta → IMAGEN; si no, TEXTO.
+- **pptx** (implementado): más de 40 cajas de texto → IMAGEN. Los 11 esquemas
+  del manual tienen entre 56 y 143; ninguna slide de texto o tabla pasa de 26.
+  Las tablas (`<a:tbl>`) se leen como TABLA aunque la slide tenga texto al lado.
+- **docx** (implementado): los estilos de título parten secciones; `<w:tbl>` →
+  TABLA, el resto TEXTO. Word no guarda páginas, así que se cita por sección.
 - **xlsx** (si queda en alcance): encabezado claro y ≥80% de filas con la misma
   cantidad de columnas → TABLA; celdas combinadas o fórmulas entre hojas → IMAGEN.
 - **pdf**: mismo criterio que pptx. **Sin validar** contra un manual real.
 
 ### 16.5 Recuperación y respuesta
 
-- **Búsqueda híbrida**: similitud vectorial + full-text en español sobre **todos**
-  los chunks, combinadas. Reemplaza la columna `palabras_clave` del borrador, que
-  sólo cubría diagramas: una búsqueda literal ("dónde está BA1") encuentra la
-  slide por el texto aunque el embedding no lo capture.
-- **Modelo de embeddings, a elegir midiendo**: el corpus es 100% español técnico y
-  `nomic-embed-text` (v1.5) está entrenado sobre todo en inglés. Antes de fijarlo,
-  comparar contra multilingües (`bge-m3`, `nomic-embed-text-v2-moe`) con el set de
-  evaluación del §16.9. Si queda nomic: **exige los prefijos**
-  `search_document:` al indexar y `search_query:` al consultar; sin ellos la
-  recuperación cae bastante.
-- **Pocos chunks por consulta (4-6).** En CPU lo más lento es procesar el prompt,
-  no generar la respuesta. Respuesta en **streaming**.
-- **Prompt de sistema** (por diseñar): responder sólo con el contexto recuperado,
-  **citar documento y slide/página** de cada afirmación, y decir "no lo encuentro
-  en los documentos" cuando la recuperación da puntajes bajos, en vez de completar
-  con conocimiento general.
+- **Búsqueda híbrida** (decisión #105): 40 candidatos por similitud vectorial y 40
+  por BM25, combinados por posición (Reciprocal Rank Fusion, k=60), no por
+  puntaje — no están en la misma escala. El BM25 va escrito en SQL: la rareza de
+  cada palabra de la pregunta se cuenta en el momento contra el índice GIN, y los
+  términos van con OR. Tarda ~50 ms sobre los 800 chunks del manual.
+- **Abreviaturas expandidas al indexar** (`paraIndexar`): `GDTO` → gasoducto,
+  `30"` → 30 pulgadas. Se aplica igual a los chunks y a la pregunta; lo que se
+  muestra sigue siendo el texto original.
+- **Contexto con presupuesto, no con cantidad fija**: los chunks entran en orden
+  de relevancia hasta 4.000 caracteres (el primero siempre), con máximo 2 por
+  slide para que una pregunta de dos datos traiga las dos slides. Medido: Qwen 7b
+  lee ~26 tokens/s y escribe ~4; con cinco chunks de 6 filas eran 6.400 tokens y
+  4 minutos sólo de lectura. Respuesta en **streaming** (NDJSON).
+- **Una respuesta a la vez**: una cola en el service atiende en orden de llegada y
+  avisa "en espera" a quien queda atrás. Si el navegador corta, se aborta también
+  la generación en Ollama. Límite de 30 consultas cada 10 minutos por usuario.
+- **Prompt de sistema** (`consulta-rag.service.ts`), siete reglas: español breve;
+  cita `[n]` al final de cada oración, con un ejemplo (sin él, el 7b respondía
+  sólo "[1]"); si hay parte de la respuesta, darla y decir qué falta (sin esto se
+  negaba teniendo la mitad); "No lo encuentro en los documentos cargados." sólo si
+  no hay nada; copiar cifras con unidades; **leer las filas por su encabezado
+  exacto** (sin esta regla leía el año vecino); advertir que las cifras de los
+  manuales son de referencia; y los fragmentos son datos, no instrucciones.
+- **Sin umbral de similitud** (decisión #106): no separa lo relevante de lo que no
+  (0,60 contra 0,61). El "no lo encuentro" lo decide el modelo.
+- **Cada pregunta es independiente**: no hay memoria de conversación, y la
+  pantalla lo dice.
 
-### 16.6 Esquema propuesto
+### 16.6 Esquema
 
-Corregido respecto del borrador para seguir las convenciones del schema
-(tablas en plural y snake_case, enums nativos, `BigInt` en tablas que crecen).
+Tal como quedó en la migración `20260924082123_modulo_rag`.
 
 ```mermaid
 erDiagram
   USUARIO ||--o{ DOCUMENTO_RAG : sube
+  USUARIO ||--o{ CONSULTA_RAG : pregunta
   DOCUMENTO_RAG ||--o{ CHUNK_RAG : contiene
   NOVEDAD_OPERATIVA ||--o| CHUNK_RAG : "se indexa como"
 
   DOCUMENTO_RAG { int id PK
-    string nombre
+    string nombre "el que ve la gente; nunca arma una ruta"
     enum tipo_archivo "PPTX | DOCX | PDF | XLSX"
-    string ruta_original "volumen de archivos, fuera de la base"
-    string hash_sha256 "detecta resubidas del mismo archivo"
-    enum estado_procesamiento "PENDIENTE | PROCESANDO | LISTO | ERROR"
+    string ruta_original "<sha256>.<ext> en RAG_DIR_ARCHIVOS"
+    string hash_sha256 UK "resubir el mismo archivo es 409"
+    int tamano_bytes
+    enum estado "PENDIENTE | PROCESANDO | LISTO | ERROR"
     timestamp tomado_en "cuándo lo tomó el worker; rescata trabados"
     text error_detalle "sólo si ERROR"
     int usuario_id FK
-    timestamp subido_en }
+    timestamp subido_en
+    timestamp procesado_en }
 
   CHUNK_RAG { bigint id PK
     int documento_id FK "null si viene de una novedad"
-    bigint novedad_id FK "null si viene de un documento"
-    int origen_desde "slide, página u hoja; null en novedades"
+    bigint novedad_id FK "UK; null si viene de un documento"
+    int origen_desde "slide; null en docx y novedades"
     int origen_hasta
-    enum tipo_chunk "TEXTO | TABLA | IMAGEN"
-    text contenido "texto, tabla serializada o descripción"
-    vector embedding "vector(N), N según el modelo elegido"
+    string seccion "para citar: sistema — título de la slide"
+    enum tipo "TEXTO | TABLA | IMAGEN | NOVEDAD"
+    text contenido "lo que lee el modelo y se muestra como fuente"
+    vector embedding "vector(768); null en IMAGEN sin descripción"
     string modelo_embedding "para saber qué reindexar si se cambia"
-    tsvector contenido_busqueda "full-text 'spanish'"
-    string imagen_ref "sólo IMAGEN"
+    tsvector contenido_busqueda "sicog_es, con abreviaturas expandidas"
+    string hash_contenido "sólo novedades: detecta ediciones"
+    string imagen_ref "sólo IMAGEN; sin usar todavía"
     timestamp indexado_en }
+
+  CONSULTA_RAG { bigint id PK
+    int usuario_id FK
+    text pregunta
+    bigint_array chunk_ids "qué se le mostró"
+    int duracion_ms
+    timestamp creado_en }
 ```
 
 Notas de implementación:
@@ -1431,12 +1474,14 @@ Notas de implementación:
   documento **o** de una novedad, nunca de los dos — un `CHECK` escrito a mano
   exige exactamente una de las dos FK. Así la búsqueda es una sola consulta y la
   cita sabe qué mostrar. `CHUNK_RAG` referencia a `NOVEDAD_OPERATIVA`, nunca al
-  revés: la tabla de Despacho no se toca, en línea con no mezclar dominios. Al
-  borrar o corregir una novedad, su chunk se reemplaza en la misma transacción
-  que el cambio o lo retoma el worker comparando `indexado_en` contra la última
-  edición; cuál de las dos, se decide al implementar.
-- La dimensión del vector la fija el modelo (768 para `nomic-embed-text`, 1024 para
-  `bge-m3`): se decide después de la evaluación, no antes.
+  revés: la tabla de Despacho no se toca, en línea con no mezclar dominios (la
+  relación inversa existe sólo del lado de Prisma). **Resuelto al implementar**:
+  lo retoma el worker. Una novedad está pendiente si no tiene chunk, si el `md5`
+  de sus campos (tipo, impacto, causa, fechas, volumen, cliente/fuente, sistema)
+  no coincide con `hash_contenido`, o si se indexó con otro modelo. Así el
+  service de Despacho no sabe que el RAG existe. Borrarla borra el chunk por
+  `ON DELETE CASCADE` (también con `sembrar-demo --limpiar`).
+- La dimensión quedó en 768 (`nomic-embed-text`, decisión #105).
 - Los archivos originales y los PNG viven en un volumen del stack, no en la base,
   y **entran en el respaldo**.
 
@@ -1446,59 +1491,100 @@ Notas de implementación:
    se guarda, y se crea `DOCUMENTO_RAG` en `PENDIENTE`. La respuesta HTTP es
    inmediata; nada se procesa dentro del request.
 2. Un worker toma el siguiente pendiente con `FOR UPDATE SKIP LOCKED`, lo pasa a
-   `PROCESANDO` y sella `tomado_en`. **Uno que lleve demasiado en `PROCESANDO`**
-   (el worker murió a mitad) vuelve a `PENDIENTE` en la corrida siguiente.
+   `PROCESANDO` y sella `tomado_en`. **Uno que lleve más de 30 minutos en
+   `PROCESANDO`** (el worker murió a mitad) vuelve a `PENDIENTE`. En la primera
+   pasada después de arrancar se rescatan todos sin esperar: el stack corre una
+   sola API, así que lo que está en `PROCESANDO` al arrancar es de un proceso que
+   murió (se vio en la práctica: un reinicio del modo watch a mitad del manual).
+   Si algún día hay réplicas, eso tiene que volver al umbral.
 3. El parser del tipo de archivo clasifica cada unidad (§16.4) y todos devuelven la
    misma forma: una lista de chunks candidatos.
 4. Un único paso de embeddings sobre esa lista.
 5. **Reemplazo en una transacción**: se borran los chunks anteriores del documento
-   y se insertan los nuevos, así resubir no duplica. Estado `LISTO`, o `ERROR` con
-   `error_detalle`.
+   y se insertan los nuevos, así reprocesar no duplica. Estado `LISTO`, o `ERROR` con
+   `error_detalle`. Si Ollama no responde, el documento vuelve a `PENDIENTE` y
+   se reintenta solo: no es culpa del documento.
+6. Después de los documentos, la misma pasada pone al día las novedades, de a 32.
 
-Pendiente de definir: si el worker es Node (dentro de `apps/api`) o un contenedor
-Python aparte. Python tiene mejores parsers (p. ej. Docling, que ya clasifica
-layout en pptx/docx/pdf), a cambio de un servicio más en el stack.
+El worker es Node, dentro de `apps/api` (decisión #103). El Manual DAO entero
+(110 slides → 803 chunks) tarda ~3 minutos.
 
 ### 16.8 Seguridad
 
-- Los `.pptx`/`.docx`/`.xlsx` son zips: **límite de tamaño y protección contra zip
-  bombs** en el parser, que procesa archivos que no controla el sistema.
-- Ollama sólo en la red interna del compose, sin puerto publicado.
-- **Registro de consultas** (quién preguntó qué y qué se recuperó), igual que el
-  resto de la auditoría (§3).
-- **Datos personales**: la regla del proyecto prohíbe reproducir cédulas,
-  direcciones, fechas de nacimiento o tallas (archivos tipo `PERSONAL.csv`). Un
-  documento con esos datos no debe entrar al RAG: rechazo al subir o, como mínimo,
-  advertencia explícita a quien lo carga.
+Implementado:
+
+- **Subida**: 50 MB máximo (`RAG_TAMANO_MAXIMO_MB`, 413 si se pasa), extensión
+  **y** firma real del archivo (un `.exe` renombrado a `.pptx` es 422). En disco,
+  el archivo se llama por su hash: el nombre que manda el navegador nunca toca el
+  sistema de archivos.
+- **Zip bombs**: sólo se extraen las entradas que el parser pide; tope de 5.000
+  entradas, 200 MB descomprimidos y relación 200:1 por entrada.
+- **Datos personales**: tres o más números con forma de cédula en el documento →
+  `ERROR` y no se indexa. Es una heurística, no una garantía: la defensa principal
+  sigue siendo que sólo el superadmin sube (decisión #101), y la pantalla de carga
+  lo advierte.
+- **Registro de consultas** en `consultas_rag`: quién, qué preguntó, qué chunks
+  se le mostraron y cuánto tardó — también las cortadas o fallidas.
+- **Límite de uso**: 30 consultas cada 10 minutos por usuario, porque cada una
+  ocupa la CPU del servidor durante un minuto.
+- **Instrucciones escondidas**: la regla 7 del prompt trata los fragmentos como
+  datos. Lo que realmente defiende es que sólo el superadmin carga documentos.
+
+Pendiente para el despliegue: Ollama sólo en la red interna del compose, sin
+puerto publicado.
 - Que sólo curadores suban documentos (§16.3) es además la defensa principal
   contra instrucciones escondidas en un documento que intenten manipular las
   respuestas.
 
 ### 16.9 Evaluación
 
-Antes de elegir el modelo de embeddings y de dar la fase por buena: un set de
-**20-30 preguntas reales** del área, cada una con el documento y la slide/página
-que debería recuperar. Se mide cuántas veces esa fuente aparece entre los primeros
-k resultados (recall@k), y el mismo set sirve para comparar modelos, tamaños de
-chunk y la búsqueda híbrida contra la puramente vectorial. Por la decisión #102,
-el set incluye preguntas sobre novedades ("¿qué pasó la última vez que falló X?"),
-no sólo sobre manuales.
+`pnpm --filter api run evaluar-rag` mide la recuperación contra
+`archivos-fuente/rag/preguntas.json` (gitignored: cita contenido del manual):
+cuántas veces la slide correcta sale primera, cuántas entre las 5 primeras, y el
+MRR. Hay que correrlo antes y después de tocar el modelo, el troceo o la búsqueda.
+
+Resultados sobre el Manual DAO (30 preguntas), 2026-09-24:
+
+| Configuración | 1ª | Top 5 | MRR |
+|---|---|---|---|
+| Prototipo, sólo BM25 | 20 | 26 | 0,74 |
+| Prototipo, nomic vector | 22 | 28 | 0,82 |
+| Prototipo, nomic híbrida | 25 | 28 | 0,88 |
+| Prototipo, bge-m3 híbrida | 23 | 27 | 0,84 |
+| Real, híbrida con `ts_rank_cd` | 16 | 26 | 0,66 |
+| **Real, híbrida con BM25 (6 filas)** | **27** | **30** | **0,94** |
+| **Real, híbrida con BM25 (2 filas, vigente)** | **27** | **30** | **0,93** |
+
+**Limitación del set**: las 30 preguntas las redactó Claude leyendo los chunks,
+así que comparten vocabulario con el manual más que una pregunta real. Falta
+reemplazarlas o completarlas con preguntas del área, y sumar preguntas sobre
+novedades (decisión #102) cuando haya novedades reales y no de demostración.
 
 ### 16.10 Pendientes
 
-**Del owner (bloquean el diseño):**
+**Del owner:**
 
 1. ~~Excel operativos fuera del corpus~~ **Resuelto, decisión #100.**
 2. ~~Quién sube documentos~~ **Resuelto, decisión #101: el superadmin.**
 3. ~~Histórico de `NOVEDAD_OPERATIVA` en la primera versión~~ **Resuelto, decisión #102: entra.**
 4. Si la Fase 2 entra en el alcance del trabajo de grado (§10, `CONTEXTO_TEG.md`).
 5. Los casos de uso concretos, confirmados con el área (`PRODUCT.md`).
+6. **Preguntas reales del área** para el set de evaluación (§16.9).
+7. **¿Alcanza ~1 minuto por respuesta?** Es lo que da el 7b en CPU. Si no, las
+   salidas son GPU en el servidor o aceptar el 3b sólo para texto corrido —
+   que para las tablas del manual no sirve (decisión #106).
 
-**Técnicos (se resuelven midiendo):**
+**Técnicos:**
 
-6. RAM real de la VM: decide Qwen2.5 7b o 3b.
-7. Modelo de embeddings y dimensión del vector, con el set del §16.9.
-8. Worker en Node o contenedor Python.
-9. Validar la heurística de PDF contra un manual real.
-10. Diseñar el prompt de sistema (§16.5).
-11. Armar el set de evaluación con el área (§16.9).
+8. ~~Modelo de embeddings~~ **Resuelto, decisión #105.**
+9. ~~Worker en Node o Python~~ **Resuelto, decisión #103.**
+10. ~~Prompt de sistema~~ **Resuelto** (§16.5); revisarlo con preguntas reales.
+11. **Descripción de los 11 esquemas** del Manual DAO: hoy quedan como chunks
+    IMAGEN sin embedding, fuera de la búsqueda. Falta la pantalla para que alguien
+    del área escriba la descripción, mostrar la imagen real al recuperarla
+    (exportar la slide a PNG con LibreOffice) y **conservar las descripciones al
+    reprocesar**, que hoy reemplaza todos los chunks del documento.
+12. Parsers de **PDF y XLSX** (se rechazan al subir hasta que existan).
+13. **Despliegue**: contenedor `ollama` en el compose (red interna, sin puerto),
+    volumen para `RAG_DIR_ARCHIVOS` incluido en el respaldo, RAM real de la VM
+    (Qwen 7b cargado ocupa 5,5 GB, nomic 0,4 GB).
