@@ -7,10 +7,11 @@ import actividadesRoutes from "./modules/actividades/actividades.routes.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import despachoRoutes from "./modules/despacho/despacho.routes.js";
 import mantenimientoRoutes from "./modules/mantenimiento/mantenimiento.routes.js";
+import ragRoutes from "./modules/rag/rag.routes.js";
 import usuariosRoutes from "./modules/usuarios/usuarios.routes.js";
 import { env } from "./shared/env.js";
 import { errorHandler, notFoundHandler } from "./shared/http.js";
-import { iniciarCierreDiario } from "./shared/scheduler.js";
+import { iniciarCierreDiario, iniciarWorkerRag } from "./shared/scheduler.js";
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use("/api/actividades", actividadesRoutes);
 app.use("/api/despacho", despachoRoutes);
 app.use("/api/mantenimiento", mantenimientoRoutes);
 app.use("/api/usuarios", usuariosRoutes);
+app.use("/api/rag", ragRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
@@ -39,4 +41,5 @@ app.use(errorHandler);
 app.listen(env.PORT, () => {
   console.log(`API escuchando en el puerto ${env.PORT}`);
   iniciarCierreDiario();
+  iniciarWorkerRag();
 });

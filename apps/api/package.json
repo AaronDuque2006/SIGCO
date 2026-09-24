@@ -9,7 +9,8 @@
     "typecheck": "pnpm -w run contratos && tsc --noEmit",
     "crear-superadmin": "pnpm -w run contratos && dotenv -e ../../.env -- tsx src/scripts/crear-superadmin.ts",
     "sembrar-demo": "pnpm -w run contratos && dotenv -e ../../.env -- tsx src/scripts/sembrar-demo.ts",
-    "sembrar-fallas-mtto": "pnpm -w run contratos && dotenv -e ../../.env -- tsx src/scripts/sembrar-fallas-mtto.ts"
+    "sembrar-fallas-mtto": "pnpm -w run contratos && dotenv -e ../../.env -- tsx src/scripts/sembrar-fallas-mtto.ts",
+    "evaluar-rag": "pnpm -w run contratos && dotenv -e ../../.env -- tsx src/scripts/evaluar-rag.ts"
   },
   "dependencies": {
     "@sicog/db": "workspace:*",
@@ -21,6 +22,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
+    "fflate": "^0.8.3",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "node-cron": "^4.6.0",

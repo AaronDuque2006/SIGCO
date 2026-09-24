@@ -126,8 +126,8 @@ export const requireDepartamento =
     }
   };
 
-// Gestión de usuarios: exclusiva del superadmin, sin auto-registro
-// (decisión #11). Mismo criterio que requireDepartamento — se resuelve contra
+// Gestión de usuarios (decisión #11) y carga de documentos del RAG (decisión
+// #101): exclusivas del superadmin. Mismo criterio que requireDepartamento — se resuelve contra
 // la BD y deja registro del 403 en LOG_INTENTO_NO_AUTORIZADO.
 export const requireSuperadmin = async (
   req: Request,
@@ -149,7 +149,7 @@ export const requireSuperadmin = async (
       motivo: "No es superadmin",
       ip: req.ip ?? "desconocida",
     });
-    next(new ForbiddenError("Sólo el superadmin puede administrar usuarios"));
+    next(new ForbiddenError("Sólo el superadmin puede hacer esta operación"));
   } catch (err) {
     next(err);
   }

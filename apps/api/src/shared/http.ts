@@ -43,6 +43,16 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return;
   }
 
+  // body-parser: un cuerpo más grande que el límite (p. ej. un documento del
+  // RAG) es culpa de la petición, no del servidor.
+  if (typeof err === "object" && err !== null && (err as { type?: string }).type === "entity.too.large") {
+    const body: ApiErrorBody = {
+      error: { code: "VALIDATION_ERROR", message: "El archivo supera el tamaño máximo permitido" },
+    };
+    res.status(413).json(body);
+    return;
+  }
+
   if (err instanceof ZodError) {
     const body: ApiErrorBody = {
       error: { code: "VALIDATION_ERROR", message: "Datos inválidos", details: err.flatten() },

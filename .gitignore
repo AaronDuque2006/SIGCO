@@ -8,6 +8,8 @@ build/
 *.log
 .turbo/
 archivos-fuente/
+# Documentos subidos al RAG: contenido real de PDVSA, como archivos-fuente/.
+datos-rag/
 
 # Clon del repo de skills de terceros (addyosmani/agent-skills): trae su
 # propio .git, no es fuente de este proyecto.
