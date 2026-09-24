@@ -1,6 +1,7 @@
 "use client";
 
-import type { DocumentoRagDto, EventoConsultaRag } from "@sicog/shared-types";
+import type { DocumentoRagDto, EventoConsultaRag, ValoracionRagDto } from "@sicog/shared-types";
+import type { ValoracionRagInput } from "@sicog/shared-validators";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, apiRespuesta, ApiError } from "./api";
 
@@ -54,6 +55,24 @@ export function useReprocesarDocumento() {
   return useMutation<DocumentoRagDto, ApiError, number>({
     mutationFn: (id) => api<DocumentoRagDto>(`/rag/documentos/${id}/reprocesar`, { metodo: "POST" }),
     onSuccess: refrescar,
+  });
+}
+
+/** "¿Le sirvió?" sobre una respuesta propia. */
+export function useValorarRespuesta() {
+  const cliente = useQueryClient();
+  return useMutation<void, ApiError, { id: string; valoracion: ValoracionRagInput }>({
+    mutationFn: ({ id, valoracion }) =>
+      api<void>(`/rag/consultas/${id}/valoracion`, { metodo: "PUT", cuerpo: valoracion }),
+    onSuccess: () => cliente.invalidateQueries({ queryKey: ["rag", "valoraciones"] }),
+  });
+}
+
+/** Las respuestas marcadas como no útiles, para que el superadmin las revise. */
+export function useRespuestasNoUtiles() {
+  return useQuery<ValoracionRagDto[], ApiError>({
+    queryKey: ["rag", "valoraciones", "no-utiles"],
+    queryFn: () => api<ValoracionRagDto[]>("/rag/valoraciones?util=false"),
   });
 }
 

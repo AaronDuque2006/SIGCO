@@ -1,4 +1,5 @@
-import type { EventoConsultaRag, FuenteRagDto } from "@sicog/shared-types";
+import type { EventoConsultaRag, FuenteRagDto, ValoracionRagDto } from "@sicog/shared-types";
+import { NotFoundError } from "../../../shared/errors.js";
 import {
   chunkRagRepository,
   type ChunkRecuperado,
@@ -23,6 +24,8 @@ import { paraIndexar } from "./texto-indexado.js";
 // slide del año y el diámetro (la slide anterior) quedaba afuera.
 const CANDIDATOS = 10;
 const PRESUPUESTO_CARACTERES = 4000;
+// Las más recientes: es una bandeja de revisión, no un historial.
+const LIMITE_VALORACIONES = 100;
 const MAX_POR_ORIGEN = 2;
 
 function dentroDelPresupuesto(chunks: ChunkRecuperado[]): ChunkRecuperado[] {
@@ -154,9 +157,31 @@ export class ConsultaRagService {
     return this.chunks.buscar(vector!, textoBusqueda, cantidad);
   }
 
-  async *responder(pregunta: string, usuarioId: number, senal: AbortSignal): AsyncGenerator<EventoConsultaRag> {
+  /**
+   * `auditar: false` sólo para `evaluar-rag`: las preguntas de evaluación no
+   * son consultas de nadie y no deben mezclarse con la auditoría real.
+   */
+  async *responder(
+    pregunta: string,
+    usuarioId: number,
+    senal: AbortSignal,
+    { auditar = true }: { auditar?: boolean } = {},
+  ): AsyncGenerator<EventoConsultaRag> {
     const inicio = Date.now();
     let recuperados: ChunkRecuperado[] = [];
+    let respuesta = "";
+
+    // Se registra apenas llega, antes de buscar: así la consulta cortada o
+    // fallida también queda (la auditoría es de lo que se preguntó), y el
+    // navegador recibe el id con que después puede valorarla.
+    const consultaId = auditar
+      ? await this.consultas.crear({ usuarioId, pregunta }).catch((err: unknown) => {
+          console.error("[rag] No se pudo registrar la consulta:", err);
+          return null;
+        })
+      : null;
+    if (consultaId !== null) yield { tipo: "consulta", id: consultaId.toString() };
+
     try {
       recuperados = dentroDelPresupuesto(await this.recuperar(pregunta, CANDIDATOS));
 
@@ -166,6 +191,7 @@ export class ConsultaRagService {
       // (regla 3 del prompt); acá sólo se corta si el corpus está vacío.
       if (!recuperados.length) {
         yield { tipo: "fuentes", fuentes: [] };
+        respuesta = NO_LO_ENCUENTRO;
         yield { tipo: "texto", texto: NO_LO_ENCUENTRO };
         yield { tipo: "fin" };
         return;
@@ -187,6 +213,7 @@ export class ConsultaRagService {
           { role: "user", content: `FRAGMENTOS:\n\n${contexto}\n\nPREGUNTA: ${pregunta}` },
         ];
         for await (const pedazo of this.modelo.conversar(mensajes, senal)) {
+          respuesta += pedazo;
           yield { tipo: "texto", texto: pedazo };
         }
       } finally {
@@ -194,12 +221,39 @@ export class ConsultaRagService {
       }
       yield { tipo: "fin" };
     } finally {
-      // Se registra también la consulta cortada o fallida: la auditoría es de
-      // lo que se preguntó, no sólo de lo que se terminó de contestar.
-      await this.consultas
-        .registrar({ usuarioId, pregunta, chunkIds: recuperados.map((c) => c.id), duracionMs: Date.now() - inicio })
-        .catch((err) => console.error("[rag] No se pudo registrar la consulta:", err));
+      if (consultaId !== null) {
+        await this.consultas
+          .completar(consultaId, {
+            chunkIds: recuperados.map((c) => c.id),
+            respuesta: respuesta.trim() || null,
+            duracionMs: Date.now() - inicio,
+          })
+          .catch((err: unknown) => console.error("[rag] No se pudo completar el registro de la consulta:", err));
+      }
     }
+  }
+
+  /** "¿Le sirvió?". Sólo quien hizo la pregunta puede valorarla. */
+  async valorar(id: bigint, usuarioId: number, input: { util: boolean; comentario?: string | null }): Promise<void> {
+    const ok = await this.consultas.valorar(id, usuarioId, {
+      util: input.util,
+      comentario: input.comentario?.trim() || null,
+    });
+    if (!ok) throw new NotFoundError("Consulta inexistente");
+  }
+
+  async listarValoraciones(util: boolean | undefined): Promise<ValoracionRagDto[]> {
+    const filas = await this.consultas.listarValoradas(util, LIMITE_VALORACIONES);
+    return filas.map((f) => ({
+      id: f.id.toString(),
+      usuario: f.usuario.nombre,
+      pregunta: f.pregunta,
+      respuesta: f.respuesta,
+      util: f.util ?? false,
+      comentario: f.comentario,
+      creadoEn: f.creadoEn.toISOString(),
+      valoradaEn: (f.valoradaEn ?? f.creadoEn).toISOString(),
+    }));
   }
 }
 

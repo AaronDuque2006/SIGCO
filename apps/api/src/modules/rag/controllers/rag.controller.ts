@@ -1,6 +1,12 @@
 import type { Request, Response } from "express";
 import type { EventoConsultaRag } from "@sicog/shared-types";
-import { consultaRagSchema, documentoRagIdSchema } from "@sicog/shared-validators";
+import {
+  bigIntIdParamSchema,
+  consultaRagSchema,
+  documentoRagIdSchema,
+  listarValoracionesRagQuerySchema,
+  valoracionRagSchema,
+} from "@sicog/shared-validators";
 import { usuarioActual } from "../../../shared/auth.middleware.js";
 import { ValidationError } from "../../../shared/errors.js";
 import { parseOrThrow } from "../../../shared/http.js";
@@ -76,4 +82,18 @@ export const consultar = async (req: Request, res: Response): Promise<void> => {
     }
   }
   res.end();
+};
+
+// ── Valoraciones ("¿le sirvió?") ─────────────────────────────────────────────
+
+export const valorar = async (req: Request, res: Response): Promise<void> => {
+  const { id } = parseOrThrow(bigIntIdParamSchema, req.params);
+  const input = parseOrThrow(valoracionRagSchema, req.body);
+  await consultaRagService.valorar(BigInt(id), usuarioActual(req).id, input);
+  res.status(204).end();
+};
+
+export const listarValoraciones = async (req: Request, res: Response): Promise<void> => {
+  const { util } = parseOrThrow(listarValoracionesRagQuerySchema, req.query);
+  res.json(await consultaRagService.listarValoraciones(util));
 };

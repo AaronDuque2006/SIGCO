@@ -30,10 +30,15 @@ router.use(asyncHandler(requireAuth), asyncHandler(requirePasswordVigente));
 
 // Consultar lo puede cualquier usuario autenticado (§16.3).
 router.post("/consultas", limiteConsultas, asyncHandler(rag.consultar));
+// Cada quien valora sus propias respuestas; el service lo exige.
+router.put("/consultas/:id/valoracion", asyncHandler(rag.valorar));
 
 // Qué entra al corpus lo decide sólo el superadmin (decisión #101).
 const soloSuperadmin = asyncHandler(requireSuperadmin);
 router.get("/documentos", soloSuperadmin, asyncHandler(rag.listar));
+// Leer lo que otros preguntaron y qué les pareció la respuesta: superadmin,
+// igual que decidir qué entra al corpus (decisión #101).
+router.get("/valoraciones", soloSuperadmin, asyncHandler(rag.listarValoraciones));
 router.post(
   "/documentos",
   soloSuperadmin,

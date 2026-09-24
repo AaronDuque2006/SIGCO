@@ -15,6 +15,7 @@ import {
   useDocumentosRag,
   useEliminarDocumento,
   useReprocesarDocumento,
+  useRespuestasNoUtiles,
   useSubirDocumento,
 } from "@/lib/asistente";
 import { useSesion } from "@/lib/sesion";
@@ -81,6 +82,8 @@ function Documentos() {
         ) : (
           <Tabla documentos={lista.data} />
         )}
+
+        <RespuestasNoUtiles />
       </main>
     </>
   );
@@ -171,6 +174,60 @@ function FormularioCarga() {
     </section>
   );
 }
+/**
+ * La bandeja de lo que no funcionó: cada "No me sirvió" con la pregunta, lo
+ * que contestó el asistente y lo que dijo quien preguntó. Es de donde salen
+ * las preguntas nuevas del set de evaluación (§16.9).
+ */
+function RespuestasNoUtiles() {
+  const lista = useRespuestasNoUtiles();
+
+  return (
+    <section className="mt-8" aria-labelledby="titulo-no-utiles">
+      <h2 id="titulo-no-utiles" className="text-sm font-medium">
+        Respuestas que no sirvieron
+      </h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Las que los usuarios marcaron con “No” en el asistente, la más reciente primero.
+      </p>
+      {lista.error ? (
+        <Alert variant="destructive" className="mt-3">
+          <AlertDescription>{lista.error.message}</AlertDescription>
+        </Alert>
+      ) : lista.isPending ? (
+        <p className="mt-3 text-sm text-muted-foreground" role="status">
+          Cargando…
+        </p>
+      ) : lista.data.length === 0 ? (
+        <p className="mt-3 text-sm text-muted-foreground">Ninguna todavía.</p>
+      ) : (
+        <ul className="mt-3 space-y-3">
+          {lista.data.map((v) => (
+            <li key={v.id} className="rounded-lg border border-border bg-card p-3 text-sm">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <p className="font-medium">{v.pregunta}</p>
+                <p className="text-xs text-muted-foreground">
+                  {v.usuario} ·{" "}
+                  <span className="font-mono tabular-nums">{formatoFecha.format(new Date(v.valoradaEn))}</span>
+                </p>
+              </div>
+              {v.comentario ? <p className="mt-1.5">“{v.comentario}”</p> : null}
+              <details className="mt-2">
+                <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                  Qué contestó el asistente
+                </summary>
+                <p className="mt-1.5 max-w-[75ch] text-xs whitespace-pre-wrap text-muted-foreground">
+                  {v.respuesta ?? "La respuesta se cortó antes de escribirse."}
+                </p>
+              </details>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 const formatoFecha = new Intl.DateTimeFormat("es-VE", {
   day: "2-digit",
   month: "2-digit",

@@ -37,8 +37,22 @@ export interface FuenteRagDto {
  * línea (NDJSON), para que se vea mientras el modelo la escribe.
  */
 export type EventoConsultaRag =
+  /** El id con que se puede valorar la respuesta ("¿le sirvió?"). */
+  | { tipo: "consulta"; id: string }
   | { tipo: "espera"; posicion: number }
   | { tipo: "fuentes"; fuentes: FuenteRagDto[] }
   | { tipo: "texto"; texto: string }
   | { tipo: "fin" }
   | { tipo: "error"; mensaje: string };
+
+/** Una respuesta valorada, para que el superadmin revise las que no sirvieron. */
+export interface ValoracionRagDto {
+  id: string;
+  usuario: string;
+  pregunta: string;
+  respuesta: string | null;
+  util: boolean;
+  comentario: string | null;
+  creadoEn: string;
+  valoradaEn: string;
+}

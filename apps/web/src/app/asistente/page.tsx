@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api";
-import { consultarAsistente } from "@/lib/asistente";
+import { consultarAsistente, useValorarRespuesta } from "@/lib/asistente";
 import { useSesion } from "@/lib/sesion";
 
 export default function AsistentePage() {
@@ -27,6 +27,8 @@ type Fase = "buscando" | "esperando" | "leyendo" | "escribiendo" | "lista" | "de
 
 interface Intercambio {
   id: number;
+  /** El id en el servidor, para valorarla; null si no se pudo registrar. */
+  consultaId: string | null;
   pregunta: string;
   fuentes: FuenteRagDto[];
   respuesta: string;
@@ -101,7 +103,7 @@ function Asistente() {
     setPregunta("");
     const inicio = ahora();
     setIntercambios((lista) => [
-      { id, pregunta: texto, fuentes: [], respuesta: "", fase: "buscando", porDelante: 0, error: null, inicio, duracion: null },
+      { id, consultaId: null, pregunta: texto, fuentes: [], respuesta: "", fase: "buscando", porDelante: 0, error: null, inicio, duracion: null },
       ...lista,
     ]);
     const cerrar = (fase: Fase, error: string | null = null) =>
@@ -109,7 +111,8 @@ function Asistente() {
 
     try {
       await consultarAsistente(texto, ctrl.signal, (e) => {
-        if (e.tipo === "fuentes") actualizar(id, (i) => ({ ...i, fuentes: e.fuentes, fase: "leyendo" }));
+        if (e.tipo === "consulta") actualizar(id, (i) => ({ ...i, consultaId: e.id }));
+        else if (e.tipo === "fuentes") actualizar(id, (i) => ({ ...i, fuentes: e.fuentes, fase: "leyendo" }));
         else if (e.tipo === "espera") actualizar(id, (i) => ({ ...i, fase: "esperando", porDelante: e.posicion }));
         else if (e.tipo === "texto")
           actualizar(id, (i) => ({ ...i, fase: "escribiendo", respuesta: i.respuesta + e.texto }));
@@ -318,14 +321,88 @@ function Respuesta({ intercambio: i, onReintentar }: { intercambio: Intercambio;
               <ListaFuentes fuentes={otras} idIntercambio={i.id} />
             </details>
           ) : null}
-          {i.duracion !== null ? (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Respondida en <span className="font-mono tabular-nums">{Math.round(i.duracion / 1000)}</span> s
-            </p>
-          ) : null}
+          <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
+            {i.consultaId ? <Valoracion consultaId={i.consultaId} /> : <span />}
+            {i.duracion !== null ? (
+              <p className="text-xs text-muted-foreground">
+                Respondida en <span className="font-mono tabular-nums">{Math.round(i.duracion / 1000)}</span> s
+              </p>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </article>
+  );
+}
+
+/**
+ * "¿Le sirvió?". Un "No" pide, opcional, qué estuvo mal: esa frase es lo que
+ * después le permite al superadmin entender la falla sin repetir la consulta.
+ */
+function Valoracion({ consultaId }: { consultaId: string }) {
+  const valorar = useValorarRespuesta();
+  const [dijoNo, setDijoNo] = useState(false);
+  const [comentario, setComentario] = useState("");
+  const [enviada, setEnviada] = useState<boolean | null>(null);
+
+  if (enviada !== null) {
+    return (
+      <p className="text-xs text-muted-foreground" role="status">
+        {enviada ? "Gracias, quedó registrado." : "Gracias. Lo va a revisar el administrador del sistema."}
+      </p>
+    );
+  }
+
+  const enviar = (util: boolean) =>
+    valorar.mutate(
+      { id: consultaId, valoracion: { util, comentario: util ? null : comentario.trim() || null } },
+      { onSuccess: () => setEnviada(util) },
+    );
+
+  if (dijoNo) {
+    return (
+      <form
+        className="flex min-w-0 flex-1 flex-wrap items-end gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          enviar(false);
+        }}
+      >
+        <div className="min-w-56 flex-1 space-y-1.5">
+          <Label htmlFor={`comentario-${consultaId}`}>¿Qué estuvo mal? (opcional)</Label>
+          <Input
+            id={`comentario-${consultaId}`}
+            value={comentario}
+            maxLength={500}
+            autoFocus
+            placeholder="Por ejemplo: el dato es de otro año"
+            onChange={(e) => setComentario(e.target.value)}
+          />
+        </div>
+        <Button type="submit" variant="outline" size="sm" disabled={valorar.isPending}>
+          Enviar
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setDijoNo(false)}>
+          Cancelar
+        </Button>
+        {valorar.error ? <p className="basis-full text-xs text-destructive">{valorar.error.message}</p> : null}
+      </form>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <span id={`valorar-${consultaId}`}>¿Le sirvió?</span>
+      <div role="group" aria-labelledby={`valorar-${consultaId}`} className="flex gap-1.5">
+        <Button variant="outline" size="xs" disabled={valorar.isPending} onClick={() => enviar(true)}>
+          Sí
+        </Button>
+        <Button variant="outline" size="xs" disabled={valorar.isPending} onClick={() => setDijoNo(true)}>
+          No
+        </Button>
+      </div>
+      {valorar.error ? <span className="text-destructive">{valorar.error.message}</span> : null}
+    </div>
   );
 }
 

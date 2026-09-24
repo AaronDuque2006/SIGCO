@@ -922,15 +922,23 @@ model ChunkRag {
 
 // Auditoría de consultas (§16.8): quién preguntó qué y qué se recuperó.
 model ConsultaRag {
-  id         BigInt   @id @default(autoincrement())
-  usuarioId  Int      @map("usuario_id")
+  id         BigInt    @id @default(autoincrement())
+  usuarioId  Int       @map("usuario_id")
   pregunta   String
-  chunkIds   BigInt[] @map("chunk_ids")
-  duracionMs Int?     @map("duracion_ms")
-  creadoEn   DateTime @default(now()) @map("creado_en")
+  chunkIds   BigInt[]  @map("chunk_ids")
+  // Lo que se le contestó: sin esto, quien revisa un "no me sirvió" no sabe
+  // qué dijo el asistente. Null si se cortó antes de escribir.
+  respuesta  String?
+  duracionMs Int?      @map("duracion_ms")
+  creadoEn   DateTime  @default(now()) @map("creado_en")
+  // "¿Le sirvió?" de quien preguntó; opcional.
+  util       Boolean?
+  comentario String?
+  valoradaEn DateTime? @map("valorada_en")
 
   usuario Usuario @relation(fields: [usuarioId], references: [id])
 
   @@index([creadoEn])
+  @@index([util])
   @@map("consultas_rag")
 }
