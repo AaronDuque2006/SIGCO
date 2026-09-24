@@ -31,46 +31,36 @@ async function seedSistemaYFuente() {
   const jusepinCriogenico = sistemas.get("Jusepín - Criogénico")!.id;
   const uleAmuay = sistemas.get("Ulé - Amuay")!.id;
 
+  // Decisión #107: el catálogo es el de la hoja GUIA WEB, que es la que
+  // alimenta el balance (`PROMEDIO!C17:G27`), y no el desglose de la hoja
+  // FUENTES que se sembró al principio (decisiones #39/#41). El recibido del
+  // workbook es residual + desvío de estas filas, más las entregas directas,
+  // que no son una fuente sino 4 clientes (ver `ENTREGAS_DIRECTAS`).
   const fuentes: { nombre: string; sistemaId: number }[] = [
-    // Manual DAO: "Extracción San Joaquín" / "Criogénico San Joaquín" -> este sistema.
-    // Estas dos, más Santa Bárbara Tren A/B y C, Jusepín y El Tablazo LGN1/2
-    // (marcadas más abajo), son las plantas que procesan gas — PROCESA_GAS
-    // en FUENTES (decisión pendiente de numerar).
+    // Manual DAO: "Extracción San Joaquín" / "Criogénico San Joaquín" -> este
+    // sistema. Las dos únicas que procesan gas (ver `PLANTAS_QUE_PROCESAN`).
     { nombre: "San Joaquín Tren A y B", sistemaId: anacoJosePLC },
     { nombre: "San Joaquín Tren C", sistemaId: anacoJosePLC },
-    // RECAT SJ / SJB FI FII: no aparecen con ese nombre exacto en el manual,
-    // inferido por convención "SJ" = San Joaquín (decisión #41, sin confirmar al 100%).
-    { nombre: "RECAT SJ", sistemaId: anacoJosePLC },
-    { nombre: "SJB FI FII", sistemaId: anacoJosePLC },
 
-    // Manual DAO: "Santa Bárbara STB", "Soto STO", "Aguasay Nueva AGN",
-    // "Bajo Guanipa BJG", "Zapato Viejo ZPV", "Estación Terminal San Joaquín ETSJ".
-    { nombre: "Santa Bárbara Tren A y B", sistemaId: jusepinCriogenico },
-    { nombre: "Santa Bárbara Tren C", sistemaId: jusepinCriogenico },
-    { nombre: "Jusepín", sistemaId: jusepinCriogenico },
-    { nombre: "Soto", sistemaId: jusepinCriogenico },
-    { nombre: "Aguasay 5A", sistemaId: jusepinCriogenico },
-    { nombre: "Bajo Guanipa", sistemaId: jusepinCriogenico },
-    { nombre: "ETSJ", sistemaId: jusepinCriogenico },
-    { nombre: "Zapato Viejo", sistemaId: jusepinCriogenico },
-    { nombre: "Corredor Jusepín-Criogénico", sistemaId: jusepinCriogenico },
-
-    // Manual DAO: segmento de tubería "La Pica - El Tablazo" dentro de la
-    // sección técnica de Ulé-Amuay.
-    { nombre: "El Tablazo LGN1", sistemaId: uleAmuay },
-    { nombre: "El Tablazo LGN2", sistemaId: uleAmuay },
-    { nombre: "C. Petroquímico", sistemaId: uleAmuay },
-    { nombre: "Planta Fertilizante", sistemaId: uleAmuay },
-    { nombre: "Comb. Trans. a Pequiven", sistemaId: uleAmuay },
-    { nombre: "Hacia La Paz Gas E&P", sistemaId: uleAmuay },
-    { nombre: "Hacia Ramón Laguna", sistemaId: uleAmuay },
-    { nombre: "Hacia La Pica-Ule Amuay", sistemaId: uleAmuay },
-    { nombre: "Hacia La Pica-Retorno a Prod.", sistemaId: uleAmuay },
+    // "Desvío a ventas" en la guía. Tonoro es "TRASEGADO" (GUIA WEB!G15) y en
+    // la hoja FUENTES era el Corredor Jusepín-Criogénico (Soto, Aguasay 5A,
+    // Bajo Guanipa, ETSJ, Zapato Viejo); Anaco es "ATA" (GUIA WEB!F15), que en
+    // FUENTES era SJB FI FII. Manual DAO: Tonoro Viejo/Nuevo (TOV/TON) son
+    // estaciones de Jusepín - Criogénico (slide 43); ATA está en la Estación
+    // Principal Anaco del esquema Anaco - Puerto Ordaz (slide 23), y "Anaco"
+    // figura como fuente recibida en EPA (slide 27).
+    { nombre: "Directo a ventas en Tonoro", sistemaId: jusepinCriogenico },
+    { nombre: "Directo a ventas en Anaco", sistemaId: anacoPuertoOrdaz },
+    // "TOTAL SOTO" (GUIA WEB!G3, "SOT-EPA"), el aporte Norte de Monagas -
+    // Soto. Manual DAO, slide 27: "Norte de Monagas" se recibe en la estación
+    // Soto del sistema Anaco - Puerto Ordaz.
+    { nombre: "Gas seco (Soto)", sistemaId: anacoPuertoOrdaz },
 
     // Empresas Mixtas/LIC (decisión #47). El Manual DAO las llama textualmente
     // "FUENTES QUE APORTAN GAS AL SISTEMA" (slide 27), y el bloque "APORTE" de
     // la hoja FUENTES lleva volúmenes distintos a los que estas mismas empresas
-    // consumen como CLIENTE: son dos flujos, no uno.
+    // consumen como CLIENTE: son dos flujos, no uno. Van por separado, como en
+    // "CONVENIOS Y ASOCIACIONES" de la guía (GUIA WEB!B3:B10).
     { nombre: "Petro Monagas", sistemaId: anacoPuertoOrdaz },
     { nombre: "Mavegas (Pesados)", sistemaId: anacoPuertoOrdaz },
     { nombre: "Bitor (Extrapesados)", sistemaId: anacoPuertoOrdaz },
@@ -79,7 +69,10 @@ async function seedSistemaYFuente() {
     { nombre: "Gas Guárico", sistemaId: anacoCaracas },
     { nombre: "Ypergas", sistemaId: anacoCaracas },
     { nombre: "Cardón IV", sistemaId: uleAmuay },
-    { nombre: "PAGMI", sistemaId: anacoJosePLC },
+    // "EyP LA PAZ" en la guía (GUIA WEB!F10). La otra mitad de la fila
+    // "CARDON IV / PRODUCCIÓN OCCIDENTE" del balance. Manual DAO: EyP aparece
+    // en el esquema de Ulé - Amuay (slide 79), junto a La Pica y Costa Oeste.
+    { nombre: "Producción Occidente", sistemaId: uleAmuay },
   ];
 
   await insertarFaltantes(
@@ -101,14 +94,16 @@ async function seedSistemaYFuente() {
   });
 }
 
-const PLANTAS_QUE_PROCESAN = [
-  "San Joaquín Tren A y B",
-  "San Joaquín Tren C",
-  "Santa Bárbara Tren A y B",
-  "Santa Bárbara Tren C",
-  "Jusepín",
-  "El Tablazo LGN1",
-  "El Tablazo LGN2",
+const PLANTAS_QUE_PROCESAN = ["San Joaquín Tren A y B", "San Joaquín Tren C"] as const;
+
+// `PROMEDIO!F25 = CEN-ORI!E56+E115+E51+E62`. Esos mismos 4 clientes se restan
+// del total de su región y vuelven al transportado como la línea "ENTREGAS
+// DIRECTAS ORI.", así que cuentan una vez de cada lado (decisión #107).
+const ENTREGAS_DIRECTAS = [
+  "CEMENTOS CERRO AZUL",
+  "P.E. SAN DIEGO DE CABRUTICA",
+  "LA TOSCANA SAN VICENTE",
+  "P.E. TERMO BARRANCA",
 ] as const;
 
 // Inserta sólo lo que todavía no está. Permite ampliar un catálogo sin borrar
@@ -491,6 +486,17 @@ async function seedClientes() {
       ),
     (nuevos) => prisma.cliente.createMany({ data: nuevos }),
   );
+
+  // Mismo criterio que `PROCESA_GAS`: se marca aparte y en cada corrida.
+  const marcadas = await prisma.cliente.updateMany({
+    where: { nombre: { in: [...ENTREGAS_DIRECTAS] } },
+    data: { entregaDirecta: true },
+  });
+  if (marcadas.count !== ENTREGAS_DIRECTAS.length) {
+    throw new Error(
+      `Seed de clientes: se esperaban ${ENTREGAS_DIRECTAS.length} entregas directas y se marcaron ${marcadas.count}`,
+    );
+  }
 }
 
 /**
