@@ -1396,6 +1396,23 @@ Heurística de clasificación:
 - **Abreviaturas expandidas al indexar** (`paraIndexar`): `GDTO` → gasoducto,
   `30"` → 30 pulgadas. Se aplica igual a los chunks y a la pregunta; lo que se
   muestra sigue siendo el texto original.
+- **Siglas de estación expandidas en la pregunta** (2026-09-24, tras una
+  consulta del owner que falló: "Explica qué es la EPA y por qué es tan
+  importante"). "EPA" aparece en decenas de chunks, así que sola casi no pesa, y
+  el modelo de embeddings no sabe que es la Estación Principal Anaco: la
+  definición quedaba en el puesto 25. Ahora, si la pregunta menciona un código
+  que figura en las tablas de nomenclatura **del propio corpus**, se le suma el
+  nombre ("… (Estacion Principal Anaco)") — no hay lista escrita a mano. Sin
+  distinguir mayúsculas, pero una palabra vacía del español nunca se expande
+  ("con" es también El Consejo). La definición pasó al puesto 1-2. El mismo caso
+  destapó un bug del parser: las tablas sin números (nomenclatura) se tragaban
+  sus primeras filas como encabezado; ahora una fila extra sólo es encabezado si
+  deja vacía la primera celda.
+- **Límite conocido — preguntas de "por qué"**: el Manual DAO casi no tiene
+  texto explicativo; el rol de cada estación en la red está en los esquemas, que
+  todavía no se indexan (§16.10). A "¿por qué es importante la EPA?" el modelo
+  arma una explicación con filas sueltas que suena bien pero no está en el
+  documento. Datos puntuales (cifras, definiciones, códigos) sí responde bien.
 - **Contexto con presupuesto, no con cantidad fija**: los chunks entran en orden
   de relevancia hasta 4.000 caracteres (el primero siempre), con máximo 2 por
   slide para que una pregunta de dos datos traiga las dos slides. Medido: Qwen 7b
@@ -1554,6 +1571,9 @@ Resultados sobre el Manual DAO (30 preguntas), 2026-09-24:
 | Real, híbrida con `ts_rank_cd` | 16 | 26 | 0,66 |
 | **Real, híbrida con BM25 (6 filas)** | **27** | **30** | **0,94** |
 | **Real, híbrida con BM25 (2 filas, vigente)** | **27** | **30** | **0,93** |
+
+`evaluar-rag` mide el mismo camino que el asistente (`consultaRagService.recuperar`,
+con la expansión de siglas), no una búsqueda propia.
 
 **Limitación del set**: las 30 preguntas las redactó Claude leyendo los chunks,
 así que comparten vocabulario con el manual más que una pregunta real. Falta

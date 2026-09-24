@@ -12,9 +12,7 @@
  * recupera no la salva ningún prompt.
  */
 import { readFileSync } from "node:fs";
-import { chunkRagRepository } from "../modules/rag/repositories/chunk-rag.repository.js";
-import { modeloLenguaje } from "../modules/rag/services/ollama.client.js";
-import { paraIndexar } from "../modules/rag/services/texto-indexado.js";
+import { consultaRagService } from "../modules/rag/services/consulta-rag.service.js";
 
 const RUTA = process.argv[2] ?? "../../archivos-fuente/rag/preguntas.json";
 const K = 5;
@@ -26,9 +24,7 @@ async function main(): Promise<void> {
   let mrr = 0;
 
   for (const { p, s } of preguntas) {
-    const texto = paraIndexar(p);
-    const [vector] = await modeloLenguaje.embeber([texto], "consulta");
-    const recuperados = await chunkRagRepository.buscar(vector!, texto, K);
+    const recuperados = await consultaRagService.recuperar(p, K);
     const posicion = recuperados.findIndex((c) => s.includes(c.origenDesde ?? -1));
     if (posicion === 0) primeras++;
     if (posicion >= 0) {

@@ -70,3 +70,15 @@ el corpus real.
 - Descripción de los 11 esquemas, y conservarlas al reprocesar.
 - Parsers de PDF y XLSX.
 - El contenedor `ollama` en el compose de despliegue.
+
+## Post scríptum: la pregunta de la EPA
+
+El owner preguntó "Explica qué es la EPA y por qué es tan importante para el
+sistema" y el asistente contestó mal. Dos causas de búsqueda, corregidas: las
+tablas de nomenclatura se leían con las primeras filas como encabezado (la de
+"Estación Principal Anaco = EPA" quedaba ilegible), y la sigla sola casi no
+pesaba — la definición salía 25ª. Ahora las siglas de estación se expanden con
+el nombre que trae el propio corpus, y sale 1ª-2ª. Y un límite que no es de
+código: el manual no dice por qué la EPA es importante; eso vive en los
+esquemas sin describir, y el modelo lo rellena con una deducción.
+

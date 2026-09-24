@@ -89,13 +89,19 @@ export function serializarTabla(tabla: string[][]): TablaSerializada {
     i++;
   }
 
-  // Encabezado: la primera fila después de los títulos, más las siguientes sin
-  // números (máximo tres). Las filas de datos casi siempre traen cifras.
+  // Encabezado: la primera fila después de los títulos, más las siguientes
+  // (máximo tres) que tengan vacía la primera celda y ninguna cifra. En el
+  // Manual DAO un encabezado de varias filas deja siempre vacía la primera
+  // columna debajo de "TUBERÍAS"; una fila con la primera celda llena es un
+  // dato. Sin esa condición, las tablas de nomenclatura —que no tienen
+  // números— se tragaban sus primeras filas como encabezado, y "Estación
+  // Principal Anaco = EPA" quedaba ilegible.
   const encabezado: string[][] = [];
   if (i < filasCompletas.length) encabezado.push(filasCompletas[i++]!);
   while (
     i < filasCompletas.length &&
     encabezado.length < 3 &&
+    !filasCompletas[i]![0] &&
     !filasCompletas[i]!.some((c) => TIENE_DIGITO.test(c))
   ) {
     encabezado.push(filasCompletas[i++]!);

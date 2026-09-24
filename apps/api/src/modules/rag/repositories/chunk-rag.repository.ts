@@ -42,6 +42,10 @@ export interface IChunkRagRepository {
   buscar(embedding: number[], texto: string, cantidad: number): Promise<ChunkRecuperado[]>;
   novedadesPendientes(modelo: string, limite: number): Promise<NovedadParaIndexar[]>;
   guardarChunksNovedad(chunks: ChunkNovedadParaGuardar[], modelo: string): Promise<void>;
+  /** Contenido de los chunks de tablas de nomenclatura (código de estación → nombre). */
+  tablasDeNomenclatura(): Promise<string[]>;
+  /** Las palabras que la búsqueda en español descarta ("con", "la", "de"…). */
+  esPalabraVacia(palabras: string[]): Promise<Set<string>>;
 }
 
 // Cuántos candidatos trae cada búsqueda antes de combinarlas. Más que los que
@@ -210,6 +214,21 @@ export class PrismaChunkRagRepository implements IChunkRagRepository {
       sistema: f.sistema,
       hash: f.hash,
     }));
+  }
+
+  async tablasDeNomenclatura(): Promise<string[]> {
+    const filas = await prisma.$queryRaw<{ contenido: string }[]>`
+      SELECT contenido FROM chunks_rag
+      WHERE tipo = 'TABLA' AND contenido ~* 'nomenclatura[^:]*:'`;
+    return filas.map((f) => f.contenido);
+  }
+
+  async esPalabraVacia(palabras: string[]): Promise<Set<string>> {
+    if (!palabras.length) return new Set();
+    const filas = await prisma.$queryRaw<{ p: string }[]>`
+      SELECT p FROM unnest(${palabras}::text[]) AS p
+      WHERE to_tsvector('sicog_es', p) = ''::tsvector`;
+    return new Set(filas.map((f) => f.p));
   }
 
   async guardarChunksNovedad(chunks: ChunkNovedadParaGuardar[], modelo: string): Promise<void> {
