@@ -1630,6 +1630,22 @@ encuentro". Las de Explicación y las que no tienen dato clave quedan en
 persona. Deja una planilla `resultados-<fecha>.xlsx` con la respuesta completa y
 una columna vacía "¿inventa algo?". Tarda ~1 minuto por pregunta.
 
+**Primera evaluación de respuestas (2026-09-24, 36 preguntas, 2 filas por
+chunk)**: 24 correctas, 1 parcial, 4 incorrectas, 5 sin respuesta y 2 para
+revisar — ~75% de las calificables. La búsqueda no es el problema (32/33
+dentro de los 5 primeros): lo es el modelo, de tres formas: **lee el número de
+otra fila o columna** (OMEM de Anaco - Jose "25", es 535), **dice "no lo
+encuentro" con el dato delante** (EVA Mariara, lazo N30 - N50, con la slide
+correcta 1ª) y **no es constante** (la misma pregunta sale bien y después mal).
+
+**Probado y descartado — 1 fila por chunk**: la idea era darle al modelo menos
+filas parecidas con qué confundirse. Resultado: 23 correctas (dentro del ruido
+de la línea de base), búsqueda peor (MRR 0,92 → 0,88, 31/33) y errores nuevos
+de **columna** en vez de fila (ERP San Vicente: dio el VDC 5,94 en lugar del
+consumo 0,21). Más rápido (35 s contra 50 s de promedio), pero no más preciso:
+se volvió a 2 filas. La conclusión es que el límite es la capacidad de lectura
+de un modelo de 7B, no la cantidad de contexto.
+
 **Limitación del set**: las 30 preguntas las redactó Claude leyendo los chunks,
 así que comparten vocabulario con el manual más que una pregunta real. Falta
 reemplazarlas o completarlas con preguntas del área, y sumar preguntas sobre
@@ -1663,6 +1679,12 @@ novedades (decisión #102) cuando haya novedades reales y no de demostración.
 13. **Retención de los registros de auditoría** (`consultas_rag`, `logs_login`,
     `logs_intento_no_autorizado`): hoy ninguno se borra. Decidirla junta, antes
     del despliegue (decisión #108).
-14. **Despliegue**: contenedor `ollama` en el compose (red interna, sin puerto),
+14. **Hardware del servidor** (2026-09-24): el owner informa que los servidores
+    disponibles tienen unos 10 años y es poco probable que tengan GPU. Lo que
+    decide si el asistente es viable ahí es si el procesador tiene **AVX2**
+    (Xeon E5 v3/v4, 2014-2016, sí; v1/v2, 2012-2013, no — sin AVX2 el modelo
+    corre de 2 a 4 veces más lento). Pedir a sistemas `lscpu` y
+    `grep -o avx2 /proc/cpuinfo` antes de comprometer el despliegue.
+15. **Despliegue**: contenedor `ollama` en el compose (red interna, sin puerto),
     volumen para `RAG_DIR_ARCHIVOS` incluido en el respaldo, RAM real de la VM
     (Qwen 7b cargado ocupa 5,5 GB, nomic 0,4 GB).
