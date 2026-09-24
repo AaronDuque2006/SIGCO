@@ -121,6 +121,9 @@ export const listLecturasFuenteQuerySchema = gridPaginationSchema.extend({
 // cualquier fuente, sin mirar `procesaGas` acá — es la pantalla la que decide
 // si ofrece el campo, y mandar de más no rompe nada del lado del servidor.
 const procesadoSchema = volumenMmpcedSchema.nullish();
+// El desvío sí entra en el recibido (decisión #107), pero se valida igual: es
+// la pantalla la que lo ofrece sólo en las fuentes con `procesaGas`.
+const desvioSchema = volumenMmpcedSchema.nullish();
 
 export const createLecturaFuenteSchema = z.object({
   fuenteId: z.number().int().positive(),
@@ -128,12 +131,14 @@ export const createLecturaFuenteSchema = z.object({
   volumenMmpced: volumenMmpcedSchema,
   horaLectura: horaLecturaSchema,
   procesado: procesadoSchema,
+  desvio: desvioSchema,
 });
 
 export const updateLecturaFuenteSchema = z.object({
   volumenMmpced: volumenMmpcedSchema,
   horaLectura: horaLecturaSchema,
   procesado: procesadoSchema,
+  desvio: desvioSchema,
 });
 
 // ===== QUEMA_NACIONAL =====

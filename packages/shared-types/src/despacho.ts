@@ -38,9 +38,9 @@ export interface FuenteDto {
   id: number;
   nombre: string;
   sistema: SistemaDto;
-  /** Plantas que procesan gas (San Joaquín, Santa Bárbara, Jusepín, El
-   *  Tablazo LGN1/LGN2). Decide si la pantalla de lecturas ofrece el campo
-   *  "Procesado" para esta fuente. */
+  /** Plantas que procesan gas (San Joaquín Tren A y B y Tren C). Decide si
+   *  la pantalla de lecturas ofrece los campos "Procesado" y "Desvío" para
+   *  esta fuente. */
   procesaGas: boolean;
 }
 
@@ -108,11 +108,17 @@ export interface LecturaFuenteDto {
   horaLectura: string | null;
   /**
    * Lo que la planta procesó ese corte — sólo para fuentes con
-   * `FuenteDto.procesaGas`. **No entra en el balance**: el recibido sigue
-   * siendo `volumenMmpced` (decisiones #62/#74). `null` en las fuentes que
-   * no procesan, y en las que procesan hasta que se carga.
+   * `FuenteDto.procesaGas`. **No entra en el balance** (decisión #98).
+   * `null` en las fuentes que no procesan, y en las que procesan hasta que
+   * se carga.
    */
   procesado: number | null;
+  /**
+   * El gas que la planta desvía directo a ventas sin procesarlo — sólo para
+   * fuentes con `FuenteDto.procesaGas`. **Sí entra en el recibido**, sumado a
+   * `volumenMmpced` (el residual): así lo suma el workbook (decisión #107).
+   */
+  desvio: number | null;
   usuarioId: number;
   usuarioNombre: string;
 }
@@ -148,6 +154,9 @@ export interface HistorialEntryDto {
   /** El "procesado" que tenía antes de esta corrección. Sólo tiene sentido en
    *  `lecturas-fuente`; `null` en el resto de los recursos. */
   procesadoAnterior: number | null;
+  /** El "desvío" que tenía antes de esta corrección. Mismo criterio que
+   *  `procesadoAnterior`. */
+  desvioAnterior: number | null;
   usuarioId: number;
   /**
    * Nombre de quien hizo el cambio. El `usuarioId` solo no le dice nada a
@@ -245,7 +254,14 @@ export type CondicionBalance = "EMPAQUE" | "DESEMPAQUE";
 export interface BalanceNacionDto {
   fecha: string;
   tipoCorte: TipoCorte;
+  /** Fuentes (residual + desvío) más las entregas directas (decisión #107). */
   recibidoMmpced: number;
+  /**
+   * Cuánto del recibido son entregas directas: lo que consumen los 4 clientes
+   * que el workbook suma de los dos lados del balance (decisión #107). Sale de
+   * sus lecturas del mismo corte, así que también cuentan en el transportado.
+   */
+  entregasDirectasMmpced: number;
   /** Incluye la quema nacional y las transferencias del corte
    *  (decisiones #74 y #79). */
   transportadoMmpced: number;
