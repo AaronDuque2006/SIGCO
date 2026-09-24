@@ -1486,12 +1486,22 @@ erDiagram
     int usuario_id FK
     text pregunta
     bigint_array chunk_ids "qué se le mostró"
+    text respuesta "lo que contestó; null si se cortó antes"
     int duracion_ms
-    timestamp creado_en }
+    timestamp creado_en
+    boolean util "¿le sirvió?, de quien preguntó; null sin valorar"
+    text comentario "qué estuvo mal, opcional"
+    timestamp valorada_en }
 ```
 
 Notas de implementación:
 
+- **Al generar una migración nueva con `prisma migrate diff`, el diff propone
+  `DROP INDEX` de `chunks_rag_embedding_hnsw` y `chunks_rag_contenido_busqueda_gin`**,
+  porque Prisma no los ve en el schema. Hay que sacar esas líneas antes de
+  aplicar. Pasó el 2026-09-24 con `valoracion_consultas_rag`: se aplicó con los
+  DROP, la búsqueda siguió funcionando (sin índice, más lenta) y se reparó
+  recreando los índices; la migración commiteada ya no los trae.
 - Prisma no conoce `vector` ni `tsvector`: van como `Unsupported("vector(768)")` /
   `Unsupported("tsvector")`, y **los índices se escriben a mano** en la migración
   (HNSW para el vector, GIN para el full-text) — mismo precedente que el índice
@@ -1551,7 +1561,14 @@ Implementado:
   sigue siendo que sólo el superadmin sube (decisión #101), y la pantalla de carga
   lo advierte.
 - **Registro de consultas** en `consultas_rag`: quién, qué preguntó, qué chunks
-  se le mostraron y cuánto tardó — también las cortadas o fallidas.
+  se le mostraron, qué se le contestó y cuánto tardó — también las cortadas o
+  fallidas. La fila se crea apenas llega la pregunta, y el navegador recibe su
+  id como primer evento del stream.
+- **"¿Le sirvió?"** (2026-09-24): quien preguntó puede valorar su respuesta, con
+  un comentario opcional si dice que no. Sólo la propia: valorar la de otro es
+  un 404, también para el superadmin. Las marcadas como no útiles aparecen en
+  `/asistente/documentos` (sólo superadmin), con la pregunta, el comentario y
+  la respuesta: es la bandeja de donde salen preguntas nuevas para el §16.9.
 - **Límite de uso**: 30 consultas cada 10 minutos por usuario, porque cada una
   ocupa la CPU del servidor durante un minuto.
 - **Instrucciones escondidas**: la regla 7 del prompt trata los fragmentos como
@@ -1584,6 +1601,22 @@ Resultados sobre el Manual DAO (30 preguntas), 2026-09-24:
 
 `evaluar-rag` mide el mismo camino que el asistente (`consultaRagService.recuperar`,
 con la expansión de siglas), no una búsqueda propia.
+
+**El set vive en `archivos-fuente/rag/preguntas.xlsx`** (2026-09-24; antes era un
+JSON), para que lo pueda llenar el área: Pregunta, Tipo (Dato puntual,
+Definición, Explicación, Novedad, Fuera de tema), Documento, Slide(s), Dato
+clave y quién la redactó; una segunda hoja explica cómo llenarla. Se precargó
+con las 30 de Claude, las dos consultas reales que fallaron (la EPA y Pele El
+Ojo), una de novedades y dos fuera de tema.
+
+`evaluar-rag -- --respuestas` además hace cada pregunta completa (sin
+registrarla en la auditoría) y la califica: **Correcta** (aparece el dato clave
+y la cita apunta a la slide esperada), **Parcial** (dato bien, cita otra fuente),
+**Incorrecta**, **No respondió**, y para Fuera de tema, si dijo "no lo
+encuentro". Las de Explicación y las que no tienen dato clave quedan en
+**Revisar**, porque lo que importa ahí es si inventa y eso lo decide una
+persona. Deja una planilla `resultados-<fecha>.xlsx` con la respuesta completa y
+una columna vacía "¿inventa algo?". Tarda ~1 minuto por pregunta.
 
 **Limitación del set**: las 30 preguntas las redactó Claude leyendo los chunks,
 así que comparten vocabulario con el manual más que una pregunta real. Falta

@@ -21,7 +21,7 @@ This directory (`SICOG`) is the home of the real monorepo for **SICOG** (Sistema
 
 **Deployment has still not happened.** If the presentation turns into the area actually using this, it stops being optional.
 
-**Phase 2 — the RAG assistant is built** (2026-09-24, `CONTEXTO_PROYECTO.md` §16, decisions #100-#106): `apps/api/src/modules/rag/` ingests `.pptx`/`.docx` uploaded by the superadmin and indexes every `NOVEDAD_OPERATIVA` automatically; `/asistente` answers with cited sources, `/asistente/documentos` is superadmin-only. It needs **Ollama running locally** with `qwen2.5:7b` and `nomic-embed-text` (`OLLAMA_URL`, default `http://localhost:11434`); without it the API still boots and the worker just logs and retries. Three things are easy to break: the search is **hybrid with BM25 written in SQL**, not `ts_rank_cd` (MRR 0.66 → 0.93, decision #105); table rows reach the model as `encabezado: valor`, never as a compact table (the 7b misread columns, #106); and changing the embedding model means migrating `vector(768)` and reindexing everything. Measure any retrieval change with `pnpm --filter api run evaluar-rag` before and after. **Not deployed**: the `ollama` container is not in any compose yet.
+**Phase 2 — the RAG assistant is built** (2026-09-24, `CONTEXTO_PROYECTO.md` §16, decisions #100-#106): `apps/api/src/modules/rag/` ingests `.pptx`/`.docx` uploaded by the superadmin and indexes every `NOVEDAD_OPERATIVA` automatically; `/asistente` answers with cited sources, `/asistente/documentos` is superadmin-only. It needs **Ollama running locally** with `qwen2.5:7b` and `nomic-embed-text` (`OLLAMA_URL`, default `http://localhost:11434`); without it the API still boots and the worker just logs and retries. Three things are easy to break: the search is **hybrid with BM25 written in SQL**, not `ts_rank_cd` (MRR 0.66 → 0.93, decision #105); table rows reach the model as `encabezado: valor`, never as a compact table (the 7b misread columns, #106); and changing the embedding model means migrating `vector(768)` and reindexing everything. Measure any retrieval change with `pnpm --filter api run evaluar-rag` before and after (`-- --respuestas` also grades full answers, ~1 min per question). **When generating a migration with `prisma migrate diff`, strip the `DROP INDEX` lines for `chunks_rag`'s HNSW and GIN indexes** — they are hand-written, Prisma doesn't see them, and the diff always proposes dropping them (it happened once, §16.6). **Not deployed**: the `ollama` container is not in any compose yet.
 
 **Not built**: Análisis Operacional and Calidad de Gas remain undesigned because **no source spreadsheet exists for either**.
 
@@ -102,7 +102,8 @@ pnpm --filter api run sembrar-fallas-mtto         # las 201 fallas reales de Man
 pnpm --filter api run sembrar-fallas-mtto -- --limpiar
 
 ollama pull qwen2.5:7b && ollama pull nomic-embed-text   # asistente (Fase 2)
-pnpm --filter api run evaluar-rag                 # recuperación contra archivos-fuente/rag/preguntas.json
+pnpm --filter api run evaluar-rag                 # búsqueda, contra archivos-fuente/rag/preguntas.xlsx
+pnpm --filter api run evaluar-rag -- --respuestas # también califica las respuestas (~1 min por pregunta)
 ```
 
 Los dos generadores de `packages/db/prisma/tools/` (`generar-clientes.js` y

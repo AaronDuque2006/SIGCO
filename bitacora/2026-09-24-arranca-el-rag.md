@@ -82,3 +82,18 @@ el nombre que trae el propio corpus, y sale 1ª-2ª. Y un límite que no es de
 código: el manual no dice por qué la EPA es importante; eso vive en los
 esquemas sin describir, y el modelo lo rellena con una deducción.
 
+## Post scríptum: cómo se evalúa, y un error mío con una migración
+
+A pedido del owner quedaron tres herramientas para saber si el asistente
+responde bien: la planilla de preguntas en Excel para que la llene el área, el
+modo `--respuestas` de `evaluar-rag` que califica solo lo que se puede
+calificar (dato clave, cita, "no lo encuentro") y deja el resto para revisión
+humana, y el "¿Le sirvió?" en cada respuesta con su bandeja de revisión para el
+superadmin.
+
+Al agregar las columnas de valoración, un reemplazo de texto falló en silencio
+y `migrate diff` generó una migración que borraba los índices HNSW y GIN
+(escritos a mano, invisibles para Prisma). Se aplicó. La búsqueda siguió
+andando sin índice; se recrearon y se rehízo la migración sin los DROP. Quedó
+la advertencia en el §16.6 y en `CLAUDE.md`.
+
