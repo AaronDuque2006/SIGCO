@@ -97,3 +97,9 @@ export const listarValoraciones = async (req: Request, res: Response): Promise<v
   const { util } = parseOrThrow(listarValoracionesRagQuerySchema, req.query);
   res.json(await consultaRagService.listarValoraciones(util));
 };
+
+// ── Historial propio (decisión #108) ─────────────────────────────────────────
+
+export const listarPropias = async (req: Request, res: Response): Promise<void> => {
+  res.json(await consultaRagService.listarPropias(usuarioActual(req).id));
+};

@@ -30,6 +30,8 @@ router.use(asyncHandler(requireAuth), asyncHandler(requirePasswordVigente));
 
 // Consultar lo puede cualquier usuario autenticado (§16.3).
 router.post("/consultas", limiteConsultas, asyncHandler(rag.consultar));
+// "Mis consultas": sólo las propias, de los últimos 30 días (decisión #108).
+router.get("/consultas/mias", asyncHandler(rag.listarPropias));
 // Cada quien valora sus propias respuestas; el service lo exige.
 router.put("/consultas/:id/valoracion", asyncHandler(rag.valorar));
 

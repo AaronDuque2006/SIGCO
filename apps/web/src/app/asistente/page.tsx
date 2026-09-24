@@ -1,6 +1,7 @@
 "use client";
 
-import type { FuenteRagDto } from "@sicog/shared-types";
+import type { ConsultaPropiaRagDto, FuenteRagDto } from "@sicog/shared-types";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { CONTENEDOR } from "@/components/contenedor";
@@ -12,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api";
-import { consultarAsistente, useValorarRespuesta } from "@/lib/asistente";
+import { CLAVE_MIS_CONSULTAS, consultarAsistente, useMisConsultas, useValorarRespuesta } from "@/lib/asistente";
 import { useSesion } from "@/lib/sesion";
 
 export default function AsistentePage() {
@@ -83,6 +84,7 @@ function Asistente() {
   const control = useRef<AbortController | null>(null);
   const campo = useRef<HTMLInputElement>(null);
   const siguienteId = useRef(1);
+  const cliente = useQueryClient();
 
   // Si se sale de la pantalla a mitad de una respuesta, se corta: el servidor
   // aborta también la generación y libera el modelo para el siguiente.
@@ -125,11 +127,16 @@ function Asistente() {
     } finally {
       control.current = null;
       setOcupado(false);
+      // La que acaba de terminar ya quedó en la base: el historial la trae,
+      // aunque la deja afuera mientras siga a la vista arriba.
+      void cliente.invalidateQueries({ queryKey: CLAVE_MIS_CONSULTAS });
       campo.current?.focus();
     }
   };
 
   const reintentar = (texto: string) => {
+    // Desde el historial, la respuesta nueva aparece arriba: se vuelve ahí.
+    campo.current?.scrollIntoView({ block: "center" });
     setPregunta(texto);
     void preguntar(texto);
   };
@@ -199,6 +206,11 @@ function Asistente() {
             ))}
           </ol>
         )}
+
+        <MisConsultas
+          ocultar={new Set(intercambios.map((i) => i.consultaId).filter((id): id is string => id !== null))}
+          onPreguntarDeNuevo={ocupado ? null : reintentar}
+        />
       </main>
     </>
   );
@@ -225,6 +237,125 @@ function Ejemplos({ onElegir, deshabilitado }: { onElegir: (p: string) => void; 
         ))}
       </ul>
     </section>
+  );
+}
+
+const formatoDia = new Intl.DateTimeFormat("es-VE", { weekday: "long", day: "numeric", month: "long" });
+const formatoHora = new Intl.DateTimeFormat("es-VE", { hour: "2-digit", minute: "2-digit", hour12: false });
+
+function rotuloDia(fecha: Date): string {
+  const inicioDe = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const dias = Math.round((inicioDe(new Date()) - inicioDe(fecha)) / 86_400_000);
+  if (dias === 0) return "Hoy";
+  if (dias === 1) return "Ayer";
+  const texto = formatoDia.format(fecha);
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+/**
+ * "Mis consultas" (decisión #108): las propias de los últimos 30 días,
+ * agrupadas por día, con la respuesta y las fuentes tal como se mostraron. Una
+ * respuesta vieja puede haber quedado desactualizada si cambiaron los
+ * documentos; por eso cada una ofrece preguntarla de nuevo.
+ */
+function MisConsultas({
+  ocultar,
+  onPreguntarDeNuevo,
+}: {
+  /** Las de esta sesión, que ya se ven arriba. */
+  ocultar: Set<string>;
+  onPreguntarDeNuevo: ((pregunta: string) => void) | null;
+}) {
+  const lista = useMisConsultas();
+  const visibles = (lista.data ?? []).filter((c) => !ocultar.has(c.id));
+
+  const porDia = new Map<string, ConsultaPropiaRagDto[]>();
+  for (const c of visibles) {
+    const dia = rotuloDia(new Date(c.creadoEn));
+    porDia.set(dia, [...(porDia.get(dia) ?? []), c]);
+  }
+
+  return (
+    <section className="mt-10 border-t border-border pt-6" aria-labelledby="titulo-mis-consultas">
+      <h2 id="titulo-mis-consultas" className="text-sm font-medium">
+        Mis consultas
+      </h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Las de los últimos 30 días. Sólo las ve usted. Si los documentos cambiaron desde entonces, la
+        respuesta puede no estar al día: pregúntela de nuevo.
+      </p>
+
+      {lista.error ? (
+        <Alert variant="destructive" className="mt-3">
+          <AlertDescription>{lista.error.message}</AlertDescription>
+        </Alert>
+      ) : lista.isPending ? (
+        <p className="mt-3 text-sm text-muted-foreground" role="status">
+          Cargando…
+        </p>
+      ) : visibles.length === 0 ? (
+        <p className="mt-3 text-sm text-muted-foreground">
+          {lista.data.length === 0 ? "Todavía no hizo ninguna consulta." : "Las de hoy están arriba."}
+        </p>
+      ) : (
+        [...porDia.entries()].map(([dia, consultas]) => (
+          <div key={dia} className="mt-4">
+            <h3 className="text-xs font-medium text-muted-foreground">{dia}</h3>
+            <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card">
+              {consultas.map((c) => (
+                <li key={c.id}>
+                  <ConsultaDelHistorial consulta={c} onPreguntarDeNuevo={onPreguntarDeNuevo} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      )}
+    </section>
+  );
+}
+
+function ConsultaDelHistorial({
+  consulta: c,
+  onPreguntarDeNuevo,
+}: {
+  consulta: ConsultaPropiaRagDto;
+  onPreguntarDeNuevo: ((pregunta: string) => void) | null;
+}) {
+  const idBase = `h${c.id}`;
+  return (
+    <details className="group px-3 py-2">
+      <summary className="flex cursor-pointer items-baseline gap-3 text-sm">
+        <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+          {formatoHora.format(new Date(c.creadoEn))}
+        </span>
+        <span className="min-w-0 flex-1 group-open:font-medium">{c.pregunta}</span>
+        {c.util === false ? <span className="shrink-0 text-xs text-muted-foreground">Marcada: no sirvió</span> : null}
+      </summary>
+      <div className="mt-2 pb-1 pl-12">
+        {c.respuesta ? (
+          <p className="max-w-[75ch] text-sm leading-relaxed whitespace-pre-wrap">
+            <ConCitas texto={c.respuesta} idIntercambio={idBase} fuentes={c.fuentes} />
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {c.anteriorAlHistorial
+              ? "Es de antes de que se guardaran las respuestas; pregúntela de nuevo para verla."
+              : "Se cortó antes de que el asistente respondiera."}
+          </p>
+        )}
+        {c.fuentes.length > 0 ? (
+          <div className="mt-3">
+            <Fuentes texto={c.respuesta ?? ""} fuentes={c.fuentes} idIntercambio={idBase} />
+          </div>
+        ) : null}
+        {onPreguntarDeNuevo ? (
+          <Button variant="outline" size="sm" className="mt-3" onClick={() => onPreguntarDeNuevo(c.pregunta)}>
+            Preguntar de nuevo
+          </Button>
+        ) : null}
+      </div>
+    </details>
   );
 }
 
@@ -261,9 +392,6 @@ function textoDeEstado(i: Intercambio): string {
 
 function Respuesta({ intercambio: i, onReintentar }: { intercambio: Intercambio; onReintentar: (() => void) | null }) {
   const activa = enCurso(i.fase);
-  const citadas = new Set([...i.respuesta.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
-  const fuentesCitadas = i.fuentes.filter((f) => citadas.has(f.n));
-  const otras = i.fuentes.filter((f) => !citadas.has(f.n));
 
   return (
     <article className="rounded-lg border border-border bg-card p-4" aria-busy={activa}>
@@ -271,7 +399,7 @@ function Respuesta({ intercambio: i, onReintentar }: { intercambio: Intercambio;
 
       {i.respuesta ? (
         <p className="mt-2 max-w-[75ch] text-sm leading-relaxed whitespace-pre-wrap">
-          <ConCitas texto={i.respuesta} idIntercambio={i.id} fuentes={i.fuentes} />
+          <ConCitas texto={i.respuesta} idIntercambio={String(i.id)} fuentes={i.fuentes} />
         </p>
       ) : null}
 
@@ -303,24 +431,7 @@ function Respuesta({ intercambio: i, onReintentar }: { intercambio: Intercambio;
 
       {i.fuentes.length > 0 && i.fase === "lista" ? (
         <div className="mt-4 border-t border-border pt-3">
-          {fuentesCitadas.length > 0 ? (
-            <>
-              <h3 className="text-xs font-medium text-muted-foreground">
-                Fuentes · verifique la cifra antes de usarla
-              </h3>
-              <ListaFuentes fuentes={fuentesCitadas} idIntercambio={i.id} />
-            </>
-          ) : null}
-          {otras.length > 0 ? (
-            <details className={fuentesCitadas.length > 0 ? "mt-3" : undefined}>
-              <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-                {fuentesCitadas.length > 0
-                  ? `${otras.length} ${otras.length === 1 ? "fragmento más consultado" : "fragmentos más consultados"}, sin citar`
-                  : `${otras.length} ${otras.length === 1 ? "fragmento consultado" : "fragmentos consultados"}`}
-              </summary>
-              <ListaFuentes fuentes={otras} idIntercambio={i.id} />
-            </details>
-          ) : null}
+          <Fuentes texto={i.respuesta} fuentes={i.fuentes} idIntercambio={String(i.id)} />
           <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
             {i.consultaId ? <Valoracion consultaId={i.consultaId} /> : <span />}
             {i.duracion !== null ? (
@@ -406,7 +517,34 @@ function Valoracion({ consultaId }: { consultaId: string }) {
   );
 }
 
-function ListaFuentes({ fuentes, idIntercambio }: { fuentes: FuenteRagDto[]; idIntercambio: number }) {
+/** Las citadas a la vista; las consultadas sin citar, plegadas. */
+function Fuentes({ texto, fuentes, idIntercambio }: { texto: string; fuentes: FuenteRagDto[]; idIntercambio: string }) {
+  const citadas = new Set([...texto.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
+  const fuentesCitadas = fuentes.filter((f) => citadas.has(f.n));
+  const otras = fuentes.filter((f) => !citadas.has(f.n));
+  return (
+    <>
+      {fuentesCitadas.length > 0 ? (
+        <>
+          <h3 className="text-xs font-medium text-muted-foreground">Fuentes · verifique la cifra antes de usarla</h3>
+          <ListaFuentes fuentes={fuentesCitadas} idIntercambio={idIntercambio} />
+        </>
+      ) : null}
+      {otras.length > 0 ? (
+        <details className={fuentesCitadas.length > 0 ? "mt-3" : undefined}>
+          <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+            {fuentesCitadas.length > 0
+              ? `${otras.length} ${otras.length === 1 ? "fragmento más consultado" : "fragmentos más consultados"}, sin citar`
+              : `${otras.length} ${otras.length === 1 ? "fragmento consultado" : "fragmentos consultados"}`}
+          </summary>
+          <ListaFuentes fuentes={otras} idIntercambio={idIntercambio} />
+        </details>
+      ) : null}
+    </>
+  );
+}
+
+function ListaFuentes({ fuentes, idIntercambio }: { fuentes: FuenteRagDto[]; idIntercambio: string }) {
   return (
     <ul className="mt-2 space-y-1.5">
       {fuentes.map((f) => (
@@ -441,7 +579,7 @@ function ConCitas({
   fuentes,
 }: {
   texto: string;
-  idIntercambio: number;
+  idIntercambio: string;
   fuentes: FuenteRagDto[];
 }) {
   const existentes = new Set(fuentes.map((f) => f.n));

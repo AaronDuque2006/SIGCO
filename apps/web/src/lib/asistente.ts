@@ -1,6 +1,11 @@
 "use client";
 
-import type { DocumentoRagDto, EventoConsultaRag, ValoracionRagDto } from "@sicog/shared-types";
+import type {
+  ConsultaPropiaRagDto,
+  DocumentoRagDto,
+  EventoConsultaRag,
+  ValoracionRagDto,
+} from "@sicog/shared-types";
 import type { ValoracionRagInput } from "@sicog/shared-validators";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, apiRespuesta, ApiError } from "./api";
@@ -55,6 +60,16 @@ export function useReprocesarDocumento() {
   return useMutation<DocumentoRagDto, ApiError, number>({
     mutationFn: (id) => api<DocumentoRagDto>(`/rag/documentos/${id}/reprocesar`, { metodo: "POST" }),
     onSuccess: refrescar,
+  });
+}
+
+export const CLAVE_MIS_CONSULTAS = ["rag", "mias"] as const;
+
+/** "Mis consultas": las propias de los últimos 30 días (decisión #108). */
+export function useMisConsultas() {
+  return useQuery<ConsultaPropiaRagDto[], ApiError>({
+    queryKey: CLAVE_MIS_CONSULTAS,
+    queryFn: () => api<ConsultaPropiaRagDto[]>("/rag/consultas/mias"),
   });
 }
 

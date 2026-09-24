@@ -929,6 +929,10 @@ model ConsultaRag {
   // Lo que se le contestó: sin esto, quien revisa un "no me sirvió" no sabe
   // qué dijo el asistente. Null si se cortó antes de escribir.
   respuesta  String?
+  // Copia de las fuentes tal como se mostraron (FuenteRagDto[]). No alcanza
+  // con chunk_ids: reprocesar un documento regenera sus chunks con otros ids,
+  // y el historial perdería con qué verificar la respuesta (decisión #108).
+  fuentes    Json?
   duracionMs Int?      @map("duracion_ms")
   creadoEn   DateTime  @default(now()) @map("creado_en")
   // "¿Le sirvió?" de quien preguntó; opcional.

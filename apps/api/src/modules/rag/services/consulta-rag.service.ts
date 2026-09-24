@@ -1,4 +1,4 @@
-import type { EventoConsultaRag, FuenteRagDto, ValoracionRagDto } from "@sicog/shared-types";
+import type { ConsultaPropiaRagDto, EventoConsultaRag, FuenteRagDto, ValoracionRagDto } from "@sicog/shared-types";
 import { NotFoundError } from "../../../shared/errors.js";
 import {
   chunkRagRepository,
@@ -26,6 +26,13 @@ const CANDIDATOS = 10;
 const PRESUPUESTO_CARACTERES = 4000;
 // Las más recientes: es una bandeja de revisión, no un historial.
 const LIMITE_VALORACIONES = 100;
+
+// "Mis consultas" muestra los últimos 30 días (decisión #108): las respuestas
+// dependen de los documentos cargados en ese momento, y una vieja puede
+// traer una cifra que ya no vale. En la base no se borra nada — es auditoría.
+const DIAS_HISTORIAL = 30;
+// Tope de filas por si alguien hace cientos en un mes; la pantalla no pagina.
+const LIMITE_HISTORIAL = 200;
 const MAX_POR_ORIGEN = 2;
 
 function dentroDelPresupuesto(chunks: ChunkRecuperado[]): ChunkRecuperado[] {
@@ -169,6 +176,7 @@ export class ConsultaRagService {
   ): AsyncGenerator<EventoConsultaRag> {
     const inicio = Date.now();
     let recuperados: ChunkRecuperado[] = [];
+    let fuentesMostradas: FuenteRagDto[] = [];
     let respuesta = "";
 
     // Se registra apenas llega, antes de buscar: así la consulta cortada o
@@ -198,6 +206,7 @@ export class ConsultaRagService {
       }
 
       const fuentes = recuperados.map((c, i) => aFuente(c, i + 1));
+      fuentesMostradas = fuentes;
       yield { tipo: "fuentes", fuentes };
 
       const porDelante = this.turnos.porDelante;
@@ -225,6 +234,7 @@ export class ConsultaRagService {
         await this.consultas
           .completar(consultaId, {
             chunkIds: recuperados.map((c) => c.id),
+            fuentes: fuentesMostradas,
             respuesta: respuesta.trim() || null,
             duracionMs: Date.now() - inicio,
           })
@@ -240,6 +250,23 @@ export class ConsultaRagService {
       comentario: input.comentario?.trim() || null,
     });
     if (!ok) throw new NotFoundError("Consulta inexistente");
+  }
+
+  async listarPropias(usuarioId: number): Promise<ConsultaPropiaRagDto[]> {
+    const desde = new Date(Date.now() - DIAS_HISTORIAL * 24 * 60 * 60 * 1000);
+    const filas = await this.consultas.listarPropias(usuarioId, desde, LIMITE_HISTORIAL);
+    return filas.map((f) => ({
+      id: f.id.toString(),
+      pregunta: f.pregunta,
+      respuesta: f.respuesta,
+      fuentes: f.fuentes ?? [],
+      // Toda consulta registrada desde que existe la columna guarda sus
+      // fuentes, aunque sea []: null sólo puede ser de antes.
+      anteriorAlHistorial: f.fuentes === null,
+      creadoEn: f.creadoEn.toISOString(),
+      duracionMs: f.duracionMs,
+      util: f.util,
+    }));
   }
 
   async listarValoraciones(util: boolean | undefined): Promise<ValoracionRagDto[]> {

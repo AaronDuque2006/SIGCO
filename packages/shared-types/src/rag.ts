@@ -56,3 +56,23 @@ export interface ValoracionRagDto {
   creadoEn: string;
   valoradaEn: string;
 }
+
+/**
+ * Una consulta propia del historial "Mis consultas" (decisión #108): las de
+ * los últimos 30 días, con las fuentes tal como se mostraron entonces.
+ */
+export interface ConsultaPropiaRagDto {
+  id: string;
+  pregunta: string;
+  /** Null si se cortó antes de que el asistente escribiera. */
+  respuesta: string | null;
+  /**
+   * Hecha antes de que se guardaran respuesta y fuentes (2026-09-24): la
+   * respuesta existió pero no quedó registrada.
+   */
+  anteriorAlHistorial: boolean;
+  fuentes: FuenteRagDto[];
+  creadoEn: string;
+  duracionMs: number | null;
+  util: boolean | null;
+}
