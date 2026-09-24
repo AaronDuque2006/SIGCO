@@ -1,6 +1,8 @@
 "use client";
 
 import type { DocumentoRagDto } from "@sicog/shared-types";
+import { IconUpload } from "@tabler/icons-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CONTENEDOR } from "@/components/contenedor";
@@ -9,8 +11,6 @@ import { EncabezadoVista } from "@/components/encabezado-vista";
 import { GuardiaSesion } from "@/components/guardia-sesion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   useDocumentosRag,
   useEliminarDocumento,
@@ -52,11 +52,14 @@ function Documentos() {
         <div className="mt-4">
           <EncabezadoVista
             titulo="Documentos del asistente"
-            meta={lista.data ? `${lista.data.length} ${lista.data.length === 1 ? "documento" : "documentos"}` : null}
+            meta={
+              <Button variant="outline" nativeButton={false} render={<Link href="/asistente" />}>
+                Ir al asistente
+              </Button>
+            }
           >
-            Manuales, guías y formatos de procedimiento. No suba planillas cuyos datos ya están en
-            SICOG —el asistente respondería con la cifra vieja del Excel— ni documentos con datos
-            personales. Las novedades operativas entran solas, no hace falta subirlas.
+            Lo que se sube acá es lo que el asistente puede consultar, para todos los usuarios. Las
+            novedades operativas entran solas; no hace falta subirlas.
           </EncabezadoVista>
         </div>
 
@@ -85,49 +88,89 @@ function Documentos() {
 
 function FormularioCarga() {
   const subir = useSubirDocumento();
-  const [archivo, setArchivo] = useState<File | null>(null);
+  const [arrastrando, setArrastrando] = useState(false);
+  const [subido, setSubido] = useState<string | null>(null);
   const campo = useRef<HTMLInputElement>(null);
 
+  const enviar = (archivo: File | undefined) => {
+    if (!archivo || subir.isPending) return;
+    setSubido(null);
+    subir.mutate(archivo, {
+      onSuccess: (d) => setSubido(d.nombre),
+      onSettled: () => {
+        if (campo.current) campo.current.value = "";
+      },
+    });
+  };
+
   return (
-    <form
-      className="mt-6 flex flex-wrap items-end gap-3"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (!archivo) return;
-        subir.mutate(archivo, {
-          onSuccess: () => {
-            setArchivo(null);
-            if (campo.current) campo.current.value = "";
-          },
-        });
-      }}
-    >
-      <div className="space-y-1.5">
-        <Label htmlFor="archivo">Archivo (.pptx o .docx)</Label>
-        <Input
-          ref={campo}
-          id="archivo"
-          type="file"
-          accept=".pptx,.docx"
-          aria-invalid={subir.isError || undefined}
-          onChange={(e) => {
-            subir.reset();
-            setArchivo(e.target.files?.[0] ?? null);
+    <section className="mt-6" aria-labelledby="titulo-carga">
+      <h2 id="titulo-carga" className="text-sm font-medium">
+        Subir un documento
+      </h2>
+      <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+        {/* Zona de arrastre: el <label> abre el selector al hacer clic y
+            recibe el archivo si se lo suelta encima. El input queda oculto
+            pero accesible, así que el teclado llega igual. */}
+        <label
+          htmlFor="archivo"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setArrastrando(true);
           }}
-        />
+          onDragLeave={() => setArrastrando(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setArrastrando(false);
+            enviar(e.dataTransfer.files[0]);
+          }}
+          className={`flex min-h-28 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed px-4 py-6 text-center transition-colors has-focus-visible:border-ring has-focus-visible:ring-3 has-focus-visible:ring-ring/50 ${
+            arrastrando ? "border-ring bg-accent-soft" : "border-border bg-card hover:border-ring hover:bg-panel-raised"
+          } ${subir.isPending ? "pointer-events-none opacity-60" : ""}`}
+        >
+          <IconUpload size={20} stroke={1.75} className="mb-1 text-muted-foreground" aria-hidden />
+          <span className="text-sm font-medium">
+            {subir.isPending ? "Subiendo…" : "Arrastre el archivo acá o haga clic para elegirlo"}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            .pptx o .docx, hasta 50 MB. PDF y Excel todavía no se pueden procesar.
+          </span>
+          <input
+            ref={campo}
+            id="archivo"
+            type="file"
+            accept=".pptx,.docx"
+            className="sr-only"
+            onChange={(e) => enviar(e.target.files?.[0])}
+          />
+        </label>
+
+        <div className="rounded-lg border border-border p-3 text-xs text-muted-foreground">
+          <p className="font-medium text-foreground">Antes de subir</p>
+          <ul className="mt-1.5 list-disc space-y-1 pl-4">
+            <li>Manuales, guías y formatos de procedimiento.</li>
+            <li>
+              No suba planillas con datos que ya están en SICOG: el asistente respondería con la
+              cifra vieja del archivo.
+            </li>
+            <li>No suba documentos con datos personales; se rechazan.</li>
+          </ul>
+        </div>
       </div>
-      <Button type="submit" disabled={!archivo || subir.isPending}>
-        {subir.isPending ? "Subiendo…" : "Subir"}
-      </Button>
+
       {subir.error ? (
-        <Alert variant="destructive" className="basis-full">
+        <Alert variant="destructive" className="mt-3">
           <AlertDescription>{subir.error.message}</AlertDescription>
         </Alert>
+      ) : subido ? (
+        <p className="mt-3 text-sm text-muted-foreground" role="status">
+          Se subió «{subido}». Se procesa en segundo plano y tarda unos minutos; el estado se
+          actualiza solo en la tabla.
+        </p>
       ) : null}
-    </form>
+    </section>
   );
 }
-
 const formatoFecha = new Intl.DateTimeFormat("es-VE", {
   day: "2-digit",
   month: "2-digit",
@@ -162,7 +205,7 @@ function Tabla({ documentos }: { documentos: DocumentoRagDto[] }) {
               <th scope="col" className="px-3 py-2 font-medium">Documento</th>
               <th scope="col" className="px-3 py-2 font-medium">Estado</th>
               <th scope="col" className="px-3 py-2 text-right font-medium">Fragmentos</th>
-              <th scope="col" className="px-3 py-2 text-right font-medium">Esquemas sin descripción</th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">Diagramas sin describir</th>
               <th scope="col" className="px-3 py-2 font-medium">Subido</th>
               <th scope="col" className="px-3 py-2 text-right font-medium">Acciones</th>
             </tr>
@@ -240,6 +283,12 @@ function Tabla({ documentos }: { documentos: DocumentoRagDto[] }) {
           </tbody>
         </table>
       </div>
+      {documentos.some((d) => d.imagenesSinDescripcion > 0) ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Los diagramas (como el esquema de la red de gasoductos) no se pueden leer como texto: el
+          asistente los ignora hasta que alguien escriba qué muestran. Esa función todavía no existe.
+        </p>
+      ) : null}
     </>
   );
 }
