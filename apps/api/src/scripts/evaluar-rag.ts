@@ -9,6 +9,8 @@
  *
  * El set vive en `archivos-fuente/rag/preguntas.xlsx` (gitignored: cita
  * contenido de los manuales); la hoja "Cómo llenarla" explica las columnas.
+ * En "Dato clave", ";" separa datos que tienen que estar todos y "|"
+ * alternativas válidas para uno mismo ("2022 | 2017").
  *
  * Dos capas, porque fallan por motivos distintos:
  *   - Búsqueda: ¿la slide que responde está entre las 5 primeras? Si no, el
@@ -94,15 +96,22 @@ async function evaluarRespuesta(p: Pregunta, r: Resultado): Promise<void> {
   r.citadas = citas.map((c) => (c!.novedad ? "novedad" : `slide ${c!.origen}`)).join(", ");
 
   const negado = normalizar(texto).includes(normalizar(NO_LO_ENCUENTRO).replace(/\.$/, ""));
-  r.claveOk = p.claves.length ? p.claves.every((c) => normalizar(texto).includes(normalizar(c))) : null;
+  // Cada dato clave puede traer alternativas separadas por "|": un gasoducto
+  // con dos tramos de 30" tiene dos años de puesta en servicio válidos.
+  r.claveOk = p.claves.length
+    ? p.claves.every((c) => c.split("|").some((alt) => normalizar(texto).includes(normalizar(alt.trim()))))
+    : null;
   r.citaOk = p.slides.length
     ? citas.some((c) => p.slides.includes(c!.origen ?? -1))
     : p.tipo === "Novedad"
       ? citas.some((c) => c!.novedad)
       : null;
 
+  // "No respondió" sólo si además falta el dato: la regla 3 del prompt le
+  // pide dar lo que tiene y decir qué falta, así que "N50 […] No lo encuentro
+  // para la planta nueva" es una respuesta, no una negativa.
   if (p.tipo === "Fuera de tema") r.veredicto = negado ? "Correcta" : "Incorrecta: respondió algo fuera de tema";
-  else if (negado) r.veredicto = "No respondió";
+  else if (negado && !r.claveOk) r.veredicto = "No respondió";
   else if (p.tipo === "Explicación" || r.claveOk === null) r.veredicto = "Revisar";
   else if (r.claveOk && r.citaOk !== false) r.veredicto = "Correcta";
   else if (r.claveOk) r.veredicto = "Parcial: dato correcto, cita a otra fuente";
