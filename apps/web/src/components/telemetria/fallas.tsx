@@ -25,8 +25,10 @@ import {
   useFallas,
   useHistorialFalla,
   useResolverFalla,
+  todasLasFallas,
   type FiltrosFallas,
 } from "@/lib/mantenimiento";
+import { exportarFallasPorRegion } from "./exportar-fallas";
 import { SubNavTelemetria } from "./sub-nav";
 
 const hoy = (): string => new Date().toISOString().slice(0, 10);
@@ -56,6 +58,27 @@ export function Fallas() {
     setFiltros((f) => ({ ...f, ...parcial, page: 1 }));
 
   const total = data?.pagination.totalItems ?? 0;
+
+  // Se piden todas las páginas del filtro al tocar el botón, no antes: la
+  // grilla sólo trae 50 y la bitácora real pasa de 200.
+  const [exportando, setExportando] = useState(false);
+  const [errorExportar, setErrorExportar] = useState(false);
+  const exportar = async () => {
+    setExportando(true);
+    setErrorExportar(false);
+    try {
+      exportarFallasPorRegion({
+        fallas: await todasLasFallas(filtros),
+        areas: areas.data ?? [],
+        filtroDescrito: describirFiltro(filtros, areas.data ?? [], causas.data ?? []),
+        fecha: hoy(),
+      });
+    } catch {
+      setErrorExportar(true);
+    } finally {
+      setExportando(false);
+    }
+  };
 
   return (
     <main>
@@ -177,7 +200,23 @@ export function Fallas() {
             </button>
           </p>
         ) : null}
+        {/* Una hoja por región más un resumen (decisión #115). Espera al
+            catálogo de áreas porque de ahí salen las regiones. */}
+        <Button
+          variant="outline"
+          className="ml-auto"
+          disabled={exportando || total === 0 || !areas.data}
+          onClick={() => void exportar()}
+        >
+          {exportando ? "Exportando…" : "Exportar a Excel por región"}
+        </Button>
       </div>
+
+      {errorExportar ? (
+        <Alert variant="destructive" className="mt-3">
+          <AlertDescription>No se pudo exportar la bitácora. Intente de nuevo.</AlertDescription>
+        </Alert>
+      ) : null}
 
       {puedeEditar ? <FormularioAbrir /> : null}
 
@@ -245,6 +284,25 @@ export function Fallas() {
       ) : null}
     </main>
   );
+}
+
+/** El filtro de la pantalla en palabras, para el encabezado del Excel. */
+function describirFiltro(
+  f: FiltrosFallas,
+  areas: { id: number; nombre: string }[],
+  causas: { id: number; nombre: string }[],
+): string {
+  const partes = [
+    f.soloAbiertas ? "sólo abiertas" : "abiertas y resueltas",
+    f.q ? `estación "${f.q}"` : null,
+    f.areaId ? `área ${areas.find((a) => a.id === f.areaId)?.nombre ?? f.areaId}` : null,
+    f.causaFallaId ? `causa ${causas.find((c) => c.id === f.causaFallaId)?.nombre ?? f.causaFallaId}` : null,
+    f.tipoRed ? `red de ${f.tipoRed === "TRANSPORTE" ? "transporte" : "distribución"}` : null,
+    f.desde || f.hasta
+      ? `período ${f.desde ? formatearFecha(f.desde) : "…"} a ${f.hasta ? formatearFecha(f.hasta) : "hoy"}`
+      : null,
+  ];
+  return partes.filter(Boolean).join(" · ");
 }
 
 function FilaFalla({

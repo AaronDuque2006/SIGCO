@@ -15,15 +15,51 @@ import * as XLSX from "xlsx";
 export function exportarExcel(
   nombreArchivo: string,
   nombreHoja: string,
-  columnas: { encabezado: string; ancho?: number }[],
-  filas: (string | number | null)[][],
+  columnas: Columna[],
+  filas: Celda[][],
 ): void {
-  const hoja = XLSX.utils.aoa_to_sheet([columnas.map((c) => c.encabezado), ...filas]);
-  hoja["!cols"] = columnas.map((c) => ({ wch: c.ancho ?? 16 }));
+  exportarLibroExcel(nombreArchivo, [{ nombre: nombreHoja, columnas, filas }]);
+}
 
+type Celda = string | number | null;
+
+interface Columna {
+  encabezado: string;
+  ancho?: number;
+}
+
+export interface HojaExcel {
+  nombre: string;
+  /** Filas sueltas antes de la tabla (título, filtro aplicado…), con una en
+   *  blanco de separación. */
+  preambulo?: string[];
+  columnas: Columna[];
+  filas: Celda[][];
+}
+
+/** Un libro de varias hojas; `exportarExcel` es el caso de una sola. */
+export function exportarLibroExcel(nombreArchivo: string, hojas: HojaExcel[]): void {
   const libro = XLSX.utils.book_new();
-  // El nombre de hoja de Excel tiene un tope de 31 caracteres y no admite
-  // algunos símbolos; se recorta acá para no delegarle el error al navegador.
-  XLSX.utils.book_append_sheet(libro, hoja, nombreHoja.slice(0, 31));
+  const usados = new Set<string>();
+  for (const h of hojas) {
+    const preambulo = h.preambulo?.length ? [...h.preambulo.map((l) => [l]), []] : [];
+    const hoja = XLSX.utils.aoa_to_sheet([...preambulo, h.columnas.map((c) => c.encabezado), ...h.filas]);
+    hoja["!cols"] = h.columnas.map((c) => ({ wch: c.ancho ?? 16 }));
+    XLSX.utils.book_append_sheet(libro, hoja, nombreHojaValido(h.nombre, usados));
+  }
   XLSX.writeFile(libro, nombreArchivo);
+}
+
+/**
+ * Excel topa el nombre de hoja en 31 caracteres, no admite `[]:*?/\` y no
+ * acepta dos iguales; se corrige acá para no delegarle el error al navegador.
+ */
+function nombreHojaValido(nombre: string, usados: Set<string>): string {
+  const base = nombre.replace(/[[\]:*?/\\]/g, "-").slice(0, 31) || "Hoja";
+  let candidato = base;
+  for (let i = 2; usados.has(candidato.toLowerCase()); i++) {
+    candidato = `${base.slice(0, 31 - String(i).length - 1)} ${i}`;
+  }
+  usados.add(candidato.toLowerCase());
+  return candidato;
 }

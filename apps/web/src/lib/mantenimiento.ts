@@ -166,6 +166,14 @@ export const useFallas = (filtros: FiltrosFallas) =>
     placeholderData: (previa) => previa,
   });
 
+/** Todas las fallas del filtro, no sólo la página visible: para exportarlas.
+ *  Es una petición por cada 100 fallas y se hace al tocar el botón, no antes. */
+export const todasLasFallas = (filtros: FiltrosFallas) =>
+  todasLasPaginas<FallaEstacionDto>(
+    // `page` fuera: la pone `todasLasPaginas` en cada vuelta.
+    `/mantenimiento/fallas${query({ ...filtros, page: undefined, soloAbiertas: filtros.soloAbiertas ? "true" : undefined })}`,
+  );
+
 /** Todo lo que cambia el estado de una estación invalida también el tablero y
  *  el inventario: son la misma verdad mirada de tres formas. */
 const useInvalidarTodo = () => {
