@@ -22,7 +22,10 @@ import {
   useCrearEstacion,
   useEstacion,
   useEstaciones,
+  useReemplazarInstrumentos,
+  useTiposInstrumento,
   type FiltrosEstaciones,
+  type Instrumentos,
 } from "@/lib/mantenimiento";
 import { useSesion } from "@/lib/sesion";
 import { SubNavTelemetria } from "./sub-nav";
@@ -418,8 +421,9 @@ function PanelDetalle({
   );
 }
 
-/** Nombre, área, enlace y red — los cuatro campos de `updateEstacionSchema`.
- *  Manda sólo lo que cambió, mismo criterio que la edición de usuarios. */
+/** Nombre, área, enlace y red — los cuatro campos de `updateEstacionSchema` —
+ *  más el inventario de instrumentos. Manda sólo lo que cambió, mismo criterio
+ *  que la edición de usuarios. */
 function FormularioEditarEstacion({
   estacion,
   onListo,
@@ -436,8 +440,14 @@ function FormularioEditarEstacion({
     estacion.tipoRed ?? "",
   );
 
+  const inicial = desdeInstrumentos(estacion.instrumentos);
+  const [cantidades, setCantidades] = useState<Cantidades>(inicial);
+
   const areas = useAreas();
   const actualizar = useActualizarEstacion(estacion.id);
+  const reemplazar = useReemplazarInstrumentos(estacion.id);
+  const guardando = actualizar.isPending || reemplazar.isPending;
+  const error = actualizar.error ?? reemplazar.error;
 
   return (
     <form
@@ -450,11 +460,21 @@ function FormularioEditarEstacion({
         if (tipoEnlaceCom !== estacion.tipoEnlaceCom) cambios.tipoEnlaceCom = tipoEnlaceCom;
         const redElegida = tipoRed === "" ? null : tipoRed;
         if (redElegida !== estacion.tipoRed) cambios.tipoRed = redElegida;
-        if (Object.keys(cambios).length === 0) {
-          onListo();
-          return;
-        }
-        actualizar.mutate(cambios, { onSuccess: onListo });
+        const instrumentos = aInstrumentos(cantidades);
+        const cambiaronInstrumentos =
+          JSON.stringify(instrumentos) !== JSON.stringify(aInstrumentos(inicial));
+        // Son dos rutas (PATCH de la estación y PUT del inventario, §15.3):
+        // se manda sólo la que cambió, y el inventario después, para que un
+        // error en él no deje a medias el cambio de datos ya confirmado.
+        void (async () => {
+          try {
+            if (Object.keys(cambios).length > 0) await actualizar.mutateAsync(cambios);
+            if (cambiaronInstrumentos) await reemplazar.mutateAsync(instrumentos);
+            onListo();
+          } catch {
+            // El error ya lo muestra el formulario.
+          }
+        })();
       }}
     >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -500,19 +520,22 @@ function FormularioEditarEstacion({
         </div>
       </div>
 
-      {actualizar.error ? (
+      <CamposInstrumentos prefijo="editar" cantidades={cantidades} onCambiar={setCantidades} />
+
+      {error ? (
         <p className="mt-2 text-sm text-destructive" role="alert">
-          {actualizar.error instanceof ApiError
-            ? actualizar.error.message
-            : "No se pudo guardar el cambio."}
+          {error instanceof ApiError ? error.message : "No se pudo guardar el cambio."}
         </p>
       ) : null}
 
       <div className="mt-3 flex gap-2">
-        <Button type="submit" disabled={nombre.trim() === "" || actualizar.isPending}>
-          {actualizar.isPending ? "Guardando…" : "Guardar"}
+        <Button
+          type="submit"
+          disabled={nombre.trim() === "" || !cantidadesValidas(cantidades) || guardando}
+        >
+          {guardando ? "Guardando…" : "Guardar"}
         </Button>
-        <Button type="button" variant="outline" onClick={onCancelar} disabled={actualizar.isPending}>
+        <Button type="button" variant="outline" onClick={onCancelar} disabled={guardando}>
           Cancelar
         </Button>
       </div>
@@ -534,6 +557,7 @@ function FormularioNuevaEstacion() {
     TIPOS_ENLACE[0],
   );
   const [tipoRed, setTipoRed] = useState<"" | "TRANSPORTE" | "DISTRIBUCION">("");
+  const [cantidades, setCantidades] = useState<Cantidades>({});
 
   const areas = useAreas();
   const crear = useCrearEstacion();
@@ -544,6 +568,7 @@ function FormularioNuevaEstacion() {
     setAreaId("");
     setTipoEnlaceCom(TIPOS_ENLACE[0]);
     setTipoRed("");
+    setCantidades({});
   };
 
   if (!abierto) {
@@ -567,6 +592,7 @@ function FormularioNuevaEstacion() {
             areaId: Number(areaId),
             tipoEnlaceCom,
             tipoRed: tipoRed === "" ? null : tipoRed,
+            instrumentos: aInstrumentos(cantidades),
           },
           {
             onSuccess: () => {
@@ -648,6 +674,8 @@ function FormularioNuevaEstacion() {
         </div>
       </div>
 
+      <CamposInstrumentos prefijo="nueva" cantidades={cantidades} onCambiar={setCantidades} />
+
       {crear.error ? (
         <p className="mt-2 text-sm text-destructive" role="alert">
           {crear.error instanceof ApiError ? crear.error.message : "No se pudo crear la estación."}
@@ -657,10 +685,108 @@ function FormularioNuevaEstacion() {
       <Button
         type="submit"
         className="mt-3"
-        disabled={nodo.trim() === "" || nombre.trim() === "" || areaId === "" || crear.isPending}
+        disabled={
+          nodo.trim() === "" ||
+          nombre.trim() === "" ||
+          areaId === "" ||
+          !cantidadesValidas(cantidades) ||
+          crear.isPending
+        }
       >
         {crear.isPending ? "Creando…" : "Crear"}
       </Button>
     </form>
+  );
+}
+
+// ── Inventario de instrumentos ──────────────────────────────────────────────
+
+/** Lo tecleado por tipo de instrumento, como texto: un campo vacío es 0. */
+type Cantidades = Record<number, string>;
+
+const MAX_CANTIDAD = 999;
+
+const cantidadValida = (v: string): boolean =>
+  v.trim() === "" || (/^\d+$/.test(v.trim()) && Number(v) <= MAX_CANTIDAD);
+
+const cantidadesValidas = (c: Cantidades): boolean => Object.values(c).every(cantidadValida);
+
+/** Sólo los tipos con cantidad: el inventario real no guarda ceros. */
+const aInstrumentos = (c: Cantidades): Instrumentos =>
+  Object.entries(c)
+    .map(([id, v]) => ({ tipoInstrumentoId: Number(id), cantidad: Number(v.trim() || 0) }))
+    .filter((i) => i.cantidad > 0)
+    .sort((a, b) => a.tipoInstrumentoId - b.tipoInstrumentoId);
+
+const desdeInstrumentos = (
+  lista: { tipoInstrumento: { id: number }; cantidad: number }[],
+): Cantidades => Object.fromEntries(lista.map((i) => [i.tipoInstrumento.id, String(i.cantidad)]));
+
+/**
+ * Una cantidad por cada uno de los 16 tipos, en el orden de las columnas del
+ * `INVENTARIO ESTACIONES.xls` — que es como el área tiene la fila en la cabeza
+ * cuando la carga. Los vacíos cuentan como cero.
+ */
+function CamposInstrumentos({
+  prefijo,
+  cantidades,
+  onCambiar,
+}: {
+  prefijo: string;
+  cantidades: Cantidades;
+  onCambiar: (c: Cantidades) => void;
+}) {
+  const tipos = useTiposInstrumento();
+  const total = aInstrumentos(cantidades).reduce((a, i) => a + i.cantidad, 0);
+
+  return (
+    <fieldset className="mt-4">
+      {/* El `legend` tiene que ser hijo directo del `fieldset` para nombrar
+          el grupo; el total va a la derecha dentro de él. */}
+      <legend className="flex w-full flex-wrap items-baseline justify-between gap-2">
+        <span className="text-sm font-medium">Inventario de instrumentos</span>
+        <span className="text-xs text-muted-foreground">
+          <span className="font-mono tabular-nums">{total}</span> en total
+        </span>
+      </legend>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        Cantidad por tipo, como en el inventario. Los que no tenga, déjelos en blanco.
+      </p>
+      {tipos.isError ? (
+        <p className="mt-2 text-sm text-destructive" role="alert">
+          No se pudieron cargar los tipos de instrumento.
+        </p>
+      ) : (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {(tipos.data ?? []).map((t) => {
+            const valor = cantidades[t.id] ?? "";
+            const id = `${prefijo}-instrumento-${t.id}`;
+            return (
+              <div key={t.id} className="space-y-1.5">
+                <Label htmlFor={id}>{t.nombre}</Label>
+                <Input
+                  id={id}
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={MAX_CANTIDAD}
+                  step={1}
+                  placeholder="0"
+                  className="font-mono tabular-nums"
+                  aria-invalid={!cantidadValida(valor)}
+                  value={valor}
+                  onChange={(e) => onCambiar({ ...cantidades, [t.id]: e.target.value })}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {!cantidadesValidas(cantidades) ? (
+        <p className="mt-2 text-sm text-destructive" role="alert">
+          Las cantidades van en números enteros, de 0 a {MAX_CANTIDAD}.
+        </p>
+      ) : null}
+    </fieldset>
   );
 }

@@ -10,6 +10,7 @@ import type {
   FallaHistorialEntryDto,
   Paginated,
   SerieDisponibilidadDto,
+  TipoInstrumentoDto,
 } from "@sicog/shared-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, todasLasPaginas } from "./api";
@@ -48,6 +49,20 @@ export const useAreas = () =>
   useQuery({
     queryKey: ["mtto", "areas"],
     queryFn: () => todasLasPaginas<AreaMttoDto>("/mantenimiento/areas"),
+    staleTime: 5 * 60_000,
+  });
+
+/** Los 16 tipos del inventario, **en el orden de las columnas del
+ *  `INVENTARIO ESTACIONES.xls`** (Presión, Temperatura, PDT… Separador): el
+ *  seed los crea en ese orden, así que es el de los ids. El API los manda por
+ *  nombre. */
+export const useTiposInstrumento = () =>
+  useQuery({
+    queryKey: ["mtto", "tipos-instrumento"],
+    queryFn: async () =>
+      (await todasLasPaginas<TipoInstrumentoDto>("/mantenimiento/tipos-instrumento")).sort(
+        (a, b) => a.id - b.id,
+      ),
     staleTime: 5 * 60_000,
   });
 
@@ -107,10 +122,29 @@ export const useCrearEstacion = () => {
       areaId: number;
       tipoEnlaceCom: string;
       tipoRed: "TRANSPORTE" | "DISTRIBUCION" | null;
+      instrumentos: Instrumentos;
     }) => api<EstacionDetalleDto>("/mantenimiento/estaciones", { metodo: "POST", cuerpo: datos }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["mtto", "estaciones"] });
       void qc.invalidateQueries({ queryKey: ["mtto", "disponibilidad"] });
+    },
+  });
+};
+
+export type Instrumentos = { tipoInstrumentoId: number; cantidad: number }[];
+
+/** Reemplaza el inventario completo de una estación (el PUT del §15.3). */
+export const useReemplazarInstrumentos = (id: number) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (instrumentos: Instrumentos) =>
+      api<EstacionDetalleDto>(`/mantenimiento/estaciones/${id}/instrumentos`, {
+        metodo: "PUT",
+        cuerpo: { instrumentos },
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["mtto", "estaciones"] });
+      void qc.invalidateQueries({ queryKey: ["mtto", "estacion", id] });
     },
   });
 };

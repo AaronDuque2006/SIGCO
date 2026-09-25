@@ -24,6 +24,7 @@ export interface IEstacionRepository {
     areaId: number;
     tipoEnlaceCom: string;
     tipoRed: "TRANSPORTE" | "DISTRIBUCION" | null;
+    instrumentos: { tipoInstrumentoId: number; cantidad: number }[];
   }): Promise<EstacionDetalleDto>;
   actualizar(
     id: number,
@@ -207,14 +208,19 @@ export const estacionRepository: IEstacionRepository = {
 
   obtener: (id, alDia) => detalle(id, alDia),
 
-  async crear(datos) {
+  async crear({ instrumentos, ...datos }) {
     try {
-      const creada = await prisma.estacion.create({ data: datos, select: { id: true } });
+      // Una sola escritura anidada: la estación y su inventario entran juntos
+      // o no entra ninguno.
+      const creada = await prisma.estacion.create({
+        data: { ...datos, instrumentos: { create: instrumentos } },
+        select: { id: true },
+      });
       return (await detalle(creada.id, hoyUtc()))!;
     } catch (err) {
       throw traducirEscritura(err, {
         repetido: `Ya existe una estación con el nodo ${datos.nodo}`,
-        noExiste: "No existe el área indicada",
+        noExiste: "No existe el área o alguno de los tipos de instrumento indicados",
       });
     }
   },

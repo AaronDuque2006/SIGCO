@@ -39,13 +39,7 @@ const nodoSchema = z
   .regex(/^[A-Za-z0-9-]+$/, "El nodo admite sólo letras, números y guiones")
   .transform((v) => v.toUpperCase());
 
-export const createEstacionSchema = z.object({
-  nodo: nodoSchema,
-  nombre: nombreCatalogo,
-  areaId: z.number().int().positive(),
-  tipoEnlaceCom: tipoEnlaceComSchema,
-  tipoRed: tipoRedSchema.nullable().default(null),
-});
+
 
 export const updateEstacionSchema = alMenosUnCampo(
   z.object({
@@ -100,6 +94,22 @@ export const putInstrumentosSchema = z.object({
       (items) => new Set(items.map((i) => i.tipoInstrumentoId)).size === items.length,
       { message: "No se puede repetir el mismo tipo de instrumento" },
     ),
+});
+
+/**
+ * El alta trae su inventario de instrumentos, como la fila del
+ * `INVENTARIO ESTACIONES.xls`: una cantidad por tipo. Va en el mismo POST y no
+ * en un PUT aparte para que una estación nunca quede creada sin él porque falló
+ * el segundo pedido. Sin instrumentos también se puede: hay estaciones así en
+ * el inventario real.
+ */
+export const createEstacionSchema = z.object({
+  nodo: nodoSchema,
+  nombre: nombreCatalogo,
+  areaId: z.number().int().positive(),
+  tipoEnlaceCom: tipoEnlaceComSchema,
+  tipoRed: tipoRedSchema.nullable().default(null),
+  instrumentos: putInstrumentosSchema.shape.instrumentos.default([]),
 });
 
 export const listAreasQuerySchema = z.object({
