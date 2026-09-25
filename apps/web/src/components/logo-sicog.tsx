@@ -45,7 +45,8 @@ export function SelloSicog({ className }: { className?: string }) {
           <stop offset="0" stopColor="#1d4ed8" />
           <stop offset="1" stopColor="#60a5fa" />
         </linearGradient>
-        <path id={`${id}-sup`} d="M53,256 A203,203 0 0 1 459,256" />
+        {/* r=193: con 203, la parte alta de las letras quedaba pegada al aro. */}
+        <path id={`${id}-sup`} d="M63,256 A193,193 0 0 1 449,256" />
         <path id={`${id}-inf`} d="M38,256 A218,218 0 0 0 474,256" />
       </defs>
       {/* Aros */}
@@ -69,8 +70,8 @@ export function SelloSicog({ className }: { className?: string }) {
       <text
         fontFamily="Inter, system-ui, sans-serif"
         fontWeight="800"
-        fontSize="46"
-        letterSpacing="16"
+        fontSize="42"
+        letterSpacing="15"
         fill="currentColor"
       >
         <textPath href={`#${id}-sup`} startOffset="50%" textAnchor="middle">
@@ -139,12 +140,15 @@ export function SelloSicog({ className }: { className?: string }) {
         <circle className="logo-latido" cx="256" cy="252" r="11" fill="none" stroke="var(--primary)" strokeWidth="2.5" />
         <circle cx="256" cy="252" r="11" fill="var(--primary)" />
         <circle cx="256" cy="252" r="5" fill="#93c5fd" />
-        {/* Llama */}
+        {/* Llama: parpadea desde la base (`.logo-llama`); la interior va
+            desfasada para que no se mueva en bloque. */}
         <path
+          className="logo-llama"
           d="M256,150 C272,172 291,188 289,212 C288,230 274,242 256,242 C238,242 224,230 223,212 C222,195 235,183 240,168 C243,181 248,188 253,190 C251,177 252,163 256,150 Z"
           fill={`url(#${id}-llama)`}
         />
         <path
+          className="logo-llama logo-llama-interior"
           d="M256,197 C265,207 271,215 270,224 C269,233 263,238 256,238 C249,238 243,233 242,225 C242,216 250,210 256,197 Z"
           fill="#dbeafe"
         />

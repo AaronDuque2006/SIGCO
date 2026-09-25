@@ -50,13 +50,12 @@ export default function LoginPage() {
         className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-card p-6 sm:p-8"
       >
         <div className="mb-6 text-center">
-          {/* El sello es identidad, no información: el nombre sigue en el
-              <h1>, porque a este tamaño el texto del arco apenas se lee. */}
-          <SelloSicog className="mx-auto mb-4 size-40" />
-          <h1 className="text-xl font-semibold tracking-tight">SICOG</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Control Operacional de Gas
-          </p>
+          {/* El sello ya dice el nombre del sistema, así que el título no se
+              repite a la vista (pedido del owner); queda para lectores de
+              pantalla. El sello va más grande que antes para que el texto
+              del anillo se lea. */}
+          <h1 className="sr-only">SICOG — Sistema de Control Operacional de Gas</h1>
+          <SelloSicog className="mx-auto size-52" />
         </div>
 
         <form onSubmit={enviar} noValidate className="space-y-4">

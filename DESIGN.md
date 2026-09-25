@@ -166,8 +166,10 @@ tres reservados para estado.
   original era naranja y azul, y a pedido del owner se pasó a la paleta del
   sistema — Azul Señal, Tinta, Tinta Tenue y la superficie de tarjeta, todo por
   tokens, así que cambia solo con el tema. En el sello del login las líneas de
-  la red llevan pulsos animados (el gas fluyendo, `.logo-flujo`); la marca del
-  encabezado no se anima, porque vive en la pantalla de trabajo toda la guardia.
+  la red llevan pulsos de luz que salen del nodo central (`.logo-pulso`), el nodo
+  late y la llama parpadea desde la base (`.logo-llama`); todo se apaga con
+  `prefers-reduced-motion`. La marca del encabezado no se anima, porque vive en
+  la pantalla de trabajo toda la guardia.
 
 ### Neutral
 
