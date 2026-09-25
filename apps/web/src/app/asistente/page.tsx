@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api";
 import { CLAVE_MIS_CONSULTAS, consultarAsistente, useMisConsultas, useValorarRespuesta } from "@/lib/asistente";
+import { evidencias, type Evidencia } from "@/lib/evidencia";
 import { useSesion } from "@/lib/sesion";
 
 export default function AsistentePage() {
@@ -522,12 +523,13 @@ function Fuentes({ texto, fuentes, idIntercambio }: { texto: string; fuentes: Fu
   const citadas = new Set([...texto.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
   const fuentesCitadas = fuentes.filter((f) => citadas.has(f.n));
   const otras = fuentes.filter((f) => !citadas.has(f.n));
+  const evidencia = evidencias(texto, fuentesCitadas);
   return (
     <>
       {fuentesCitadas.length > 0 ? (
         <>
           <h3 className="text-xs font-medium text-muted-foreground">Fuentes · verifique la cifra antes de usarla</h3>
-          <ListaFuentes fuentes={fuentesCitadas} idIntercambio={idIntercambio} />
+          <ListaFuentes fuentes={fuentesCitadas} idIntercambio={idIntercambio} evidencia={evidencia} />
         </>
       ) : null}
       {otras.length > 0 ? (
@@ -544,22 +546,74 @@ function Fuentes({ texto, fuentes, idIntercambio }: { texto: string; fuentes: Fu
   );
 }
 
-function ListaFuentes({ fuentes, idIntercambio }: { fuentes: FuenteRagDto[]; idIntercambio: string }) {
+// Tope de líneas de evidencia por fuente: si una cifra aparece en muchas
+// filas (un "1" o un "2"), no identifica ninguna y mostrarlas todas es ruido.
+const MAX_EVIDENCIAS = 3;
+
+function ListaFuentes({
+  fuentes,
+  idIntercambio,
+  evidencia,
+}: {
+  fuentes: FuenteRagDto[];
+  idIntercambio: string;
+  /** Dónde está cada cifra de la respuesta en la fuente; sólo en las citadas. */
+  evidencia?: Map<number, Evidencia[]>;
+}) {
   return (
     <ul className="mt-2 space-y-1.5">
-      {fuentes.map((f) => (
-        <li key={f.n} id={`fuente-${idIntercambio}-${f.n}`} className="scroll-mt-4">
-          <details className="text-sm">
-            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-              <span className="font-mono text-primary tabular-nums">[{f.n}]</span> {rotulo(f)}
-            </summary>
-            <pre className="mt-1.5 max-h-64 overflow-auto rounded-md border border-border bg-background p-2 font-sans text-xs whitespace-pre-wrap text-muted-foreground">
-              {f.contenido}
-            </pre>
-          </details>
-        </li>
-      ))}
+      {fuentes.map((f) => {
+        const lineas = evidencia?.get(f.n) ?? [];
+        const aMostrar = lineas.length <= MAX_EVIDENCIAS ? lineas : [];
+        const resaltar = new Set(aMostrar.flatMap((e) => e.pares));
+        return (
+          <li key={f.n} id={`fuente-${idIntercambio}-${f.n}`} className="scroll-mt-4">
+            <details className="text-sm">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                <span className="font-mono text-primary tabular-nums">[{f.n}]</span> {rotulo(f)}
+                {aMostrar.map((e, i) => (
+                  <span key={i} className="mt-1 block pl-7 text-xs text-foreground">
+                    {e.pares.includes(e.fila) ? null : (
+                      <>
+                        <span className="text-muted-foreground">{e.fila}</span>
+                        <span className="text-muted-foreground"> … </span>
+                      </>
+                    )}
+                    {e.pares.map((par, j) => (
+                      <span key={j}>
+                        {j > 0 ? <span className="text-muted-foreground"> · </span> : null}
+                        <Resaltado>{par}</Resaltado>
+                      </span>
+                    ))}
+                  </span>
+                ))}
+              </summary>
+              <pre className="mt-1.5 max-h-64 overflow-auto rounded-md border border-border bg-background p-2 font-sans text-xs whitespace-pre-wrap text-muted-foreground">
+                {resaltar.size ? <ConResaltado texto={f.contenido} pares={resaltar} /> : f.contenido}
+              </pre>
+            </details>
+          </li>
+        );
+      })}
     </ul>
+  );
+}
+
+/**
+ * El valor del que sale la cifra de la respuesta. Azul Señal al 12%: marca lo
+ * enfocado, como el foco de un campo — no es un color de estado.
+ */
+function Resaltado({ children }: { children: React.ReactNode }) {
+  return <mark className="rounded-sm bg-accent-soft px-0.5 font-medium text-foreground">{children}</mark>;
+}
+
+/** El contenido completo de la fuente, con los mismos pares resaltados. */
+function ConResaltado({ texto, pares }: { texto: string; pares: Set<string> }) {
+  const patron = new RegExp(`(${[...pares].map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "g");
+  return (
+    <>
+      {texto.split(patron).map((parte, i) => (pares.has(parte) ? <Resaltado key={i}>{parte}</Resaltado> : parte))}
+    </>
   );
 }
 
