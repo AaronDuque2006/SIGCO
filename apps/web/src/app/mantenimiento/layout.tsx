@@ -5,12 +5,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Encabezado } from "@/components/encabezado";
 import { GuardiaSesion } from "@/components/guardia-sesion";
-import { IconAntenna, IconClipboardList } from "@tabler/icons-react";
+import { IconAntenna, IconClipboardList, IconInfoCircle } from "@tabler/icons-react";
 
 interface Vista {
   ruta: string;
   nombre: string;
-  descripcion: string;
+  /** Sin descripción, la entrada va en una sola línea. */
+  descripcion?: string;
   /** `false` mientras la vista no exista todavía. */
   disponible: boolean;
   /** El icono es semántico, no decorativo: en un menú de seis entradas con
@@ -35,6 +36,13 @@ const VISTAS: Vista[] = [
     descripcion: "Estaciones y fallas",
     disponible: true,
     Icono: IconAntenna,
+  },  // Al final y no entre las vistas de trabajo: es la misma página en cada
+  // departamento (decisión #112).
+  {
+    ruta: "/mantenimiento/acerca",
+    nombre: "Acerca de SICOG",
+    disponible: true,
+    Icono: IconInfoCircle,
   },
 ];
 
@@ -93,9 +101,11 @@ function EntradaMenu({ vista, activa }: { vista: Vista; activa: boolean }) {
       <Icono size={18} stroke={1.75} aria-hidden className="mt-0.5 shrink-0" />
       <span className="min-w-0">
         <span className="block text-sm font-medium">{vista.nombre}</span>
-        <span className="mt-0.5 block text-xs text-muted-foreground">
-          {vista.disponible ? vista.descripcion : "En desarrollo"}
-        </span>
+        {vista.disponible && !vista.descripcion ? null : (
+          <span className="mt-0.5 block text-xs text-muted-foreground">
+            {vista.disponible ? vista.descripcion : "En desarrollo"}
+          </span>
+        )}
       </span>
     </span>
   );
