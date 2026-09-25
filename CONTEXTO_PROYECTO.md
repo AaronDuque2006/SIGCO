@@ -1729,6 +1729,19 @@ novedades (decisión #102) cuando haya novedades reales y no de demostración.
     (exportar la slide a PNG con LibreOffice) y **conservar las descripciones al
     reprocesar**, que hoy reemplaza todos los chunks del documento.
 12. Parsers de **PDF y XLSX** (se rechazan al subir hasta que existan).
+    **PDF, pedido por el owner el 2026-09-25**, en espera de muestras reales.
+    Lo que se sabe: van a llegar **digitales y escaneados**, casi todo texto y
+    **con imágenes de planos**. Plan propuesto, sin confirmar: clasificar cada
+    página — texto digital (pdfjs-dist) → TEXTO citado por página; escaneo →
+    OCR; plano → IMAGEN, por el mismo camino que el punto 11, porque
+    `qwen2.5:7b` no ve imágenes. Hacerlo en dos pasos: primero digital más
+    detección (las páginas escaneadas se marcan y se avisan, sin rechazar el
+    archivo), y el OCR después. **Abierto**: OCR en Node (`tesseract.js`, sin
+    servicio nuevo) o contenedor aparte (`ocrmypdf`/Docling, lee mejor los
+    escaneos malos pero compite en memoria con Ollama). La decisión #103 ya
+    anticipaba ese contenedor para este caso. Se decide probando con un
+    escaneo real. **Bloqueado hasta tener 2 o 3 PDF reales** (uno digital, uno
+    escaneado, uno con planos) en `archivos-fuente/rag/`.
 13. **Retención de los registros de auditoría** (`consultas_rag`, `logs_login`,
     `logs_intento_no_autorizado`): hoy ninguno se borra. Decidirla junta, antes
     del despliegue (decisión #108).
