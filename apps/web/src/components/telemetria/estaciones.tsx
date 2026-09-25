@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { ApiError } from "@/lib/api";
 import {
+  areasDeRegion,
+  regionesDeAreas,
   DEPARTAMENTO_MANTENIMIENTO,
   formatearDiasCaida,
   useActualizarEstacion,
@@ -72,7 +74,7 @@ export function Estaciones() {
 
       <AvisoSoloConsulta sesion={sesion} departamento={DEPARTAMENTO_MANTENIMIENTO} />
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8">
         <div className="space-y-1.5">
           <Label htmlFor="buscar">Buscar</Label>
           <Input
@@ -84,6 +86,28 @@ export function Estaciones() {
           />
         </div>
 
+        {/* Mismo par que en la bitácora de fallas: la región acota las áreas,
+            y al cambiarla se suelta el área elegida si no es suya. */}
+        <div className="space-y-1.5">
+          <Label htmlFor="region">Región</Label>
+          <Select
+            id="region"
+            value={filtros.regionId ?? ""}
+            onChange={(e) => {
+              const regionId = e.target.value ? Number(e.target.value) : undefined;
+              const areaSigue = areasDeRegion(areas.data ?? [], regionId).some((a) => a.id === filtros.areaId);
+              cambiar({ regionId, areaId: areaSigue ? filtros.areaId : undefined });
+            }}
+          >
+            <option value="">Todas</option>
+            {regionesDeAreas(areas.data ?? []).map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.nombre}
+              </option>
+            ))}
+          </Select>
+        </div>
+
         <div className="space-y-1.5">
           <Label htmlFor="area">Área</Label>
           <Select
@@ -92,7 +116,7 @@ export function Estaciones() {
             onChange={(e) => cambiar({ areaId: e.target.value ? Number(e.target.value) : undefined })}
           >
             <option value="">Todas</option>
-            {(areas.data ?? []).map((a) => (
+            {areasDeRegion(areas.data ?? [], filtros.regionId).map((a) => (
               <option key={a.id} value={a.id}>
                 {a.nombre} — {a.region.nombre}
               </option>
