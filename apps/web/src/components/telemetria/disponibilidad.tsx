@@ -5,6 +5,7 @@ import { EncabezadoVista } from "@/components/encabezado-vista";
 import { GraficaBarras } from "@/components/graficas";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
+  formatearFecha,
   formatearPorcentaje,
   useDisponibilidad,
   useSerieDisponibilidad,
@@ -31,7 +32,7 @@ export function Disponibilidad() {
       <SubNavTelemetria />
       <EncabezadoVista
         titulo="Disponibilidad de estaciones"
-        meta={data ? `al ${data.fecha.split("-").reverse().join("/")}` : undefined}
+        meta={data ? `al ${formatearFecha(data.fecha)}` : undefined}
       >
         Una estación está disponible si no tiene ninguna falla abierta. El estado sale de
         la bitácora, así que cambia solo cuando alguien abre o resuelve una falla.

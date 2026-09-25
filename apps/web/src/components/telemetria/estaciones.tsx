@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { ApiError } from "@/lib/api";
 import {
+  formatearFecha,
   areasDeRegion,
   regionesDeAreas,
   DEPARTAMENTO_MANTENIMIENTO,
@@ -389,7 +390,7 @@ function PanelDetalle({
           </p>
           {data.fallaAbierta ? (
             <p className="mt-2 text-sm text-warn">
-              En falla desde {data.fallaAbierta.desde.split("-").reverse().join("/")} —{" "}
+              En falla desde {formatearFecha(data.fallaAbierta.desde)} —{" "}
               {data.fallaAbierta.causaFalla.nombre}.
               {data.fallaAbierta.observacion ? ` ${data.fallaAbierta.observacion}` : ""}
             </p>
