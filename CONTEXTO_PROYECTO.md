@@ -32,7 +32,7 @@ Reemplazar el balance diario de gas natural que actualmente se lleva manualmente
 
 | Capa | Tecnología |
 |---|---|
-| Frontend | Next.js (App Router), responsive, **shadcn/ui**, **TanStack Table** (data tables), **TanStack Query** (fetching/cache) |
+| Frontend | Next.js (App Router), responsive, **shadcn/ui**, **TanStack Query** (fetching/cache). Las tablas son HTML con Tailwind: TanStack Table se instaló al inicio y nunca se usó, y se quitó el 2026-09-25 |
 | Formularios | **react-hook-form + zod**, schemas de zod compartidos con el backend |
 | Backend | Node.js + **Express.js** |
 | ORM | **Prisma** — aislado exclusivamente en la capa Repository, nunca importado directamente en Services/Controllers |
