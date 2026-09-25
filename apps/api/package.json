@@ -3,14 +3,14 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "pnpm -w run contratos && dotenv -e ../../.env -- tsx watch src/index.ts",
+    "dev": "pnpm -w run contratos && tsx watch --env-file=../../.env src/index.ts",
     "build": "pnpm -w run contratos && tsc",
     "start": "node dist/index.js",
     "typecheck": "pnpm -w run contratos && tsc --noEmit",
-    "crear-superadmin": "pnpm -w run contratos && dotenv -e ../../.env -- tsx src/scripts/crear-superadmin.ts",
-    "sembrar-demo": "pnpm -w run contratos && dotenv -e ../../.env -- tsx src/scripts/sembrar-demo.ts",
-    "sembrar-fallas-mtto": "pnpm -w run contratos && dotenv -e ../../.env -- tsx src/scripts/sembrar-fallas-mtto.ts",
-    "evaluar-rag": "pnpm -w run contratos && dotenv -e ../../.env -- tsx src/scripts/evaluar-rag.ts"
+    "crear-superadmin": "pnpm -w run contratos && tsx --env-file=../../.env src/scripts/crear-superadmin.ts",
+    "sembrar-demo": "pnpm -w run contratos && tsx --env-file=../../.env src/scripts/sembrar-demo.ts",
+    "sembrar-fallas-mtto": "pnpm -w run contratos && tsx --env-file=../../.env src/scripts/sembrar-fallas-mtto.ts",
+    "evaluar-rag": "pnpm -w run contratos && tsx --env-file=../../.env src/scripts/evaluar-rag.ts"
   },
   "dependencies": {
     "@sicog/db": "workspace:*",
@@ -19,7 +19,6 @@
     "bcrypt": "^5.1.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "fflate": "^0.8.3",
@@ -37,7 +36,6 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.10.5",
     "@types/node-cron": "^3.0.11",
-    "dotenv-cli": "^11.0.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "xlsx": "0.18.5"
