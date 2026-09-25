@@ -40,4 +40,3 @@ export const volumenMmpcedSchema = z
 
 export const busquedaSchema = z.string().trim().min(1).max(100);
 
-export type PaginationQuery = z.infer<typeof paginationQuerySchema>;

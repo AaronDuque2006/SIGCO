@@ -39,8 +39,6 @@ const nodoSchema = z
   .regex(/^[A-Za-z0-9-]+$/, "El nodo admite sólo letras, números y guiones")
   .transform((v) => v.toUpperCase());
 
-
-
 export const updateEstacionSchema = alMenosUnCampo(
   z.object({
     nombre: nombreCatalogo.optional(),

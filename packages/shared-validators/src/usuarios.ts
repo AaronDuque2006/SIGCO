@@ -194,6 +194,4 @@ export const listarUsuariosQuerySchema = paginationQuerySchema.extend({
 
 export type CrearUsuarioInput = z.infer<typeof crearUsuarioSchema>;
 export type ActualizarUsuarioInput = z.infer<typeof actualizarUsuarioSchema>;
-export type BloqueoUsuarioInput = z.infer<typeof bloqueoUsuarioSchema>;
-export type CambiarPasswordInput = z.infer<typeof cambiarPasswordSchema>;
 export type ListarUsuariosQuery = z.infer<typeof listarUsuariosQuerySchema>;

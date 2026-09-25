@@ -273,20 +273,12 @@ export const serieBalanceQuerySchema = z.object({
   tipoCorte: tipoCorteSchema.default("PUNTUAL"),
 });
 
-export type CreateSectorClienteInput = z.infer<typeof createSectorClienteSchema>;
 export type UpdateSectorClienteInput = z.infer<typeof updateSectorClienteSchema>;
 export type CreateClienteInput = z.infer<typeof createClienteSchema>;
 export type UpdateClienteInput = z.infer<typeof updateClienteSchema>;
 export type CreateFuenteInput = z.infer<typeof createFuenteSchema>;
 export type UpdateFuenteInput = z.infer<typeof updateFuenteSchema>;
-export type CreateLecturaBalanceInput = z.infer<typeof createLecturaBalanceSchema>;
-export type UpdateLecturaBalanceInput = z.infer<typeof updateLecturaBalanceSchema>;
-export type EditarHistorialInput = z.infer<typeof editarHistorialSchema>;
-export type EditarValorVigenteInput = z.infer<typeof editarValorVigenteSchema>;
-export type CreateLecturaFuenteInput = z.infer<typeof createLecturaFuenteSchema>;
-export type UpdateLecturaFuenteInput = z.infer<typeof updateLecturaFuenteSchema>;
 export type CreateQuemaNacionalInput = z.infer<typeof createQuemaNacionalSchema>;
-export type UpdateQuemaNacionalInput = z.infer<typeof updateQuemaNacionalSchema>;
 export type CreateNovedadInput = z.infer<typeof createNovedadSchema>;
 export type UpdateNovedadInput = z.infer<typeof updateNovedadSchema>;
 export type CreateContactoInput = z.infer<typeof createContactoSchema>;
@@ -295,10 +287,6 @@ export type ListLecturasBalanceQuery = z.infer<typeof listLecturasBalanceQuerySc
 export type ListLecturasFuenteQuery = z.infer<typeof listLecturasFuenteQuerySchema>;
 export type ListClientesQuery = z.infer<typeof listClientesQuerySchema>;
 export type ListFuentesQuery = z.infer<typeof listFuentesQuerySchema>;
-export type ListTransferenciasQuery = z.infer<typeof listTransferenciasQuerySchema>;
 export type CreateTransferenciaInput = z.infer<typeof createTransferenciaSchema>;
-export type UpdateTransferenciaInput = z.infer<typeof updateTransferenciaSchema>;
 export type ListNovedadesQuery = z.infer<typeof listNovedadesQuerySchema>;
 export type ListContactosQuery = z.infer<typeof listContactosQuerySchema>;
-export type ReporteQuery = z.infer<typeof reporteQuerySchema>;
-export type SerieBalanceQuery = z.infer<typeof serieBalanceQuerySchema>;
