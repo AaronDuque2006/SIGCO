@@ -91,13 +91,16 @@ modeladas y cerradas desde el principio. Calidad de Gas y Análisis Operacional
 **ni siquiera están diseñados**: no existe la planilla ni la especificación de
 origen.
 
-**Fase 2 comprometida — asistente de consulta con RAG local.** No está
-construido y no debe construirse todavía: la regla vigente es no agregar el
-contenedor de Ollama ni código de RAG hasta que la fase arranque formalmente,
-porque primero se retira el Excel. Pero **no es una idea suelta, es una
-dirección comprometida y la arquitectura ya la contempla**: `pgvector` está
-habilitado desde la primera migración con ese propósito explícito, y Ollama está
-previsto en el mismo stack de despliegue. El modelo corre **local, no contra un
+**Fase 2 — asistente de consulta con RAG local. Construido el 2026-09-24**
+(`CONTEXTO_PROYECTO.md` §16, decisiones #100-#108), todavía sin desplegar. El
+superadmin sube manuales (.pptx, .docx); las novedades operativas entran solas;
+cualquier usuario pregunta en `/asistente` y recibe la respuesta con la fuente
+de cada dato y la fila exacta de donde sale cada cifra. **Precisión medida**:
+acierta el dato en ~70-80% de las preguntas técnicas y rechaza siempre las
+fuera de tema; se equivoca sobre todo leyendo el valor de la fila o columna de
+al lado en tablas, por eso la verificación de la fuente es parte del diseño y no
+un adorno. Corre en CPU con un modelo de 7B y tarda ~1 minuto por respuesta; un
+modelo más preciso exigiría otro hardware. El modelo corre **local, no contra un
 servicio en la nube**, por tres razones que se sostienen juntas: el corpus son
 documentos internos de PDVSA y no puede salir del perímetro de la empresa; la
 sala de control opera 24 horas y un asistente que muere con el enlace a internet
@@ -111,8 +114,9 @@ estructurado** — el manual oficial de sistemas de transporte, los
 procedimientos, y sobre todo el histórico de novedades operativas, que crece
 todos los días y hoy no es consultable más allá de filtrar por fecha y origen.
 **Sus casos de uso concretos siguen sin confirmar** con el área, igual que el
-modelo, la segmentación del corpus, el control de acceso sobre lo que el
-asistente recupera, y cómo se evalúa que responde bien.
+control de acceso sobre lo que el asistente recupera. Cómo se evalúa ya existe
+(`evaluar-rag` y el "¿Le sirvió?"), pero el set de preguntas lo redactó Claude:
+falta el del área.
 
 **Ya no queda un bloqueante conocido para retirar el Excel.** El último eran
 las transferencias fuera del sistema (`ICO Morón`, `APORTE A EYP`), modeladas

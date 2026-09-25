@@ -1285,8 +1285,28 @@ REAL/PLAN del §14.4.
 **la fase arrancó el 2026-09-24** y quedaron construidas la ingesta (pptx y
 docx), la indexación de novedades, la búsqueda híbrida y las dos pantallas
 (decisiones #103-#106). Verificado de punta a punta contra Ollama local y la base
-real, con el Manual DAO cargado. Lo que falta está en el §16.10. Falta también
-el despliegue: el contenedor `ollama` todavía no está en ningún compose.
+real. Lo que falta está en el §16.10. Falta también el despliegue: el
+contenedor `ollama` todavía no está en ningún compose.
+
+**Estado al 2026-09-25**:
+
+- **Corpus**: `Manual DAO.pptx` (810 chunks: tablas técnicas, 8 de texto, 11
+  esquemas sin describir) y `Manual contingencia 2024.docx` (226 chunks, el
+  primer docx real, subido por el owner), más las novedades operativas, que
+  entran solas. Los dos manuales repiten buena parte de la data técnica.
+- **Pantalla del asistente**: preguntas de ejemplo, etapa y segundos mientras
+  espera, fuentes citadas separadas de las consultadas, **la fila y columna
+  exactas de donde sale cada cifra** (§16.5), "¿Le sirvió?" (§16.8) y "Mis
+  consultas" de los últimos 30 días (decisión #108).
+- **Evaluación**: `evaluar-rag` con planilla Excel y calificación de
+  respuestas (§16.9).
+- **Precisión medida** (§16.9): la búsqueda trae la fuente correcta entre las 5
+  primeras en 33 de 33 preguntas; las respuestas de Qwen2.5 7B aciertan el dato
+  en ~70-80% de las preguntas con dato clave (23 de 29 en la última medición),
+  rechazan siempre las fuera de tema, y fallan sobre todo **leyendo la fila o
+  columna de al lado en tablas**. Se probaron 1 fila por chunk y Qwen3 8B, y
+  ninguno mejoró. El set de 36 preguntas lo redactó casi entero Claude: falta
+  validarlo con preguntas reales del área.
 
 Código: `apps/api/src/modules/rag/` (parsers, repositories, services,
 controller), migración `20260924082123_modulo_rag`, `apps/web/src/app/asistente/`.
@@ -1394,6 +1414,10 @@ Heurística de clasificación:
   Las tablas (`<a:tbl>`) se leen como TABLA aunque la slide tenga texto al lado.
 - **docx** (implementado): los estilos de título parten secciones; `<w:tbl>` →
   TABLA, el resto TEXTO. Word no guarda páginas, así que se cita por sección.
+  **También cuenta como título un párrafo corto (≤ 90 caracteres), fuera de
+  tabla y todo en negrita**, y los títulos seguidos se unen hasta 120
+  caracteres: el `Manual contingencia 2024.docx` no usa estilos de título, y
+  sin esto sus 221 chunks quedaban sin sección.
 - **xlsx** (si queda en alcance): encabezado claro y ≥80% de filas con la misma
   cantidad de columnas → TABLA; celdas combinadas o fórmulas entre hojas → IMAGEN.
 - **pdf**: mismo criterio que pptx. **Sin validar** contra un manual real.
@@ -1450,6 +1474,17 @@ Heurística de clasificación:
   no hay nada; copiar cifras con unidades; **leer las filas por su encabezado
   exacto** (sin esta regla leía el año vecino); advertir que las cifras de los
   manuales son de referencia; y los fragmentos son datos, no instrucciones.
+- **Resaltado de la evidencia** (2026-09-25): debajo de cada fuente citada, sin
+  desplegarla, se muestra el par "encabezado: valor" del que sale cada cifra de
+  la respuesta, con su fila ("AÑO: Cardón … 2021: 476"), y el mismo par se
+  resalta en el contenido completo (`apps/web/src/lib/evidencia.ts`). Se busca
+  por oración: una cifra sólo en las fuentes que cita esa oración; si aparece
+  en más de 3 filas no se muestra, porque no identifica ninguna. Existe por la
+  falla más frecuente del modelo: en una respuesta equivocada muestra "VDC:
+  5,94" en lugar del consumo, y el error queda a la vista.
+- **Contexto de 4096 tokens** (`num_ctx`, 2026-09-24): el prompt entero ronda los
+  2.000 desde el presupuesto de caracteres. Con 8192 cada modelo reservaba ~1 GB
+  más.
 - **Sin umbral de similitud** (decisión #106): no separa lo relevante de lo que no
   (0,60 contra 0,61). El "no lo encuentro" lo decide el modelo.
 - **Cada pregunta es independiente**: no hay memoria de conversación, y la
