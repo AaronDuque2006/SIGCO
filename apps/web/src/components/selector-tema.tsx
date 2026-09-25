@@ -1,7 +1,7 @@
 "use client";
 
 import { IconMoon, IconSun } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 
 type Tema = "dark" | "light";
@@ -23,23 +23,30 @@ const CLAVE = "tema";
  * lo que acá no se quiere.
  *
  * Quien pinta el tema al cargar es el script del `layout`, antes del primer
- * pintado. Este componente sólo lo cambia después, así que arranca leyendo lo
- * que ese script ya dejó puesto en el `<html>`.
+ * pintado. Este componente sólo lo cambia después.
+ *
+ * El tema no se copia a un estado de React: se lee del `data-theme` del
+ * `<html>`, que es la fuente de verdad (`useSyncExternalStore` con un
+ * MutationObserver). Así no hay un `setState` dentro de un efecto para
+ * sincronizar la copia, y si otro selector cambia el tema, éste se entera. En
+ * el servidor no hay `document`: ahí vale el oscuro, que es el predeterminado,
+ * y React lo corrige al hidratar sin error de hidratación.
  */
-export function SelectorTema() {
-  const [tema, setTema] = useState<Tema>("dark");
+function suscribirTema(avisar: () => void): () => void {
+  const observador = new MutationObserver(avisar);
+  observador.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  return () => observador.disconnect();
+}
 
-  // El valor real está en el DOM antes de que React monte. Leerlo en un efecto
-  // y no en el render inicial es lo que evita el error de hidratación: en el
-  // servidor no hay `document`.
-  useEffect(() => {
-    const puesto = document.documentElement.getAttribute("data-theme");
-    if (puesto === "light" || puesto === "dark") setTema(puesto);
-  }, []);
+const temaPuesto = (): Tema => (document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark");
+
+const temaEnServidor = (): Tema => "dark";
+
+export function SelectorTema() {
+  const tema = useSyncExternalStore(suscribirTema, temaPuesto, temaEnServidor);
 
   const alternar = () => {
     const nuevo: Tema = tema === "dark" ? "light" : "dark";
-    setTema(nuevo);
     document.documentElement.setAttribute("data-theme", nuevo);
     try {
       localStorage.setItem(CLAVE, nuevo);
