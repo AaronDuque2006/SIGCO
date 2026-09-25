@@ -165,8 +165,9 @@ cambiarse.
 Central de Gas / Supervisión y Control de Gas": aros naranja y azul, el mapa de
 Venezuela, una llama sobre el nodo central de una red y los instrumentos de
 presión, temperatura y válvula). Se redibujó en SVG con **el nombre del
-sistema en el anillo** —"SICOG" arriba, "Sistema de Control Operacional de Gas"
-abajo—, porque SICOG cubre los cuatro departamentos y no sólo Despacho, y **con
+sistema en el anillo** —"SICOG" arriba, "Gerencia de Control Operacional de Gas"
+abajo, porque el nombre completo ("Sistema de Información para la Gerencia de
+Control Operacional de Gas", decisión #109) no entra legible en el arco—, porque SICOG cubre los cuatro departamentos y no sólo Despacho, y **con
 los colores de la aplicación** en vez del naranja del original
 (`apps/web/src/components/logo-sicog.tsx`). En el login, las líneas de la red
 se animan con pulsos que salen del nodo central. Dos versiones: el sello completo en

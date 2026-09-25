@@ -54,7 +54,7 @@ export default function LoginPage() {
               repite a la vista (pedido del owner); queda para lectores de
               pantalla. El sello va más grande que antes para que el texto
               del anillo se lea. */}
-          <h1 className="sr-only">SICOG — Sistema de Control Operacional de Gas</h1>
+          <h1 className="sr-only">SICOG — Sistema de Información para la Gerencia de Control Operacional de Gas</h1>
           <SelloSicog className="mx-auto size-52" />
         </div>
 

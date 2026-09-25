@@ -43,7 +43,7 @@
 
 | | |
 |---|---|
-| **Nombre del sistema** | **SICOG** — Sistema de Control Operacional de Gas |
+| **Nombre del sistema** | **SICOG** — Sistema de Información para la Gerencia de Control Operacional de Gas (decisión #109) |
 | **Organización** | PDVSA Gas — Gerencia de Control Operacional |
 | **Unidad usuaria directa** | Despacho Central, y por extensión los departamentos de Mantenimiento, Calidad de Gas y Análisis Operacional |
 | **Tipo de producto** | Aplicación web de registro, control y reporte operacional |

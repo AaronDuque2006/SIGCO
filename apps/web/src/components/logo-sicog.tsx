@@ -3,7 +3,10 @@ import { useId } from "react";
 /**
  * El logo de SICOG, sobre el sello que trajo el owner el 2026-09-25 (el de
  * "Despacho Central de Gas"), con el nombre del sistema en el anillo: SICOG
- * cubre los cuatro departamentos, no sólo Despacho.
+ * cubre los cuatro departamentos, no sólo Despacho. El nombre completo
+ * ("Sistema de Información para la Gerencia de Control Operacional de Gas", decisión #109) no entra legible en el arco:
+ * arriba va la sigla y abajo "Gerencia de Control Operacional de Gas", que es
+ * lo que la sigla no dice.
  *
  * Dos versiones, porque el sello tiene demasiado detalle para un tamaño chico:
  *
@@ -38,7 +41,7 @@ export function SelloSicog({ className }: { className?: string }) {
       viewBox="0 0 512 512"
       className={className}
       role="img"
-      aria-label="SICOG — Sistema de Control Operacional de Gas"
+      aria-label="SICOG — Sistema de Información para la Gerencia de Control Operacional de Gas"
     >
       <defs>
         <linearGradient id={`${id}-llama`} x1="0" y1="1" x2="0" y2="0">
@@ -86,7 +89,7 @@ export function SelloSicog({ className }: { className?: string }) {
         fill="currentColor"
       >
         <textPath href={`#${id}-inf`} startOffset="50%" textAnchor="middle">
-          SISTEMA DE CONTROL OPERACIONAL DE GAS
+          GERENCIA DE CONTROL OPERACIONAL DE GAS
         </textPath>
       </text>
       {/* El centro va escalado un 15% sobre su propio punto medio: el mapa

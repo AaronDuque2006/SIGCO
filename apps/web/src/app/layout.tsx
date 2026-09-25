@@ -11,7 +11,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: "SICOG",
-  description: "Sistema de Control Operacional de Gas, PDVSA Gas.",
+  description: "Sistema de Información para la Gerencia de Control Operacional de Gas, PDVSA Gas.",
 };
 
 /**

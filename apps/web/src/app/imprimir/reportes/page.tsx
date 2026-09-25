@@ -73,7 +73,7 @@ function Contenido() {
       )}
 
       <footer className="mt-8 border-t border-border pt-3 text-xs text-muted-foreground">
-        Generado con SICOG — Sistema de Control Operacional de Gas, PDVSA Gas.
+        Generado con SICOG — Sistema de Información para la Gerencia de Control Operacional de Gas, PDVSA Gas.
       </footer>
     </main>
   );

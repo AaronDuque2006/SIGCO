@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-This directory (`SICOG`) is the home of the real monorepo for **SICOG** (Sistema de Control Operacional de Gas), a system for PDVSA Gas's Gerencia de Control Operacional. The full accumulated design context (business rules, confirmed decisions, ERD, stack, open items) lives in `CONTEXTO_PROYECTO.md` in this same directory — **read it before doing any design or implementation work**, since it is long and encodes many already-settled decisions that must not be silently re-litigated. The narrative session-by-session history lives in `bitacora/`.
+This directory (`SICOG`) is the home of the real monorepo for **SICOG** (Sistema de Información para la Gerencia de Control Operacional de Gas, decision #109), a system for PDVSA Gas's Gerencia de Control Operacional. The full accumulated design context (business rules, confirmed decisions, ERD, stack, open items) lives in `CONTEXTO_PROYECTO.md` in this same directory — **read it before doing any design or implementation work**, since it is long and encodes many already-settled decisions that must not be silently re-litigated. The narrative session-by-session history lives in `bitacora/`.
 
 **What exists today** (see `CONTEXTO_PROYECTO.md` §9/§10 for the authoritative state):
 
