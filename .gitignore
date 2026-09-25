@@ -17,3 +17,15 @@ agent-skills/
 
 # Ajustes locales de Claude Code: son de la máquina, no del proyecto.
 .claude/settings.local.json
+
+# Herramientas locales que no son parte del proyecto: la salida de /graphify,
+# los reportes de la crítica de diseño y las skills instaladas en esta máquina
+# (la de impeccable y los agentes). Las demás skills de .agents/skills/ y el
+# sidecar .impeccable/design.json sí se siguen: por eso se ignoran estas rutas
+# puntuales y no las carpetas enteras.
+graphify-out/
+.impeccable/critique/
+.agents/skills/impeccable/
+.claude/agents/
+.claude/skills/impeccable/
+.codex/
