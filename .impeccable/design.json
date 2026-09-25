@@ -1,148 +1,433 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-16T00:00:00Z",
+  "generatedAt": "2026-09-25T13:21:09Z",
   "title": "Design System: SICOG",
   "extensions": {
     "colorMeta": {
-      "azul-senal": { "role": "primary", "displayName": "Azul Señal", "canonical": "#3b82f6",
-        "tonalRamp": ["#0b1a33","#12295c","#18378a","#1d4ed8","#3b82f6","#6ba5f9","#9cc5fb","#d3e5fe"] },
-      "azul-senal-profundo": { "role": "primary", "displayName": "Azul Señal Profundo", "canonical": "#1d4ed8",
-        "tonalRamp": ["#081029","#0d1c47","#122865","#173a9e","#1d4ed8","#4b7ae6","#87a9f0","#c6d8fa"] },
-      "serie-transportado": { "role": "secondary", "displayName": "Ámbar de Serie", "canonical": "#d97706",
-        "tonalRamp": ["#2b1701","#4a2703","#6b3804","#a15705","#d97706","#eb9a35","#f4bd76","#fbdeb8"] },
-      "guardia-fondo": { "role": "neutral", "displayName": "Guardia Nocturna · Fondo", "canonical": "#0a0f1a",
-        "tonalRamp": ["#05080e","#0a0f1a","#101828","#141f30","#22304a","#3f5273","#8492a8","#e7edf6"] },
-      "guardia-superficie": { "role": "neutral", "displayName": "Guardia Nocturna · Superficie", "canonical": "#101828",
-        "tonalRamp": ["#05080e","#0a0f1a","#101828","#141f30","#22304a","#3f5273","#8492a8","#e7edf6"] },
-      "guardia-elevada": { "role": "neutral", "displayName": "Guardia Nocturna · Elevada", "canonical": "#141f30",
-        "tonalRamp": ["#05080e","#0a0f1a","#101828","#141f30","#22304a","#3f5273","#8492a8","#e7edf6"] },
-      "tinta": { "role": "neutral", "displayName": "Tinta", "canonical": "#e7edf6",
-        "tonalRamp": ["#0a0f1a","#22304a","#3f5273","#5d7092","#8492a8","#b2bdcd","#e7edf6","#f8faff"] },
-      "tinta-tenue": { "role": "neutral", "displayName": "Tinta Tenue", "canonical": "#8492a8",
-        "tonalRamp": ["#0a0f1a","#22304a","#3f5273","#5d7092","#8492a8","#b2bdcd","#e7edf6","#f8faff"] },
-      "filete": { "role": "neutral", "displayName": "Filete", "canonical": "#22304a",
-        "tonalRamp": ["#05080e","#0a0f1a","#101828","#141f30","#22304a","#3f5273","#8492a8","#e7edf6"] },
-      "estado-ok": { "role": "tertiary", "displayName": "Estado · Ok", "canonical": "#34d399",
-        "tonalRamp": ["#04211a","#06382b","#094f3d","#0d7a5d","#10a37c","#34d399","#7ce4bf","#c4f4e2"] },
-      "estado-alerta": { "role": "tertiary", "displayName": "Estado · Alerta", "canonical": "#f2b84b",
-        "tonalRamp": ["#2b1d02","#4a3305","#6b4a08","#a1700c","#d99a12","#f2b84b","#f7d08a","#fce6c2"] },
-      "estado-critico": { "role": "tertiary", "displayName": "Estado · Crítico", "canonical": "#f2545b",
-        "tonalRamp": ["#2d0508","#4d0b11","#6e131b","#a51f2a","#d03039","#f2545b","#f78f94","#fcc7ca"] }
+      "azul-senal": {
+        "role": "primary",
+        "displayName": "Azul Señal",
+        "canonical": "#3b82f6",
+        "tonalRamp": [
+          "#0b1a33",
+          "#12295c",
+          "#18378a",
+          "#1d4ed8",
+          "#3b82f6",
+          "#6ba5f9",
+          "#9cc5fb",
+          "#d3e5fe"
+        ]
+      },
+      "azul-senal-profundo": {
+        "role": "primary",
+        "displayName": "Azul Señal Profundo",
+        "canonical": "#1d4ed8",
+        "tonalRamp": [
+          "#081029",
+          "#0d1c47",
+          "#122865",
+          "#173a9e",
+          "#1d4ed8",
+          "#4b7ae6",
+          "#87a9f0",
+          "#c6d8fa"
+        ]
+      },
+      "serie-transportado": {
+        "role": "secondary",
+        "displayName": "Ámbar de Serie",
+        "canonical": "#d97706",
+        "tonalRamp": [
+          "#2b1701",
+          "#4a2703",
+          "#6b3804",
+          "#a15705",
+          "#d97706",
+          "#eb9a35",
+          "#f4bd76",
+          "#fbdeb8"
+        ]
+      },
+      "guardia-fondo": {
+        "role": "neutral",
+        "displayName": "Guardia Nocturna · Fondo",
+        "canonical": "#0a0f1a",
+        "tonalRamp": [
+          "#05080e",
+          "#0a0f1a",
+          "#101828",
+          "#141f30",
+          "#22304a",
+          "#3f5273",
+          "#8492a8",
+          "#e7edf6"
+        ]
+      },
+      "guardia-superficie": {
+        "role": "neutral",
+        "displayName": "Guardia Nocturna · Superficie",
+        "canonical": "#101828",
+        "tonalRamp": [
+          "#05080e",
+          "#0a0f1a",
+          "#101828",
+          "#141f30",
+          "#22304a",
+          "#3f5273",
+          "#8492a8",
+          "#e7edf6"
+        ]
+      },
+      "guardia-elevada": {
+        "role": "neutral",
+        "displayName": "Guardia Nocturna · Elevada",
+        "canonical": "#141f30",
+        "tonalRamp": [
+          "#05080e",
+          "#0a0f1a",
+          "#101828",
+          "#141f30",
+          "#22304a",
+          "#3f5273",
+          "#8492a8",
+          "#e7edf6"
+        ]
+      },
+      "tinta": {
+        "role": "neutral",
+        "displayName": "Tinta",
+        "canonical": "#e7edf6",
+        "tonalRamp": [
+          "#0a0f1a",
+          "#22304a",
+          "#3f5273",
+          "#5d7092",
+          "#8492a8",
+          "#b2bdcd",
+          "#e7edf6",
+          "#f8faff"
+        ]
+      },
+      "tinta-tenue": {
+        "role": "neutral",
+        "displayName": "Tinta Tenue",
+        "canonical": "#8492a8",
+        "tonalRamp": [
+          "#0a0f1a",
+          "#22304a",
+          "#3f5273",
+          "#5d7092",
+          "#8492a8",
+          "#b2bdcd",
+          "#e7edf6",
+          "#f8faff"
+        ]
+      },
+      "filete": {
+        "role": "neutral",
+        "displayName": "Filete",
+        "canonical": "#22304a",
+        "tonalRamp": [
+          "#05080e",
+          "#0a0f1a",
+          "#101828",
+          "#141f30",
+          "#22304a",
+          "#3f5273",
+          "#8492a8",
+          "#e7edf6"
+        ]
+      },
+      "estado-ok": {
+        "role": "tertiary",
+        "displayName": "Estado · Ok",
+        "canonical": "#34d399",
+        "tonalRamp": [
+          "#04211a",
+          "#06382b",
+          "#094f3d",
+          "#0d7a5d",
+          "#10a37c",
+          "#34d399",
+          "#7ce4bf",
+          "#c4f4e2"
+        ]
+      },
+      "estado-alerta": {
+        "role": "tertiary",
+        "displayName": "Estado · Alerta",
+        "canonical": "#f2b84b",
+        "tonalRamp": [
+          "#2b1d02",
+          "#4a3305",
+          "#6b4a08",
+          "#a1700c",
+          "#d99a12",
+          "#f2b84b",
+          "#f7d08a",
+          "#fce6c2"
+        ]
+      },
+      "estado-critico": {
+        "role": "tertiary",
+        "displayName": "Estado · Crítico",
+        "canonical": "#f2545b",
+        "tonalRamp": [
+          "#2d0508",
+          "#4d0b11",
+          "#6e131b",
+          "#a51f2a",
+          "#d03039",
+          "#f2545b",
+          "#f78f94",
+          "#fcc7ca"
+        ]
+      }
     },
     "typographyMeta": {
-      "title":   { "displayName": "Título de vista", "purpose": "El nombre de la vista, una vez por pantalla. Es el techo de la escala: no existe un rol display." },
-      "section": { "displayName": "Sección", "purpose": "Encabezado de bloque dentro de una vista." },
-      "body":    { "displayName": "Cuerpo", "purpose": "Texto corrido. Tinta Tenue cuando es descripción, Tinta cuando es contenido." },
-      "label":   { "displayName": "Rótulo", "purpose": "Rótulos de tarjeta, encabezados de columna, metadatos. Siempre en Tinta Tenue." },
-      "numeric": { "displayName": "Cifra", "purpose": "Todo volumen, conteo y porcentaje. Monoespaciada y tabular para que las columnas se barran, no se lean." }
+      "title": {
+        "displayName": "Título de vista",
+        "purpose": "El nombre de la vista, una vez por pantalla. Es el techo de la escala: no existe un rol display."
+      },
+      "section": {
+        "displayName": "Sección",
+        "purpose": "Encabezado de bloque dentro de una vista."
+      },
+      "body": {
+        "displayName": "Cuerpo",
+        "purpose": "Texto corrido. Tinta Tenue cuando es descripción, Tinta cuando es contenido."
+      },
+      "label": {
+        "displayName": "Rótulo",
+        "purpose": "Rótulos de tarjeta, encabezados de columna, metadatos. Siempre en Tinta Tenue."
+      },
+      "numeric": {
+        "displayName": "Cifra",
+        "purpose": "Todo volumen, conteo y porcentaje. Monoespaciada y tabular para que las columnas se barran, no se lean."
+      }
     },
     "shadows": [
-      { "name": "encabezado-fijo", "value": "inset 0 -1px 0 var(--border)",
-        "purpose": "La línea bajo el encabezado sticky de una tabla. Va como sombra interior y no como border-b porque, con border-collapse, el borde de una celda sticky no viaja con ella: se queda en su posición original y desaparece al scrollear." },
-      { "name": "flotante", "value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
-        "purpose": "Lo único que flota sobre el contenido: el tooltip de las gráficas. El sistema es plano en todo lo demás, aunque eso fue resultado de construir y no una decisión tomada." }
+      {
+        "name": "encabezado-fijo",
+        "value": "inset 0 -1px 0 var(--border)",
+        "purpose": "La línea bajo el encabezado sticky de una tabla. Va como sombra interior y no como border-b porque, con border-collapse, el borde de una celda sticky no viaja con ella: se queda en su posición original y desaparece al scrollear."
+      },
+      {
+        "name": "flotante",
+        "value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+        "purpose": "Lo único que flota sobre el contenido: el tooltip de las gráficas. El sistema es plano en todo lo demás, aunque eso fue resultado de construir y no una decisión tomada."
+      }
     ],
     "motion": [
-      { "name": "transicion-estado", "value": "150ms (transition-colors / transition-all por defecto de Tailwind)",
-        "purpose": "Cambios de color en hover y foco. No hay animación de entrada ni de scroll en ninguna pantalla." },
-      { "name": "hundimiento", "value": "active:translate-y-px",
-        "purpose": "El único gesto físico del sistema: el botón baja un píxel al presionarse." }
+      {
+        "name": "transicion-estado",
+        "value": "150ms (transition-colors / transition-all por defecto de Tailwind)",
+        "purpose": "Cambios de color en hover y foco. No hay animación de entrada ni de scroll en las pantallas operativas."
+      },
+      {
+        "name": "hundimiento",
+        "value": "active:translate-y-px",
+        "purpose": "El gesto físico de los botones: bajan un píxel al presionarse."
+      },
+      {
+        "name": "acuse-guardado",
+        "value": "600ms cubic-bezier(0.16, 1, 0.3, 1) — anillo de 3px en --ok-soft que se desvanece; el borde queda en --ok",
+        "purpose": "El único movimiento de las pantallas de trabajo: el acuse de que una celda de volumen guardó. Con prefers-reduced-motion se apaga el anillo y queda el borde, porque el acuse es información."
+      },
+      {
+        "name": "fondo-cursor",
+        "value": "retícula que se enciende alrededor del cursor, color --primary",
+        "purpose": "Sólo en /login y /cambiar-password (decisión #85): son la puerta, no el instrumento. Nada con prefers-reduced-motion."
+      },
+      {
+        "name": "logo-pulso",
+        "value": "2.8s linear infinite; punto de luz (stroke-dasharray 0.1 400) con halo --primary; el tramo exterior con 0.5s de retardo",
+        "purpose": "Sello del login: el gas recorriendo la red desde el nodo central. Se apaga con prefers-reduced-motion."
+      },
+      {
+        "name": "logo-latido",
+        "value": "2.8s ease-out infinite; anillo del nodo central de scale(1) a scale(2.4) y opacidad 0.8 → 0",
+        "purpose": "Sello del login, a la par de cada pulso."
+      },
+      {
+        "name": "logo-llama",
+        "value": "1.9s ease-in-out infinite (la interior 1.3s, desfasada); scale y skewX suaves con origen en la base",
+        "purpose": "Sello del login: la llama parpadea sin desplazarse. La marca del encabezado no se anima."
+      }
     ],
     "breakpoints": [
-      { "name": "sm", "value": "640px" },
-      { "name": "md", "value": "768px" },
-      { "name": "lg", "value": "1024px" }
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
     ]
   },
   "components": [
     {
-      "name": "Botón primario", "kind": "button", "refersTo": "button-primary",
+      "name": "Botón primario",
+      "kind": "button",
+      "refersTo": "button-primary",
       "description": "La única acción primaria de una pantalla. El resto son outline o ghost.",
       "html": "<button class=\"ds-btn-primary\">Nuevo contacto</button>",
       "css": ".ds-btn-primary{display:inline-flex;align-items:center;gap:.375rem;height:2rem;padding:0 .625rem;border:1px solid transparent;border-radius:.625rem;background:var(--primary,#3b82f6);color:var(--primary-foreground,#f8faff);font:500 .875rem/1 Inter,system-ui,sans-serif;white-space:nowrap;cursor:pointer;transition:all .15s}.ds-btn-primary:hover{background:#5a95f8}.ds-btn-primary:focus-visible{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgb(59 130 246/.5)}.ds-btn-primary:active{transform:translateY(1px)}"
     },
     {
-      "name": "Botón outline", "kind": "button", "refersTo": "button-outline",
+      "name": "Botón outline",
+      "kind": "button",
+      "refersTo": "button-outline",
       "description": "La acción habitual de una fila o de una barra de herramientas.",
       "html": "<button class=\"ds-btn-outline\">Editar</button>",
       "css": ".ds-btn-outline{display:inline-flex;align-items:center;gap:.375rem;height:2rem;padding:0 .625rem;border:1px solid var(--input,#22304a);border-radius:.625rem;background:rgb(34 48 74/.3);color:var(--foreground,#e7edf6);font:500 .875rem/1 Inter,system-ui,sans-serif;white-space:nowrap;cursor:pointer;transition:all .15s}.ds-btn-outline:hover{background:rgb(34 48 74/.5)}.ds-btn-outline:focus-visible{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgb(59 130 246/.5)}.ds-btn-outline:active{transform:translateY(1px)}"
     },
     {
-      "name": "Botón destructivo", "kind": "button", "refersTo": "button-destructive",
+      "name": "Botón destructivo",
+      "kind": "button",
+      "refersTo": "button-destructive",
       "description": "Va en la confirmación, nunca en el disparador. En una confirmación destructiva el estilo marcado va en confirmar y el normal en cancelar.",
       "html": "<button class=\"ds-btn-destructive\">Sí, borrar</button>",
       "css": ".ds-btn-destructive{display:inline-flex;align-items:center;gap:.375rem;height:2rem;padding:0 .625rem;border:1px solid transparent;border-radius:.625rem;background:rgb(242 84 91/.2);color:var(--destructive,#f2545b);font:500 .875rem/1 Inter,system-ui,sans-serif;white-space:nowrap;cursor:pointer;transition:all .15s}.ds-btn-destructive:hover{background:rgb(242 84 91/.3)}.ds-btn-destructive:focus-visible{outline:none;border-color:rgb(242 84 91/.4);box-shadow:0 0 0 3px rgb(242 84 91/.4)}.ds-btn-destructive:active{transform:translateY(1px)}"
     },
     {
-      "name": "Campo de texto", "kind": "input", "refersTo": "input",
+      "name": "Campo de texto",
+      "kind": "input",
+      "refersTo": "input",
       "description": "La etiqueta va encima, nunca dentro como placeholder. El error va debajo.",
       "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Buscar</span><input class=\"ds-input\" placeholder=\"Operador, teléfono, cliente o fuente\"></label>",
       "css": ".ds-field{display:flex;flex-direction:column;gap:.375rem}.ds-field-label{font:500 .875rem/1.3 Inter,system-ui,sans-serif;color:var(--foreground,#e7edf6)}.ds-input{height:2rem;width:100%;padding:.25rem .625rem;border:1px solid var(--input,#22304a);border-radius:.625rem;background:rgb(34 48 74/.3);color:var(--foreground,#e7edf6);font:400 .875rem/1 Inter,system-ui,sans-serif;outline:none;transition:border-color .15s}.ds-input::placeholder{color:var(--muted-foreground,#8492a8)}.ds-input:focus-visible{border-color:#3b82f6;box-shadow:0 0 0 3px rgb(59 130 246/.5)}"
     },
     {
-      "name": "Celda de volumen", "kind": "custom", "refersTo": "celda-volumen",
+      "name": "Celda de volumen",
+      "kind": "custom",
+      "refersTo": "celda-volumen",
       "description": "Donde vive el trabajo real. Guarda al salir del campo o con Enter y descarta con Escape: digitar el día son cien clientes seguidos, y un botón por fila obligaría a sacar la mano del teclado cien veces. Si rechaza lo tecleado, lo dice.",
       "html": "<span class=\"ds-celda\"><span class=\"ds-celda-error\">No es un número</span><input class=\"ds-celda-input\" inputmode=\"decimal\" value=\"497,42\"></span>",
       "css": ".ds-celda{display:inline-flex;align-items:center;justify-content:flex-end;gap:.5rem}.ds-celda-error{font:400 .75rem/1.3 Inter,system-ui,sans-serif;color:var(--destructive,#f2545b)}.ds-celda-input{width:7rem;padding:.125rem .5rem;text-align:right;border:1px solid var(--input,#22304a);border-radius:.5rem;background:transparent;color:var(--foreground,#e7edf6);font:400 .875rem/1.4 \"Geist Mono\",ui-monospace,monospace;font-variant-numeric:tabular-nums;outline:none}.ds-celda-input:focus-visible{border-color:#3b82f6;box-shadow:0 0 0 3px rgb(59 130 246/.5)}"
     },
     {
-      "name": "Entrada de menú lateral", "kind": "nav", "refersTo": null,
+      "name": "Entrada de menú lateral",
+      "kind": "nav",
+      "refersTo": null,
       "description": "Una por vista. Icono a la izquierda y dos líneas: nombre y descripción. La activa lleva aria-current, fondo elevado y filete. Una vista sin construir va atenuada y fuera del recorrido del teclado.",
       "html": "<a class=\"ds-nav-item ds-nav-item--activa\" aria-current=\"page\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 4h16v16H4z\"/><path d=\"M4 10h16M10 4v16\"/></svg><span><span class=\"ds-nav-nombre\">Balance diario</span><span class=\"ds-nav-desc\">Entregas por cliente</span></span></a>",
       "css": ".ds-nav-item{display:flex;align-items:flex-start;gap:.625rem;padding:.5rem .75rem;border:1px solid transparent;border-radius:.625rem;color:var(--foreground,#e7edf6);text-decoration:none;transition:all .15s}.ds-nav-item svg{margin-top:.125rem;flex-shrink:0}.ds-nav-item:hover{border-color:var(--border,#22304a);background:var(--card,#101828)}.ds-nav-item--activa{border-color:var(--border,#22304a);background:var(--panel-raised,#141f30)}.ds-nav-item:focus-visible{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgb(59 130 246/.5)}.ds-nav-nombre{display:block;font:500 .875rem/1.4 Inter,system-ui,sans-serif}.ds-nav-desc{display:block;margin-top:.125rem;font:400 .75rem/1.3 Inter,system-ui,sans-serif;color:var(--muted-foreground,#8492a8)}"
     },
     {
-      "name": "Tarjeta", "kind": "card", "refersTo": "card",
-      "description": "Se usa cuando la elevación comunica jerarquía real. Para agrupar sin jerarquía alcanza un borde inferior o el espacio. Sin sombra.",
+      "name": "Tarjeta",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Tarjeta de cifra, compacta (0.625rem 0.75rem): en las pantallas de digitación el alto es de la grilla. Se usa cuando la elevación comunica jerarquía real; para agrupar sin jerarquía alcanza un borde inferior o el espacio. Sin sombra.",
       "html": "<div class=\"ds-card\"><h2 class=\"ds-card-label\">Transportado</h2><p class=\"ds-card-cifra\">112,50</p><p class=\"ds-card-nota\">incluye 12,00 de quema</p></div>",
-      "css": ".ds-card{padding:1rem;border:1px solid var(--border,#22304a);border-radius:.625rem;background:var(--card,#101828)}.ds-card-label{margin:0;font:500 .75rem/1.3 Inter,system-ui,sans-serif;color:var(--muted-foreground,#8492a8)}.ds-card-cifra{margin:.25rem 0 0;font:600 1.5rem/1.2 \"Geist Mono\",ui-monospace,monospace;font-variant-numeric:tabular-nums;color:var(--foreground,#e7edf6)}.ds-card-nota{margin:0;font:400 .75rem/1.3 Inter,system-ui,sans-serif;color:var(--muted-foreground,#8492a8)}"
+      "css": ".ds-card{padding:.625rem .75rem;border:1px solid var(--border,#22304a);border-radius:.625rem;background:var(--card,#101828)}.ds-card-label{margin:0;font:500 .75rem/1.3 Inter,system-ui,sans-serif;color:var(--muted-foreground,#8492a8)}.ds-card-cifra{margin:.25rem 0 0;font:600 1.5rem/1.2 \"Geist Mono\",ui-monospace,monospace;font-variant-numeric:tabular-nums;color:var(--foreground,#e7edf6)}.ds-card-nota{margin:0;font:400 .75rem/1.3 Inter,system-ui,sans-serif;color:var(--muted-foreground,#8492a8)}"
     },
     {
-      "name": "Encabezado de vista", "kind": "custom", "refersTo": null,
+      "name": "Encabezado de vista",
+      "kind": "custom",
+      "refersTo": null,
       "description": "Título, cifra de contexto y descripción. Vive en un solo componente porque la escala se desalineó una vez cuando cada pantalla escribía su propio h1.",
       "html": "<header class=\"ds-encabezado\"><div class=\"ds-encabezado-fila\"><h1 class=\"ds-encabezado-titulo\">Balance diario</h1><p class=\"ds-encabezado-meta\">6 de 111 clientes con lectura</p></div><p class=\"ds-encabezado-desc\">Entregas por cliente del día.</p></header>",
       "css": ".ds-encabezado-fila{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:.25rem 1rem}.ds-encabezado-titulo{margin:0;font:600 1.25rem/1.4 Inter,system-ui,sans-serif;letter-spacing:-.01em;color:var(--foreground,#e7edf6)}.ds-encabezado-meta{margin:0;font:400 .875rem/1.5 Inter,system-ui,sans-serif;color:var(--muted-foreground,#8492a8)}.ds-encabezado-desc{margin:.5rem 0 0;font:400 .875rem/1.5 Inter,system-ui,sans-serif;color:var(--muted-foreground,#8492a8)}"
+    },
+    {
+      "name": "Marca SICOG",
+      "kind": "custom",
+      "refersTo": "logo",
+      "description": "La marca chica del logo (decisión #110): el aro y la llama sobre el nodo central de la red. Va en el encabezado junto a \"SICOG\" y es el ícono de la pestaña. Colores sólo por tokens del tema; quieta a propósito. El sello completo, animado, vive en el login (components/logo-sicog.tsx).",
+      "html": "<span class=\"ds-marca\"><svg viewBox=\"0 0 64 64\" aria-hidden=\"true\"><defs><linearGradient id=\"ds-llama\" x1=\"0\" y1=\"1\" x2=\"0\" y2=\"0\"><stop offset=\"0\" stop-color=\"#1d4ed8\"/><stop offset=\"1\" stop-color=\"#60a5fa\"/></linearGradient></defs><circle cx=\"32\" cy=\"32\" r=\"28.5\" fill=\"none\" stroke=\"var(--primary,#3b82f6)\" stroke-width=\"5\"/><path d=\"M32,46 L13,40 M32,46 L51,40 M32,46 L32,55\" stroke=\"var(--primary,#3b82f6)\" stroke-width=\"2.6\" stroke-linecap=\"round\"/><circle cx=\"13\" cy=\"40\" r=\"3\" fill=\"var(--primary,#3b82f6)\"/><circle cx=\"51\" cy=\"40\" r=\"3\" fill=\"var(--primary,#3b82f6)\"/><circle cx=\"32\" cy=\"55\" r=\"3\" fill=\"var(--primary,#3b82f6)\"/><path d=\"M32,9 C37.5,16 43,21 43,28.5 C43,35 38,39.5 32,39.5 C26,39.5 21,35 21,28.5 C21,23 24.5,19.5 26.5,15 C28,19 29.8,21.5 31.2,22 C30.7,17.5 31,13 32,9 Z\" fill=\"url(#ds-llama)\"/><path d=\"M32,24.5 C34.8,27.8 37,30.5 37,33.2 C37,36.3 34.8,38.5 32,38.5 C29.2,38.5 27,36.3 27,33.4 C27,30.5 29.6,28.2 32,24.5 Z\" fill=\"#dbeafe\"/><circle cx=\"32\" cy=\"46\" r=\"4.5\" fill=\"var(--primary,#3b82f6)\"/></svg>SICOG</span>",
+      "css": ".ds-marca{display:inline-flex;align-items:center;gap:.375rem;font:600 1rem/1.4 Inter,system-ui,sans-serif;letter-spacing:-.01em;color:var(--foreground,#e7edf6)}.ds-marca svg{width:1.25rem;height:1.25rem}"
     }
   ],
   "narrative": {
     "northStar": "La Mesa de Guardia",
-    "overview": "El instrumento se subordina a la guardia. Alguien va a tener esta pantalla encendida doce horas, de madrugada, tecleando ciento once volúmenes de corrido; el sistema existe para que eso se pueda hacer sin cansar y sin equivocarse. Nada compite con los números, nada parpadea sin motivo, nada pide atención que no se ganó.\n\nDe ahí sale todo lo demás. El tema es oscuro y fijo, sin modo claro: no es una preferencia estética sino la condición de una sala que no apaga la pantalla. La densidad es alta, controles de 32px y celdas de seis píxeles de alto, porque la altura de pantalla le pertenece a la grilla y no al respiro. El color es casi inexistente: un solo azul con identidad, tres colores reservados para estado, y el resto es tinta sobre tres tonos de azul-negro.\n\nLa anti-referencia confirmada es el Excel que reemplaza. Se sustituye el workbook, no se lo imita en HTML: nada de rejillas de celdas por todas partes, bordes en cada fila ni rellenos de color usados como semáforo. Lo que el Excel hace por costumbre, acá se hace por decisión o no se hace.",
+    "overview": "El instrumento se subordina a la guardia. Alguien va a tener esta pantalla encendida doce horas, de madrugada, tecleando ciento once volúmenes de corrido; el sistema existe para que eso se pueda hacer sin cansar y sin equivocarse. Nada compite con los números, nada parpadea sin motivo, nada pide atención que no se ganó.\n De ahí sale todo lo demás. El tema **predeterminado es oscuro**: no es una preferencia estética sino la condición de una sala que no apaga la pantalla. Desde el 2026-09-17 existe además un tema claro para el día, la preferencia personal y los PDF (decisión #81) — con su paleta medida aparte, porque una validación de contraste no se hereda de una superficie a la otra. La densidad es alta —controles de 32px, celdas de seis píxeles de alto— porque la altura de pantalla le pertenece a la grilla, no al respiro. El color es casi inexistente: un solo azul con identidad, tres colores reservados para estado, y el resto es tinta sobre tres tonos de azul-negro.\n La anti-referencia confirmada es **el Excel que reemplaza**. Se sustituye el workbook, no se lo imita en HTML: nada de rejillas de celdas por todas partes, bordes en cada fila ni rellenos de color usados como semáforo. Lo que el Excel hace por costumbre, acá se hace por decisión o no se hace.",
     "keyCharacteristics": [
-      "Oscuro fijo, sin modo claro, por la sala de control",
+      "Oscuro de predeterminado por la sala de control; claro disponible para el día",
       "Un único acento con identidad; el resto del color es estado",
       "Cifras siempre monoespaciadas y de ancho tabular",
       "Profundidad por tono y filete de un píxel, no por sombra",
-      "Escala tipográfica corta: no existe un rol display",
+      "Escala tipográfica corta: no existe un rol *display*",
       "Ningún rechazo silencioso: si el sistema descarta lo tecleado, lo dice"
     ],
     "rules": [
-      { "name": "La Regla del Único Acento", "section": "colors", "body": "El Azul Señal es el único color que significa «identidad». Los tres de estado significan estado y nada más: un verde no puede convertirse en «la serie 2» porque hacía falta un color." },
-      { "name": "La Regla de la Paleta Validada", "section": "colors", "body": "Ninguna paleta de gráficas se elige a ojo. Se valida con el script contra la superficie real (#101828), y el orden de la lista es parte del resultado: verde y rosa quedan separados porque colisionan en deuteranopía (ΔE 5,8), y lo mismo cian con verde. Reordenar la lista invalida la comprobación. En un anillo, además, el último color toca al primero, y ese par se comprueba aparte porque el validador trata la lista como lineal." },
-      { "name": "La Regla del Filete Plano", "section": "colors", "body": "Los bordes van en color plano (#22304a), no en blanco translúcido. Sobre un fondo tan oscuro, el translúcido que trae shadcn por defecto casi no se ve." },
-      { "name": "La Regla de la Escala Corta", "section": "typography", "body": "No existe un rol display. El título de vista es el techo, y de ahí al cuerpo hay un solo escalón. La jerarquía no puede costar la altura de pantalla que necesitan las grillas. Si un título necesita más peso, se lo da el semibold, no el tamaño." },
-      { "name": "La Regla de la Cifra Monoespaciada", "section": "typography", "body": "Todo número que alguien vaya a comparar contra otro en una columna va en Geist Mono con tabular-nums. Una tipografía proporcional desalinea los dígitos y obliga a leer en vez de barrer." },
-      { "name": "La Regla del Encabezado Único", "section": "typography", "body": "El encabezado de vista vive en un solo componente. La escala se desalineó una vez precisamente porque cada pantalla escribía su propio h1; que viva en un lugar es la regla, no un detalle de implementación." },
-      { "name": "La Regla de la Grilla que Scrollea Sola", "section": "layout", "body": "La tabla es lo único que puede desbordar, y scrollea dentro de sí misma en los dos ejes (max-h-[65vh]), con el encabezado fijo. Lo de arriba se queda quieto mientras se recorren cien filas. El 65vh sigue siendo un número elegido a ojo y está pendiente de medirse contra el monitor real de la sala." },
-      { "name": "La Regla del Rechazo Audible", "section": "components", "body": "Si el sistema descarta lo que alguien tecleó, lo dice. Un campo que se queda con texto inválido y no guarda nada es, desde el teclado, indistinguible de uno que guardó." },
-      { "name": "La Regla del Peso Invertido", "section": "components", "body": "En una confirmación destructiva, el estilo marcado va en confirmar y el normal en cancelar. Quien llegó ahí puede haber llegado de más: la salida tiene que ser la fácil, y la irreversible la que se ve." },
-      { "name": "La Regla del Icono con Trabajo", "section": "components", "body": "Un icono se pone donde distingue algo que la palabra sola no distingue rápido: la entrada de menú, la acción de fila, el indicador de historial. No se ponen en estados vacíos, de carga, de error ni en encabezados de sección. Todos van aria-hidden." }
+      {
+        "name": "La Regla del Único Acento",
+        "body": "El Azul Señal es el único color que significa \"identidad\". Los tres de estado significan estado y nada más: un verde no puede convertirse en \"la serie 2\" porque hacía falta un color.",
+        "section": "colors"
+      },
+      {
+        "name": "La Regla de la Paleta Validada",
+        "body": "Ninguna paleta de gráficas se elige a ojo. Se valida con el script contra la superficie real (`#101828`), y **el orden de la lista es parte del resultado**: verde y rosa quedan separados porque colisionan en deuteranopía (ΔE 5,8), y lo mismo cian con verde. Reordenar la lista invalida la comprobación. En un anillo, además, el último color toca al primero — ese par se comprueba aparte, porque el validador trata la lista como lineal.",
+        "section": "colors"
+      },
+      {
+        "name": "La Regla del Filete Plano",
+        "body": "Los bordes van en color plano (`#22304a`), no en blanco translúcido. Sobre un fondo tan oscuro, el translúcido que trae shadcn por defecto casi no se ve.",
+        "section": "colors"
+      },
+      {
+        "name": "La Regla de la Escala Corta",
+        "body": "**No existe un rol *display*.** El título de vista es el techo, y de ahí al cuerpo hay un solo escalón. La jerarquía no puede costar la altura de pantalla que necesitan las grillas. Si un título necesita más peso, se lo da el semibold, no el tamaño.",
+        "section": "typography"
+      },
+      {
+        "name": "La Regla de la Cifra Monoespaciada",
+        "body": "Todo número que alguien vaya a comparar contra otro en una columna va en Geist Mono con `tabular-nums`. Una tipografía proporcional desalinea los dígitos y obliga a leer en vez de barrer.",
+        "section": "typography"
+      },
+      {
+        "name": "La Regla del Encabezado Único",
+        "body": "El encabezado de vista vive en un solo componente (`EncabezadoVista`). La escala se desalineó una vez precisamente porque cada pantalla escribía su propio `<h1>`; que viva en un lugar es la regla, no un detalle de implementación.",
+        "section": "typography"
+      },
+      {
+        "name": "La Regla de la Grilla que Scrollea Sola",
+        "body": "La tabla es lo único que puede desbordar, y scrollea dentro de sí misma en los dos ejes (`max-h-[65vh]`), con el encabezado fijo. Lo de arriba —tarjetas de balance, filtros— se queda quieto mientras se recorren cien filas. *El `65vh` sigue siendo un número elegido a ojo y está pendiente de medirse contra el monitor real de la sala.*",
+        "section": "layout"
+      },
+      {
+        "name": "La Regla del Rechazo Audible",
+        "body": "Si el sistema descarta lo que alguien tecleó, lo dice. Un campo que se queda con texto inválido y no guarda nada es, desde el teclado, indistinguible de uno que guardó. La celda de volumen rechaza con motivo —no es un número, no puede ser negativo, máximo 4 decimales— y el aviso desaparece apenas se empieza a corregir.",
+        "section": "components"
+      },
+      {
+        "name": "La Regla del Peso Invertido",
+        "body": "En una confirmación destructiva, el estilo marcado va en **confirmar** y el normal en **cancelar**. Quien llegó ahí puede haber llegado de más: la salida tiene que ser la fácil, y la irreversible la que se ve.",
+        "section": "components"
+      },
+      {
+        "name": "La Regla del Icono con Trabajo",
+        "body": "Un icono se pone donde distingue algo que la palabra sola no distingue rápido: la entrada de menú, la acción de fila, el indicador de historial. No se ponen en estados vacíos, de carga, de error ni en encabezados de sección. Todos van `aria-hidden`: la etiqueta de al lado ya lo dice.",
+        "section": "components"
+      }
     ],
     "dos": [
-      "Do poner toda cifra comparable en Geist Mono con tabular-nums.",
-      "Do validar cualquier paleta de gráficas nueva con el script antes de usarla, y respetar el orden que pasó la comprobación.",
-      "Do decir por qué una grilla quedó de sólo lectura. Cien filas con «—» y ningún aviso son indistinguibles de una pantalla rota.",
-      "Do usar min-h-[100dvh] para alto completo, nunca h-screen.",
-      "Do dar a cada pantalla sus tres estados: cargando, vacío y error. El estado de carga espera a que lleguen todas las consultas de la vista, para que el layout no salte tres veces.",
-      "Do usar el rojo, el ámbar y el verde sólo para estado."
+      "**Do** poner toda cifra comparable en Geist Mono con `tabular-nums`.",
+      "**Do** validar cualquier paleta de gráficas nueva con el script antes de usarla, y **respetar el orden** que pasó la comprobación.",
+      "**Do** decir por qué una grilla quedó de sólo lectura. Cien filas con \"—\" y ningún aviso son indistinguibles de una pantalla rota.",
+      "**Do** usar `min-h-[100dvh]` para alto completo, nunca `h-screen`.",
+      "**Do** dar a cada pantalla sus tres estados: cargando, vacío y error. El estado de carga espera a que lleguen todas las consultas de la vista, para que el layout no salte tres veces.",
+      "**Do** usar el rojo, el ámbar y el verde **sólo** para estado.",
+      "**Do** mantener las tarjetas de cifra **compactas** (`0.625rem 0.75rem`, no `1rem`). Pedido del owner el 2026-09-17, y el motivo se generaliza: en las pantallas de digitación el alto es de la grilla, y cada píxel que gasta el resumen es una fila de datos que no se ve. Por lo mismo la serie corta de una cifra va como curva **dentro** de su tarjeta y no como una banda aparte: una franja propia se llevaba filas de digitación.",
+      "**Do** pintar la condición del sistema de transporte con el semáforo completo: **Empacado en verde, Desempacado en rojo**, en Balance Diario y en Reportes por igual. Confirmado por el owner el 2026-09-17. Se probó con el acento azul —razonando que el desempaque es frecuente y no una alarma— y **se descartó**: el empaque es la condición operativa que el área quiere ver de lejos, y que ocurra seguido no la vuelve neutra. No volver a neutralizarla."
     ],
     "donts": [
-      "Don't imitar el Excel: nada de rejilla de celdas por todas partes, borde en cada fila de una lista larga, ni relleno de color usado como semáforo.",
-      "Don't agregar un rol tipográfico por encima del título de vista.",
-      "Don't usar los tokens --chart-2 a --chart-5. Existen en globals.css pero ninguna gráfica los usa: el verde (#34d399) y el ámbar (#f2b84b) quedaron fuera de la banda de luminosidad del modo oscuro. La paleta viva es la de components/graficas.tsx, y esa divergencia es deliberada.",
-      "Don't meter una segunda familia de iconos. La del proyecto es Tabler, con trazo 1.75 en línea y 2 en marcas sueltas.",
-      "Don't poner sombra decorativa. Si hace falta profundidad, se apila tono.",
-      "Don't usar el borde translúcido de shadcn sobre estas superficies.",
-      "Don't introducir un modo claro sin volver a discutir la decisión: el oscuro fijo responde a la sala de control, no a un gusto."
+      "**Don't** imitar el Excel: nada de rejilla de celdas por todas partes, borde en cada fila de una lista larga, ni relleno de color usado como semáforo.",
+      "**Don't** agregar un rol tipográfico por encima del título de vista.",
+      "**Don't** usar los tokens `--chart-2` a `--chart-5`. Existen en `globals.css` pero **ninguna gráfica los usa**: el verde (`#34d399`) y el ámbar (`#f2b84b`) quedaron fuera de la banda de luminosidad del modo oscuro. La paleta viva es la de `components/graficas.tsx`, y esa divergencia es deliberada.",
+      "**Don't** meter una segunda familia de iconos. La del proyecto es Tabler, con trazo `1.75` en línea y `2` en marcas sueltas.",
+      "**Don't** poner sombra decorativa. Si hace falta profundidad, se apila tono. Cuando la tarjeta de autenticación tuvo que tapar el fondo animado, la respuesta fue darle su superficie —no un `box-shadow`, que además habría dejado la retícula visible debajo del formulario igual.",
+      "**Don't** llevar el fondo animado de `/login` y `/cambiar-password` a ninguna pantalla operativa (decisión #85). Esas dos son la puerta y ahí el carácter no compite con ningún número; una grilla de digitación es exactamente lo contrario.",
+      "**Don't** usar el borde translúcido de shadcn sobre estas superficies.",
+      "**Don't** tratar el claro como el tema principal ni mover el predeterminado: el oscuro es la condición de la sala de control, y el claro existe para el día, la preferencia personal y los PDF (decisión #81).",
+      "**Don't** agregar un color a una paleta de gráficas sin correr `scripts/validar-paleta.mjs` **contra las dos superficies**. Una comprobación hecha sobre `#101828` no dice nada sobre blanco."
     ]
   }
 }
