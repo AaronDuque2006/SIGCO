@@ -741,6 +741,49 @@ erDiagram
 
 ## 10. Próximo paso inmediato
 
+### Para la sesión del lunes 2026-09-28
+
+**Estado al cierre del 2026-09-25** (narrativa en
+`bitacora/2026-09-25-3-globo-creditos-logo-y-simplificacion.md`). Árbol limpio,
+todo commiteado en `main`, **nada pusheado**. El entorno de desarrollo quedó
+apagado (Postgres sigue arriba): se retoma con `./scripts/dev.sh`.
+
+Lo hecho el 25, además del logo del sistema (#109/#110): globo en el hub
+(#111), "Acerca de SICOG" (#112), logo de PDVSA Gas (#113), "SICOG" en Rubik
+(#114), exportar la bitácora de fallas por región (#115), filtro de Región en
+la bitácora y en Estaciones, inventario de instrumentos al crear/editar una
+estación (#116), el sidecar de `DESIGN.md` regenerado, y una poda de
+sobreingeniería (sin `@tanstack/react-table`, sin `dotenv`, un solo `hoy()`
+en `lib/fechas.ts`).
+
+**Por dónde seguir, en orden:**
+
+1. **Instalación de prueba sin internet, en Windows.** Camino recomendado y
+   aceptado en principio: una **VM Linux (VirtualBox) preparada donde haya
+   red** y llevada como `.ova`. Falta que el owner confirme dos cosas antes
+   de escribir nada: (a) si se arma el script `scripts/preparar-vm.sh`
+   (Node 22, pnpm, Docker, clon, `pnpm -r build`, migraciones + seed,
+   API y web como servicios, Postgres sólo en `127.0.0.1`, contraseña al azar,
+   token de GitHub borrado al terminar), y (b) si la prueba lleva el
+   asistente (Ollama + modelos, ~10 GB de RAM en la VM). Si la VM se prepara
+   en el wifi del despacho: red NAT, no levantar servicios conectado,
+   instantánea al terminar, y consultarlo antes con la gerencia de sistemas.
+   Detalle en la bitácora del 25.
+2. **Lo que la instalación de prueba destapa y hay que resolver igual**:
+   `pnpm start` del API no carga el `.env` (sólo `dev` lo hace con
+   `--env-file`); no hay Dockerfile de `api` ni de `web`; Chromium de
+   Puppeteer vive en `~/.cache/puppeteer`, fuera del proyecto; y
+   `next/font/google` baja las fuentes al compilar, así que sin red hay que
+   llevar el build hecho. Es el mismo trabajo que el despliegue en Coolify,
+   que sigue sin ocurrir.
+3. **Confirmar con el owner**: el segundo apellido en "Acerca de SICOG" (se
+   puso "Romero"; él escribió "Romeor") y si la versión "0.1.0 · 2026" queda
+   en esa página.
+4. **Soporte de PDF en el asistente**: bloqueado hasta tener 2-3 PDF reales
+   (§16.10 #12).
+5. Siguen los de antes: Calidad de Gas y Análisis Operacional sin planilla de
+   origen, y los pendientes menores de más abajo.
+
 **Estado al 2026-09-15** (detalle narrativo en `bitacora/`).
 
 **Base de datos**: las **cinco** migraciones aplicadas sobre el Postgres local, sembrada con los catálogos reales — 7 sistemas, 14 fuentes (31 hasta la decisión #107), 111 clientes, 4 regiones, 7 sectores, 4 departamentos, 5 puestos, estados de telemetría y el catálogo de actividades de Mantenimiento. El seed es aditivo e idempotente.
@@ -885,7 +928,8 @@ Preguntas abiertas que sólo se contestan usando el sistema:
 - **La cadena de supervisión está vacía.** Ninguna cuenta tiene `supervisorId`, porque el formulario de alta manda `null` fijo y el campo para asignarlo recién existe desde la decisión #80. Mientras siga así, el filtro "De mi gente" de Actividades devuelve lo mismo que "A mi nombre", y la decisión #25 —un superior ve toda la cadena hacia abajo— no tiene datos sobre los que operar. Se carga desde `/usuarios` cuando existan las cuentas reales del área.
 - Migrar la configuración del seed de `package.json#prisma` a `prisma.config.ts` antes de Prisma 7 (hoy sólo emite un warning).
 - Dominios C (Calidad de Gas) y D (Análisis Operacional) siguen sin diseñar: falta el Excel/especificación de cada uno (§9.1).
-- **`.impeccable/design.json` quedó desactualizado** respecto de `DESIGN.md`, que se tocó varias veces entre el 17 y el 18. Se refresca con `/impeccable document`; el hook de la skill lo avisa en cada edición de UI.
+- ~~**`.impeccable/design.json` quedó desactualizado** respecto de `DESIGN.md`~~ **Regenerado el 2026-09-25.** Cada vez que se toque `DESIGN.md` hay que volver a correr `/impeccable document` (sólo el sidecar); el hook de la skill lo avisa.
+- **`CONTEXTO_TEG.md` dice que el frontend usa TanStack Table**, que se quitó el 2026-09-25 porque nunca se usó. Es el documento del trabajo de grado: lo corrige el owner.
 - **Las skills instaladas no están commiteadas** (`.claude/skills/`, `.claude/agents/`, `.agents/`, `.codex/`, y `.impeccable/critique/`). Es decisión del owner si entran al repo: sin ellas, un clon nuevo no puede correr `/impeccable` ni `api-and-interface-design`, que es como se trabajó desde el 17.
 - **El `C45` del workbook excluye `C37` (ENTREGA ICO MORÓN) de su propio total**, sin motivo aparente, y SICOG **no replicó la anomalía** (nota de la decisión #74). Sólo la puede contestar alguien del área.
 - **Decidir si la Fase 2 RAG entra en el alcance del trabajo de grado** o queda como trabajo futuro (`CONTEXTO_TEG.md` §8.7 y §11). Es la decisión de mayor impacto sobre el título y los objetivos, y depende de tiempo y hardware.
