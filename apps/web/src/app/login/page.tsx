@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { CampoPassword } from "@/components/campo-password";
 import { FondoCursor } from "@/components/fondo-cursor";
 import { SelloSicog } from "@/components/logo-sicog";
+import { LogoPdvsaGas } from "@/components/logo-pdvsa";
 import { MensajeDeCampo } from "@/components/mensaje-de-campo";
 import { SelectorTemaFlotante } from "@/components/selector-tema";
 import { useLogin, useSesion } from "@/lib/sesion";
@@ -97,6 +98,12 @@ export default function LoginPage() {
         <p className="mt-6 text-center text-xs text-muted-foreground">
           ¿Olvidó su contraseña? Solicite un reinicio al administrador del sistema.
         </p>
+
+        {/* La institución, en la tinta del tema y sin su rojo, como en el
+            resto de la aplicación (decisión #113). */}
+        <div className="mt-6 border-t border-border pt-5">
+          <LogoPdvsaGas variante="tenue" className="mx-auto h-8 w-auto text-foreground" />
+        </div>
       </div>
     </main>
   );

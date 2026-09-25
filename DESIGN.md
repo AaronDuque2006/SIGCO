@@ -170,6 +170,10 @@ tres reservados para estado.
   late y la llama parpadea desde la base (`.logo-llama`); todo se apaga con
   `prefers-reduced-motion`. La marca del encabezado no se anima, porque vive en
   la pantalla de trabajo toda la guardia.
+- **El logo de PDVSA Gas** (`components/logo-pdvsa.tsx`, decisión #113) va en
+  pantalla siempre en Tinta, sin su rojo oficial, igual que el texto de los
+  botones: en el encabezado, en el login y en "Acerca de SICOG". El rojo sólo
+  aparece en el PDF de Reportes, que se imprime en blanco.
 
 ### Neutral
 

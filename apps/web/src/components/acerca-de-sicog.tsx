@@ -1,6 +1,7 @@
 import { IconMail, IconPhone } from "@tabler/icons-react";
 import { EncabezadoVista } from "@/components/encabezado-vista";
 import { SelloSicog } from "@/components/logo-sicog";
+import { LogoPdvsaGas } from "@/components/logo-pdvsa";
 
 /**
  * "Acerca de SICOG": qué es el sistema, qué versión corre y a quién escribirle.
@@ -50,8 +51,13 @@ export function AcercaDeSicog() {
           Créditos y contacto
         </h2>
         <div className="mt-3 rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Desarrollado por</p>
-          <p className="mt-1 font-medium">{AUTOR.nombre}</p>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs text-muted-foreground">Desarrollado por</p>
+              <p className="mt-1 font-medium">{AUTOR.nombre}</p>
+            </div>
+            <LogoPdvsaGas variante="tenue" className="h-8 w-auto text-foreground" />
+          </div>
 
           <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
             <div>

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useLogout, useSesion } from "@/lib/sesion";
 import { IconHome } from "@tabler/icons-react";
 import { MarcaSicog } from "@/components/logo-sicog";
+import { LogoPdvsaGas } from "@/components/logo-pdvsa";
 
 /**
  * Cabecera común de las pantallas autenticadas. El nombre del sistema lleva al
@@ -65,6 +66,16 @@ export function Encabezado() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* La institución, sin su rojo: el encabezado acompaña toda la
+              guardia y el único acento de la pantalla de trabajo es el Azul
+              Señal (decisión #113). En la tinta de los botones de al lado, no
+              en la tenue, que en este sistema se lee como deshabilitado; y no
+              en azul, que acá significa "se puede tocar". Separado de los
+              controles por un filete, porque no es uno de ellos. */}
+          <LogoPdvsaGas
+            variante="tenue"
+            className="mr-2 hidden h-6 w-auto border-r border-border pr-4 text-foreground sm:block"
+          />
           <SelectorTema />
           {/* Sólo se muestra a quien puede usarla. La puerta real es el 403 de
               `requireSuperadmin`, que además deja registro del intento. */}

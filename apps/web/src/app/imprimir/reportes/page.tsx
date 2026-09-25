@@ -4,6 +4,7 @@ import type { TipoCorte } from "@sicog/shared-types";
 import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { ContenidoReportes } from "@/components/contenido-reportes";
+import { LogoPdvsaGas } from "@/components/logo-pdvsa";
 import { useBalanceNacion, useConsumoPorSectores } from "@/lib/despacho";
 
 /**
@@ -53,9 +54,10 @@ function Contenido() {
             {fecha} · {tipoCorte === "PUNTUAL" ? "Puntual" : "Cierre promedio"}
           </p>
         </div>
-        {/* El fondo con membrete de PDVSA va acá cuando el owner lo pase
-            (pendiente, sesión 2026-09-22): esta cabecera es el marcador de
-            posición hasta entonces. */}
+        {/* El logo institucional (decisión #113). El fondo con membrete de
+            PDVSA sigue pendiente (sesión 2026-09-22): cuando llegue, esta
+            cabecera se reemplaza por él. */}
+        <LogoPdvsaGas className="h-9 w-auto" />
       </header>
 
       {error ? (
