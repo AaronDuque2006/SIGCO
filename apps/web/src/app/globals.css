@@ -265,25 +265,56 @@
   }
 }
 
-/* Logo (components/logo-sicog.tsx): pulsos que recorren las líneas de la red
-   del sello, del nodo central hacia afuera — el gas fluyendo. Sólo en el
-   sello del login; con `prefers-reduced-motion` no hay pulsos y queda la red
-   quieta, sin perder nada. */
-@keyframes logo-flujo {
+/* Logo (components/logo-sicog.tsx): un pulso de luz sale del nodo central
+   del sello por cada línea de la red y sigue por el tramo exterior — el gas
+   fluyendo —, mientras el nodo late. Es un punto (guion de largo casi nulo
+   con punta redonda) seguido de un hueco más largo que cualquier línea: así
+   hay un solo pulso por tramo, y una pausa hasta el siguiente. Sólo en el
+   sello del login; con `prefers-reduced-motion` la red queda quieta. */
+@keyframes logo-pulso {
+  from {
+    stroke-dashoffset: 0;
+  }
   to {
-    stroke-dashoffset: -28;
+    stroke-dashoffset: -400;
   }
 }
 
-.logo-flujo {
-  stroke-dasharray: 4 10;
-  animation: logo-flujo 1.4s linear infinite;
+.logo-pulso {
+  stroke-dasharray: 0.1 400;
+  animation: logo-pulso 2.8s linear infinite;
+  /* El halo azul le da contraste también sobre la tarjeta blanca del tema
+     claro, donde un punto blanco solo no se vería. */
+  filter: drop-shadow(0 0 2px var(--primary)) drop-shadow(0 0 5px var(--primary));
+}
+
+/* El tramo exterior arranca cuando el pulso llega al primer nodo. */
+.logo-pulso-2 {
+  animation-delay: 0.5s;
+}
+
+@keyframes logo-latido {
+  from {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  40%,
+  to {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.logo-latido {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: logo-latido 2.8s ease-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .logo-flujo {
+  .logo-pulso,
+  .logo-latido {
     animation: none;
     visibility: hidden;
   }
 }
-
