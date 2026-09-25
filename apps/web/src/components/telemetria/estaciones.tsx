@@ -29,12 +29,11 @@ import {
 } from "@/lib/mantenimiento";
 import { useSesion } from "@/lib/sesion";
 import { SubNavTelemetria } from "./sub-nav";
+import { hoy } from "@/lib/fechas";
 
 /** Catálogo cerrado real (§15.1): el ERD lo declara `string`, no enum, pero la
  *  lista de valores es fija — mismo criterio que `packages/shared-validators`. */
 const TIPOS_ENLACE = ["IP PDVSA", "SATELITAL", "SERIAL PDVSA"] as const;
-
-const hoy = (): string => new Date().toISOString().slice(0, 10);
 
 /**
  * El inventario: las estaciones T&D con su nodo, su enlace y su estado.

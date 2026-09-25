@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useCrearRegistro, useRegionesMtto, useResponsables } from "@/lib/actividades";
 import { useSesion } from "@/lib/sesion";
-import { hoy } from "@/lib/despacho";
+import { hoy } from "@/lib/fechas";
 
 /**
  * Alta de una actividad.

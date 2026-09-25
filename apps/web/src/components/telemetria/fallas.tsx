@@ -33,8 +33,7 @@ import {
 import { exportarFallasPorRegion } from "./exportar-fallas";
 import { SubNavTelemetria } from "./sub-nav";
 import { IconFileTypeXls } from "@tabler/icons-react";
-
-const hoy = (): string => new Date().toISOString().slice(0, 10);
+import { hoy } from "@/lib/fechas";
 
 /** Lo que se teclea y lo que el `<datalist>` ofrece tienen que ser el mismo
  *  texto: es la única forma de volver del valor escrito a la estación. */

@@ -12,13 +12,13 @@ import { Label } from "@/components/ui/label";
 import {
   DEPARTAMENTO_DESPACHO,
   formatearVolumen,
-  hoy,
   puedeEditarDespacho,
   useGuardarQuema,
   useHistorialQuema,
   useEditarHistorial,
   useQuemaDelDia,
 } from "@/lib/despacho";
+import { hoy } from "@/lib/fechas";
 import { useSesion } from "@/lib/sesion";
 import { EncabezadoVista } from "@/components/encabezado-vista";
 

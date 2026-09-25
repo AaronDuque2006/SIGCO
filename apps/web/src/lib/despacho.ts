@@ -89,15 +89,6 @@ export function useGuardarLectura(fecha: string, tipoCorte: TipoCorte) {
   });
 }
 
-/** Fecha de hoy en la zona de quien usa el sistema, no en UTC: el operador
- *  quiere "hoy acá", y la API trabaja con `YYYY-MM-DD` sin zona horaria. */
-export function hoy(): string {
-  const d = new Date();
-  const mes = String(d.getMonth() + 1).padStart(2, "0");
-  const dia = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${mes}-${dia}`;
-}
-
 /**
  * Dos decimales fijos, confirmado por el owner (cierra el punto abierto de la
  * decisión #60).

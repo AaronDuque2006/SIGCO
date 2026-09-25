@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { EncabezadoVista } from "@/components/encabezado-vista";
-import { hoy, useBalanceNacion, useConsumoPorSectores, urlExportarPdfReportes } from "@/lib/despacho";
+import { useBalanceNacion, useConsumoPorSectores, urlExportarPdfReportes } from "@/lib/despacho";
+import { hoy } from "@/lib/fechas";
 import { IconFileTypePdf } from "@tabler/icons-react";
 
 /**

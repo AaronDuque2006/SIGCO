@@ -21,7 +21,6 @@ import { Select } from "@/components/ui/select";
 import {
   DEPARTAMENTO_DESPACHO,
   formatearVolumen,
-  hoy,
   puedeEditarDespacho,
   useBalanceNacion,
   useGrillaBalance,
@@ -29,6 +28,7 @@ import {
   useGuardarLectura,
   useSerieBalance,
 } from "@/lib/despacho";
+import { hoy } from "@/lib/fechas";
 import { exportarExcel } from "@/lib/exportar-excel";
 import { useSesion } from "@/lib/sesion";
 import { TarjetasBalance } from "./tarjetas-balance";

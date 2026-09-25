@@ -18,11 +18,11 @@ import { Label } from "@/components/ui/label";
 import {
   DEPARTAMENTO_DESPACHO,
   formatearVolumen,
-  hoy,
   puedeEditarDespacho,
   useGrillaFuentes,
   useGuardarLecturaFuente,
 } from "@/lib/despacho";
+import { hoy } from "@/lib/fechas";
 import { exportarExcel } from "@/lib/exportar-excel";
 import { useSesion } from "@/lib/sesion";
 import { EncabezadoVista } from "@/components/encabezado-vista";
