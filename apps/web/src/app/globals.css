@@ -337,7 +337,48 @@
   animation-delay: -0.4s;
 }
 
+/* Globo del hub (components/globo-red.tsx): el mismo pulso que el sello, un
+   punto por ruta que sale de Anaco. Con `pathLength=100` el guion y el hueco
+   se miden sobre el largo de la ruta: el hueco de 200 hace que el punto
+   recorra la ruta en la primera mitad del ciclo y la segunda sea pausa. La
+   duración la pone cada ruta según su largo, para que todas vayan a la misma
+   velocidad. */
+@keyframes globo-pulso {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -200;
+  }
+}
+
+.globo-pulso {
+  stroke-dasharray: 0.01 200;
+  animation: globo-pulso 6s linear infinite;
+  filter: drop-shadow(0 0 2px var(--primary)) drop-shadow(0 0 5px var(--primary));
+}
+
+.globo-latido {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: logo-latido 2.8s ease-out infinite;
+}
+
+/* El globo se funde con el fondo por la izquierda y por arriba: los otros
+   dos bordes son el borde de la ventana. */
+.globo-fundido {
+  mask-image:
+    linear-gradient(to right, transparent, #000 18%),
+    linear-gradient(to bottom, transparent, #000 4%);
+  mask-composite: intersect;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .globo-pulso,
+  .globo-latido {
+    animation: none;
+    visibility: hidden;
+  }
   .logo-llama {
     animation: none;
   }

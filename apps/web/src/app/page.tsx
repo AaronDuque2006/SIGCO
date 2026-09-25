@@ -7,6 +7,7 @@ import { GuardiaSesion } from "@/components/guardia-sesion";
 import { DEPARTAMENTOS, type Departamento } from "@/lib/departamentos";
 import { useSesion } from "@/lib/sesion";
 import { EncabezadoVista } from "@/components/encabezado-vista";
+import { GloboRed } from "@/components/globo-red";
 
 export default function HubPage() {
   return (
@@ -31,7 +32,10 @@ function Hub() {
   return (
     <>
       <Encabezado />
-      <main className={`${CONTENEDOR} p-4`}>
+      {/* Detrás del contenido: si la ventana es baja, las tarjetas lo tapan
+          en vez de quedar encima de él. */}
+      <GloboRed className="globo-fundido pointer-events-none fixed right-0 bottom-0 hidden w-[38rem] max-w-[45vw] lg:block" />
+      <main className={`${CONTENEDOR} relative p-4`}>
         <div className="mt-4">
           <EncabezadoVista titulo="Departamentos">
             Puede consultar los cuatro. Edita sólo el que le corresponde.

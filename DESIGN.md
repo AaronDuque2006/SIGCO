@@ -433,6 +433,9 @@ dice.
   pantalla operativa (decisión #85). Esas dos son la puerta y ahí el carácter no
   compite con ningún número; una grilla de digitación es exactamente lo
   contrario.
+  El globo con la red de gas del hub (`components/globo-red.tsx`, decisión
+  #111) sigue la misma lógica: el hub es la entrada a los departamentos y no
+  tiene cifras. Ni el globo ni sus pulsos van a una pantalla de trabajo.
 - **Don't** usar el borde translúcido de shadcn sobre estas superficies.
 - **Don't** tratar el claro como el tema principal ni mover el predeterminado: el
   oscuro es la condición de la sala de control, y el claro existe para el día,
