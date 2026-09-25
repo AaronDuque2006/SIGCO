@@ -423,6 +423,9 @@ dice.
 - **Don't** imitar el Excel: nada de rejilla de celdas por todas partes, borde en
   cada fila de una lista larga, ni relleno de color usado como semáforo.
 - **Don't** agregar un rol tipográfico por encima del título de vista.
+  La palabra "SICOG" del encabezado (Rubik 800, decisión #114)
+  no cuenta: es el logotipo escrito con letras, y la familia no se usa en
+  ningún otro lugar.
 - **Don't** usar los tokens `--chart-2` a `--chart-5`. Existen en `globals.css`
   pero **ninguna gráfica los usa**: el verde (`#34d399`) y el ámbar (`#f2b84b`)
   quedaron fuera de la banda de luminosidad del modo oscuro. La paleta viva es la

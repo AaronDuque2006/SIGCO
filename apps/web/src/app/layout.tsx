@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Inter } from "next/font/google";
+import { Geist_Mono, Inter, Rubik } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
@@ -8,6 +8,11 @@ import "./globals.css";
 // vistazo, y una tipografía proporcional no lo permite.
 const inter = Inter({ variable: "--font-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+// Sólo para la palabra "SICOG" del encabezado (decisión #114): gruesa y de
+// esquinas suaves, para que pegue con el logotipo de PDVSA que va al lado. La
+// eligió el owner entre diez. No es un rol tipográfico nuevo: es el logotipo
+// del sistema escrito con letras.
+const rubik = Rubik({ variable: "--font-marca", subsets: ["latin"], weight: "800" });
 
 export const metadata: Metadata = {
   title: "SICOG",
@@ -39,7 +44,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="es"
       data-theme="dark"
       suppressHydrationWarning
-      className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${geistMono.variable} ${rubik.variable} h-full antialiased`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: GUION_TEMA }} />

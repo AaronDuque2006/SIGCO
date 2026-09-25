@@ -57,7 +57,11 @@ export function Encabezado() {
               <IconHome size={18} stroke={1.75} className="relative top-px" aria-hidden />
             ) : null}
             <MarcaSicog className="size-5" />
-            SICOG
+            {/* Gruesa, para que pegue con el "PDVSA" del logo que va a la
+                derecha (decisión #114). */}
+            <span className="font-marca text-lg leading-none font-extrabold">
+              SICOG
+            </span>
           </Link>
           <p className="mt-0.5 truncate text-sm text-muted-foreground">
             {sesion.nombre} · {sesion.puesto}
