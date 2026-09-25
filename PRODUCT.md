@@ -157,13 +157,22 @@ de resolverlo por anticipado.
 ## Brand Commitments
 
 **Ninguno formal, confirmado explícitamente.** No hay manual de marca de PDVSA
-Gas que respetar, no hay obligación de usar el logo institucional, y no existe
-ningún asset de marca en el repositorio — los únicos SVG son los que dejó
-`create-next-app`. La identidad visual actual es una decisión del proyecto, no
-una herencia corporativa, y puede cambiarse.
+Gas que respetar ni obligación de usar el logo institucional. La identidad
+visual es una decisión del proyecto, no una herencia corporativa, y puede
+cambiarse.
 
-Futuro trabajo **no debe inventar** un manual de marca, colores corporativos ni
-un logo que nadie entregó.
+**Logo del sistema** (2026-09-25): el owner trajo un sello del área ("Despacho
+Central de Gas / Supervisión y Control de Gas": aros naranja y azul, el mapa de
+Venezuela, una llama sobre el nodo central de una red y los instrumentos de
+presión, temperatura y válvula). Se redibujó en SVG con **el nombre del
+sistema en el anillo** —"SICOG" arriba, "Sistema de Control Operacional de Gas"
+abajo—, porque SICOG cubre los cuatro departamentos y no sólo Despacho
+(`apps/web/src/components/logo-sicog.tsx`). Dos versiones: el sello completo en
+el login, y una marca chica (el aro y la llama sobre el nodo) en el encabezado
+y como ícono de la pestaña (`app/icon.svg`).
+
+Futuro trabajo **no debe inventar** un manual de marca ni colores corporativos
+más allá de ese logo.
 
 ## Evidence on Hand
 
@@ -180,8 +189,8 @@ En la base, sembrados y reales: 7 sistemas, 14 fuentes, 111 clientes, 4
 regiones, 7 sectores, 3 sub-sistemas, 4 departamentos, 5 puestos.
 
 **Ausencias que no se deben rellenar inventando:** no hay planilla ni
-especificación de Calidad de Gas ni de Análisis Operacional; no hay logo ni
-manual de marca; no hay testimonios, métricas de adopción ni casos de uso
+especificación de Calidad de Gas ni de Análisis Operacional; no hay manual de
+marca (el logo sí existe, ver arriba); no hay testimonios, métricas de adopción ni casos de uso
 documentados.
 
 ## Product Principles

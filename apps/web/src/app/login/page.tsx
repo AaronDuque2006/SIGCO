@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CampoPassword } from "@/components/campo-password";
 import { FondoCursor } from "@/components/fondo-cursor";
+import { SelloSicog } from "@/components/logo-sicog";
 import { MensajeDeCampo } from "@/components/mensaje-de-campo";
 import { SelectorTemaFlotante } from "@/components/selector-tema";
 import { useLogin, useSesion } from "@/lib/sesion";
@@ -49,6 +50,9 @@ export default function LoginPage() {
         className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-card p-6 sm:p-8"
       >
         <div className="mb-6 text-center">
+          {/* El sello es identidad, no información: el nombre sigue en el
+              <h1>, porque a este tamaño el texto del arco apenas se lee. */}
+          <SelloSicog className="mx-auto mb-4 size-40" />
           <h1 className="text-xl font-semibold tracking-tight">SICOG</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Control Operacional de Gas

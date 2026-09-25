@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="SICOG">
+  <defs>
+    <linearGradient id="llama-m" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#1d4ed8"/><stop offset="1" stop-color="#60a5fa"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="28.5" fill="none" stroke="#ea7a2b" stroke-width="5"/>
+  <g stroke="#3b82f6" stroke-width="2.6" stroke-linecap="round">
+    <path d="M32,46 L13,40 M32,46 L51,40 M32,46 L32,55"/>
+  </g>
+  <circle cx="13" cy="40" r="3" fill="#3b82f6"/><circle cx="51" cy="40" r="3" fill="#3b82f6"/><circle cx="32" cy="55" r="3" fill="#3b82f6"/>
+  <path d="M32,9 C37.5,16 43,21 43,28.5 C43,35 38,39.5 32,39.5 C26,39.5 21,35 21,28.5 C21,23 24.5,19.5 26.5,15 C28,19 29.8,21.5 31.2,22 C30.7,17.5 31,13 32,9 Z" fill="url(#llama-m)"/>
+  <path d="M32,24.5 C34.8,27.8 37,30.5 37,33.2 C37,36.3 34.8,38.5 32,38.5 C29.2,38.5 27,36.3 27,33.4 C27,30.5 29.6,28.2 32,24.5 Z" fill="#dbeafe"/>
+  <circle cx="32" cy="46" r="4.5" fill="#1d4ed8"/>
+</svg>

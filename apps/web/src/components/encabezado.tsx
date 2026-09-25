@@ -8,6 +8,7 @@ import { SelectorTema } from "@/components/selector-tema";
 import { Button } from "@/components/ui/button";
 import { useLogout, useSesion } from "@/lib/sesion";
 import { IconHome } from "@tabler/icons-react";
+import { MarcaSicog } from "@/components/logo-sicog";
 
 /**
  * Cabecera común de las pantallas autenticadas. El nombre del sistema lleva al
@@ -54,6 +55,7 @@ export function Encabezado() {
             {dentroDeUnDepartamento ? (
               <IconHome size={18} stroke={1.75} className="relative top-px" aria-hidden />
             ) : null}
+            <MarcaSicog className="size-5" />
             SICOG
           </Link>
           <p className="mt-0.5 truncate text-sm text-muted-foreground">

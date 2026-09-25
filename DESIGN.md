@@ -162,6 +162,10 @@ tres reservados para estado.
   del gráfico de línea, el *transportado*. Separa del Azul Señal ΔE 30,2 en
   protanopía y 28,7 en tritanopía sobre la superficie de tarjeta. **No es un
   color de interfaz**: fuera de las gráficas no se usa.
+- **Naranja del logo** (`#ea7a2b`): sólo existe en el logo del sistema
+  (`components/logo-sicog.tsx`, el aro exterior). **No es un color de
+  interfaz** ni de gráficas: un botón o una alerta naranja se confundiría con el
+  Ámbar de Serie y con el estado Alerta. El azul del logo es el mismo Azul Señal.
 
 ### Neutral
 
