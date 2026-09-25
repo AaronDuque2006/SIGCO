@@ -30,6 +30,7 @@ import {
 } from "@/lib/mantenimiento";
 import { exportarFallasPorRegion } from "./exportar-fallas";
 import { SubNavTelemetria } from "./sub-nav";
+import { IconFileTypeXls } from "@tabler/icons-react";
 
 const hoy = (): string => new Date().toISOString().slice(0, 10);
 
@@ -200,15 +201,19 @@ export function Fallas() {
             </button>
           </p>
         ) : null}
-        {/* Una hoja por región más un resumen (decisión #115). Espera al
-            catálogo de áreas porque de ahí salen las regiones. */}
+      </div>
+
+      {/* Mismo botón y lugar que los exports de Despacho. Sale una hoja por
+          región más un resumen (decisión #115); espera al catálogo de áreas
+          porque de ahí salen las regiones. */}
+      <div className="mt-3 flex justify-end">
         <Button
           variant="outline"
-          className="ml-auto"
           disabled={exportando || total === 0 || !areas.data}
           onClick={() => void exportar()}
         >
-          {exportando ? "Exportando…" : "Exportar a Excel por región"}
+          <IconFileTypeXls size={16} stroke={1.75} aria-hidden />
+          {exportando ? "Exportando…" : "Exportar Excel"}
         </Button>
       </div>
 
