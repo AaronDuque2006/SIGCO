@@ -166,6 +166,15 @@ export const useFallas = (filtros: FiltrosFallas) =>
     placeholderData: (previa) => previa,
   });
 
+/** Las regiones de Mantenimiento, sacadas del catálogo de áreas (cada área ya
+ *  trae la suya), en el orden del catálogo. */
+export const regionesDeAreas = (areas: AreaMttoDto[]) =>
+  [...new Map(areas.map((a) => [a.region.id, a.region])).values()].sort((a, b) => a.id - b.id);
+
+/** Las áreas que ofrece un filtro de área cuando hay una región elegida. */
+export const areasDeRegion = (areas: AreaMttoDto[], regionId?: number) =>
+  areas.filter((a) => regionId === undefined || a.region.id === regionId);
+
 /** Todas las fallas del filtro, no sólo la página visible: para exportarlas.
  *  Es una petición por cada 100 fallas y se hace al tocar el botón, no antes. */
 export const todasLasFallas = (filtros: FiltrosFallas) =>

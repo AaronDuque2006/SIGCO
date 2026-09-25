@@ -26,6 +26,8 @@ import {
   useHistorialFalla,
   useResolverFalla,
   todasLasFallas,
+  areasDeRegion,
+  regionesDeAreas,
   type FiltrosFallas,
 } from "@/lib/mantenimiento";
 import { exportarFallasPorRegion } from "./exportar-fallas";
@@ -60,6 +62,9 @@ export function Fallas() {
 
   const total = data?.pagination.totalItems ?? 0;
 
+  const regiones = regionesDeAreas(areas.data ?? []);
+  const areasDe = (regionId?: number) => areasDeRegion(areas.data ?? [], regionId);
+
   // Se piden todas las páginas del filtro al tocar el botón, no antes: la
   // grilla sólo trae 50 y la bitácora real pasa de 200.
   const [exportando, setExportando] = useState(false);
@@ -91,7 +96,7 @@ export function Fallas() {
 
       <AvisoSoloConsulta sesion={sesion} departamento={DEPARTAMENTO_MANTENIMIENTO} />
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         <div className="space-y-1.5">
           <Label htmlFor="buscar-falla">Estación</Label>
           <Input
@@ -103,6 +108,29 @@ export function Fallas() {
           />
         </div>
 
+        {/* La región acota las áreas que ofrece el filtro de al lado: un área
+            de otra región daría una bitácora vacía sin que se entienda por
+            qué. Por eso al cambiarla se suelta el área elegida si no es suya. */}
+        <div className="space-y-1.5">
+          <Label htmlFor="region-falla">Región</Label>
+          <Select
+            id="region-falla"
+            value={filtros.regionId ?? ""}
+            onChange={(e) => {
+              const regionId = e.target.value ? Number(e.target.value) : undefined;
+              const areaSigue = areasDe(regionId).some((a) => a.id === filtros.areaId);
+              cambiar({ regionId, areaId: areaSigue ? filtros.areaId : undefined });
+            }}
+          >
+            <option value="">Todas</option>
+            {regiones.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.nombre}
+              </option>
+            ))}
+          </Select>
+        </div>
+
         <div className="space-y-1.5">
           <Label htmlFor="area-falla">Área</Label>
           <Select
@@ -111,7 +139,7 @@ export function Fallas() {
             onChange={(e) => cambiar({ areaId: e.target.value ? Number(e.target.value) : undefined })}
           >
             <option value="">Todas</option>
-            {(areas.data ?? []).map((a) => (
+            {areasDe(filtros.regionId).map((a) => (
               <option key={a.id} value={a.id}>
                 {a.nombre} — {a.region.nombre}
               </option>
@@ -294,12 +322,15 @@ export function Fallas() {
 /** El filtro de la pantalla en palabras, para el encabezado del Excel. */
 function describirFiltro(
   f: FiltrosFallas,
-  areas: { id: number; nombre: string }[],
+  areas: { id: number; nombre: string; region: { id: number; nombre: string } }[],
   causas: { id: number; nombre: string }[],
 ): string {
   const partes = [
     f.soloAbiertas ? "sólo abiertas" : "abiertas y resueltas",
     f.q ? `estación "${f.q}"` : null,
+    f.regionId
+      ? `región ${areas.find((a) => a.region.id === f.regionId)?.region.nombre ?? f.regionId}`
+      : null,
     f.areaId ? `área ${areas.find((a) => a.id === f.areaId)?.nombre ?? f.areaId}` : null,
     f.causaFallaId ? `causa ${causas.find((c) => c.id === f.causaFallaId)?.nombre ?? f.causaFallaId}` : null,
     f.tipoRed ? `red de ${f.tipoRed === "TRANSPORTE" ? "transporte" : "distribución"}` : null,
