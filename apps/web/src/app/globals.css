@@ -264,3 +264,26 @@
     }
   }
 }
+
+/* Logo (components/logo-sicog.tsx): pulsos que recorren las líneas de la red
+   del sello, del nodo central hacia afuera — el gas fluyendo. Sólo en el
+   sello del login; con `prefers-reduced-motion` no hay pulsos y queda la red
+   quieta, sin perder nada. */
+@keyframes logo-flujo {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+
+.logo-flujo {
+  stroke-dasharray: 4 10;
+  animation: logo-flujo 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-flujo {
+    animation: none;
+    visibility: hidden;
+  }
+}
+
