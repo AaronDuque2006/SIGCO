@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-25T13:21:09Z",
+  "generatedAt": "2026-09-25T17:40:00Z",
   "title": "Design System: SICOG",
   "extensions": {
     "colorMeta": {
@@ -254,6 +254,16 @@
         "name": "logo-llama",
         "value": "1.9s ease-in-out infinite (la interior 1.3s, desfasada); scale y skewX suaves con origen en la base",
         "purpose": "Sello del login: la llama parpadea sin desplazarse. La marca del encabezado no se anima."
+      },
+      {
+        "name": "globo-pulso",
+        "value": "stroke-dasharray 0.01 200 sobre pathLength=100, dashoffset 0 → -200 linear infinite; duración por ruta = 2 × largo / 70 unidades por segundo; halo --primary",
+        "purpose": "Globo del hub (decisión #111): un punto de luz por ruta sale de Anaco; recorre la ruta en la primera mitad del ciclo y la segunda es pausa. Todas las rutas a la misma velocidad. El globo y el mapa quedan quietos: se probó girarlos y se descartó. Se apaga con prefers-reduced-motion."
+      },
+      {
+        "name": "globo-latido",
+        "value": "el mismo keyframe que logo-latido (2.8s ease-out infinite), sobre el nodo de Anaco",
+        "purpose": "Globo del hub, a la par de los pulsos. Ni el globo ni sus pulsos van a una pantalla de trabajo."
       }
     ],
     "breakpoints": [
@@ -268,6 +278,14 @@
       {
         "name": "lg",
         "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      },
+      {
+        "name": "2xl",
+        "value": "1536px"
       }
     ]
   },
@@ -295,6 +313,14 @@
       "description": "Va en la confirmación, nunca en el disparador. En una confirmación destructiva el estilo marcado va en confirmar y el normal en cancelar.",
       "html": "<button class=\"ds-btn-destructive\">Sí, borrar</button>",
       "css": ".ds-btn-destructive{display:inline-flex;align-items:center;gap:.375rem;height:2rem;padding:0 .625rem;border:1px solid transparent;border-radius:.625rem;background:rgb(242 84 91/.2);color:var(--destructive,#f2545b);font:500 .875rem/1 Inter,system-ui,sans-serif;white-space:nowrap;cursor:pointer;transition:all .15s}.ds-btn-destructive:hover{background:rgb(242 84 91/.3)}.ds-btn-destructive:focus-visible{outline:none;border-color:rgb(242 84 91/.4);box-shadow:0 0 0 3px rgb(242 84 91/.4)}.ds-btn-destructive:active{transform:translateY(1px)}"
+    },
+    {
+      "name": "Exportar Excel",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "El mismo en todas las vistas que exportan (Balance diario, Lecturas de fuentes, Bitácora de fallas): botón outline con el ícono de hoja de Excel y el texto \"Exportar Excel\", en su propia fila alineada a la derecha entre los filtros y la tabla. Una vista nueva que exporte copia este, no inventa otro.",
+      "html": "<div class=\"ds-exportar\"><button class=\"ds-btn-exportar\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14 3v4a1 1 0 0 0 1 1h4\"/><path d=\"M5 12v-7a2 2 0 0 1 2 -2h7l5 5v4\"/><path d=\"M4 15l4 6\"/><path d=\"M4 21l4 -6\"/><path d=\"M17 20.25c0 .414 .336 .75 .75 .75h1.25a1 1 0 0 0 1 -1v-1a1 1 0 0 0 -1 -1h-1a1 1 0 0 1 -1 -1v-1a1 1 0 0 1 1 -1h1.25a.75 .75 0 0 1 .75 .75\"/><path d=\"M11 15v6h3\"/></svg>Exportar Excel</button></div>",
+      "css": ".ds-exportar{display:flex;justify-content:flex-end}.ds-btn-exportar{display:inline-flex;align-items:center;gap:.375rem;height:2rem;padding:0 .625rem;border:1px solid var(--input,#22304a);border-radius:.625rem;background:rgb(34 48 74/.3);color:var(--foreground,#e7edf6);font:500 .875rem/1 Inter,system-ui,sans-serif;white-space:nowrap;cursor:pointer;transition:all .15s}.ds-btn-exportar:hover{background:rgb(34 48 74/.5)}.ds-btn-exportar:focus-visible{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgb(59 130 246/.5)}.ds-btn-exportar:active{transform:translateY(1px)}.ds-btn-exportar:disabled{opacity:.5;pointer-events:none}"
     },
     {
       "name": "Campo de texto",
@@ -340,9 +366,9 @@
       "name": "Marca SICOG",
       "kind": "custom",
       "refersTo": "logo",
-      "description": "La marca chica del logo (decisión #110): el aro y la llama sobre el nodo central de la red. Va en el encabezado junto a \"SICOG\" y es el ícono de la pestaña. Colores sólo por tokens del tema; quieta a propósito. El sello completo, animado, vive en el login (components/logo-sicog.tsx).",
-      "html": "<span class=\"ds-marca\"><svg viewBox=\"0 0 64 64\" aria-hidden=\"true\"><defs><linearGradient id=\"ds-llama\" x1=\"0\" y1=\"1\" x2=\"0\" y2=\"0\"><stop offset=\"0\" stop-color=\"#1d4ed8\"/><stop offset=\"1\" stop-color=\"#60a5fa\"/></linearGradient></defs><circle cx=\"32\" cy=\"32\" r=\"28.5\" fill=\"none\" stroke=\"var(--primary,#3b82f6)\" stroke-width=\"5\"/><path d=\"M32,46 L13,40 M32,46 L51,40 M32,46 L32,55\" stroke=\"var(--primary,#3b82f6)\" stroke-width=\"2.6\" stroke-linecap=\"round\"/><circle cx=\"13\" cy=\"40\" r=\"3\" fill=\"var(--primary,#3b82f6)\"/><circle cx=\"51\" cy=\"40\" r=\"3\" fill=\"var(--primary,#3b82f6)\"/><circle cx=\"32\" cy=\"55\" r=\"3\" fill=\"var(--primary,#3b82f6)\"/><path d=\"M32,9 C37.5,16 43,21 43,28.5 C43,35 38,39.5 32,39.5 C26,39.5 21,35 21,28.5 C21,23 24.5,19.5 26.5,15 C28,19 29.8,21.5 31.2,22 C30.7,17.5 31,13 32,9 Z\" fill=\"url(#ds-llama)\"/><path d=\"M32,24.5 C34.8,27.8 37,30.5 37,33.2 C37,36.3 34.8,38.5 32,38.5 C29.2,38.5 27,36.3 27,33.4 C27,30.5 29.6,28.2 32,24.5 Z\" fill=\"#dbeafe\"/><circle cx=\"32\" cy=\"46\" r=\"4.5\" fill=\"var(--primary,#3b82f6)\"/></svg>SICOG</span>",
-      "css": ".ds-marca{display:inline-flex;align-items:center;gap:.375rem;font:600 1rem/1.4 Inter,system-ui,sans-serif;letter-spacing:-.01em;color:var(--foreground,#e7edf6)}.ds-marca svg{width:1.25rem;height:1.25rem}"
+      "description": "La marca chica del logo (decisión #110): el aro y la llama sobre el nodo central de la red. Va en el encabezado junto a \"SICOG\" y es el ícono de la pestaña. Colores sólo por tokens del tema; quieta a propósito. El sello completo, animado, vive en el login (components/logo-sicog.tsx). La palabra va en Rubik 800 (decisión #114), elegida para que pegue con el logo de PDVSA Gas que va a la derecha del encabezado, en Tinta y sin su rojo (decisión #113); la familia no se usa en ningún otro lugar.",
+      "html": "<span class=\"ds-marca\"><svg viewBox=\"0 0 64 64\" aria-hidden=\"true\"><defs><linearGradient id=\"ds-llama\" x1=\"0\" y1=\"1\" x2=\"0\" y2=\"0\"><stop offset=\"0\" stop-color=\"#1d4ed8\"/><stop offset=\"1\" stop-color=\"#60a5fa\"/></linearGradient></defs><circle cx=\"32\" cy=\"32\" r=\"28.5\" fill=\"none\" stroke=\"var(--primary,#3b82f6)\" stroke-width=\"5\"/><path d=\"M32,46 L13,40 M32,46 L51,40 M32,46 L32,55\" stroke=\"var(--primary,#3b82f6)\" stroke-width=\"2.6\" stroke-linecap=\"round\"/><circle cx=\"13\" cy=\"40\" r=\"3\" fill=\"var(--primary,#3b82f6)\"/><circle cx=\"51\" cy=\"40\" r=\"3\" fill=\"var(--primary,#3b82f6)\"/><circle cx=\"32\" cy=\"55\" r=\"3\" fill=\"var(--primary,#3b82f6)\"/><path d=\"M32,9 C37.5,16 43,21 43,28.5 C43,35 38,39.5 32,39.5 C26,39.5 21,35 21,28.5 C21,23 24.5,19.5 26.5,15 C28,19 29.8,21.5 31.2,22 C30.7,17.5 31,13 32,9 Z\" fill=\"url(#ds-llama)\"/><path d=\"M32,24.5 C34.8,27.8 37,30.5 37,33.2 C37,36.3 34.8,38.5 32,38.5 C29.2,38.5 27,36.3 27,33.4 C27,30.5 29.6,28.2 32,24.5 Z\" fill=\"#dbeafe\"/><circle cx=\"32\" cy=\"46\" r=\"4.5\" fill=\"var(--primary,#3b82f6)\"/></svg><span class=\"ds-marca-palabra\">SICOG</span></span>",
+      "css": ".ds-marca{display:inline-flex;align-items:center;gap:.375rem;color:var(--foreground,#e7edf6)}.ds-marca svg{width:1.25rem;height:1.25rem}.ds-marca-palabra{font:800 1.125rem/1 Rubik,Inter,system-ui,sans-serif}"
     }
   ],
   "narrative": {
@@ -420,11 +446,11 @@
     ],
     "donts": [
       "**Don't** imitar el Excel: nada de rejilla de celdas por todas partes, borde en cada fila de una lista larga, ni relleno de color usado como semáforo.",
-      "**Don't** agregar un rol tipográfico por encima del título de vista.",
+      "**Don't** agregar un rol tipográfico por encima del título de vista. La palabra \"SICOG\" del encabezado (Rubik 800, decisión #114) no cuenta: es el logotipo escrito con letras, y la familia no se usa en ningún otro lugar.",
       "**Don't** usar los tokens `--chart-2` a `--chart-5`. Existen en `globals.css` pero **ninguna gráfica los usa**: el verde (`#34d399`) y el ámbar (`#f2b84b`) quedaron fuera de la banda de luminosidad del modo oscuro. La paleta viva es la de `components/graficas.tsx`, y esa divergencia es deliberada.",
       "**Don't** meter una segunda familia de iconos. La del proyecto es Tabler, con trazo `1.75` en línea y `2` en marcas sueltas.",
       "**Don't** poner sombra decorativa. Si hace falta profundidad, se apila tono. Cuando la tarjeta de autenticación tuvo que tapar el fondo animado, la respuesta fue darle su superficie —no un `box-shadow`, que además habría dejado la retícula visible debajo del formulario igual.",
-      "**Don't** llevar el fondo animado de `/login` y `/cambiar-password` a ninguna pantalla operativa (decisión #85). Esas dos son la puerta y ahí el carácter no compite con ningún número; una grilla de digitación es exactamente lo contrario.",
+      "**Don't** llevar el fondo animado de `/login` y `/cambiar-password` a ninguna pantalla operativa (decisión #85). Esas dos son la puerta y ahí el carácter no compite con ningún número; una grilla de digitación es exactamente lo contrario. El globo con la red de gas del hub (`components/globo-red.tsx`, decisión #111) sigue la misma lógica: el hub es la entrada a los departamentos y no tiene cifras. Ni el globo ni sus pulsos van a una pantalla de trabajo.",
       "**Don't** usar el borde translúcido de shadcn sobre estas superficies.",
       "**Don't** tratar el claro como el tema principal ni mover el predeterminado: el oscuro es la condición de la sala de control, y el claro existe para el día, la preferencia personal y los PDF (decisión #81).",
       "**Don't** agregar un color a una paleta de gráficas sin correr `scripts/validar-paleta.mjs` **contra las dos superficies**. Una comprobación hecha sobre `#101828` no dice nada sobre blanco."
